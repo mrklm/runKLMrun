@@ -1,4 +1,4 @@
-# Import Polar — v0.2.0
+# Import Polar — v0.3.0
 
 L'import est local : pas d'API Polar à l'exécution, de télémétrie, d'envoi de
 fichier, de copie du ZIP dans le dépôt ou de journalisation des données sportives.

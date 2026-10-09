@@ -550,7 +550,41 @@ summary { cursor:pointer; }
 .theme-preview li { display:grid; gap:6px; font-size:.8rem; }
 .theme-swatch { height:42px; border:1px solid var(--text); border-radius:6px; }
 .theme-preview code { font-size:.8rem; }
-/* Recharts est installé, mais aucune page ne rend actuellement de graphique. */
+/* Habillage partagé des graphiques Recharts. */
 .recharts-cartesian-axis-tick-value, .recharts-text { fill:var(--text); }
 .recharts-cartesian-grid line { stroke:var(--chart-grid); opacity:.25; }
 .recharts-default-tooltip { background:var(--panel) !important; color:var(--panel-fg) !important; border-color:var(--panel-fg) !important; }
+
+.history-year > summary, .history-month > summary { padding:18px 24px; }
+.history-year > summary strong, .history-month > summary strong { margin-right:18px; }
+.history-year > summary span, .history-month > summary span { display:inline-block; font-size:.85rem; }
+.history-year > summary:focus-visible, .history-month > summary:focus-visible { outline-offset:-5px; }
+.history-month { border-top:1px solid var(--border); margin:0 12px; }
+.group-coverage { padding:0 24px; font-size:.8rem; }
+.statistics-filter { display:grid; gap:8px; max-width:320px; margin-bottom:24px; }
+.statistics-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+.statistics-metrics .panel { padding:18px; margin:0; }
+.statistics-metrics dd { margin:8px 0; font-size:1.7rem; font-weight:650; }
+.statistics-metrics dd.metric-coverage { font-size:.75rem; font-weight:400; }
+.chart-panel { padding:24px; min-width:0; }
+.chart-frame { width:100%; height:300px; min-width:0; }
+.chart-pagination { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:16px; }
+.chart-tooltip { --text:var(--panel-fg); background:var(--panel); color:var(--panel-fg); padding:12px; border:1px solid var(--panel-fg); border-radius:6px; max-width:280px; }
+.chart-tooltip p { margin:4px 0 0; font-size:.85rem; }
+.chart-legend { display:flex; gap:8px; align-items:center; font-size:.85rem; }
+.chart-legend > span { width:24px; height:3px; background:var(--chart-line); flex-shrink:0; }
+.table-scroll { overflow-x:auto; }
+.chart-data table { border-collapse:collapse; width:100%; font-size:.85rem; margin-top:12px; }
+.chart-data th, .chart-data td { border-bottom:1px solid var(--border); padding:8px; text-align:left; }
+.chart-data caption { text-align:left; padding:8px; }
+@media(max-width:760px) {
+  .statistics-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:640px) {
+  .navigation { flex-wrap:wrap; }
+  .navigation a { min-width:70px; }
+  .chart-panel { padding:16px 8px; }
+  .chart-panel h2, .chart-data, .chart-legend, .chart-pagination { margin-left:8px; margin-right:8px; }
+  .history-year > summary, .history-month > summary { padding:16px; }
+  .history-year > summary span, .history-month > summary span { display:block; }
+}

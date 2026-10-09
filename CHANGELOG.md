@@ -1,8 +1,25 @@
 # Historique des versions
 
-## [Non publié]
+## [Non publié] — v0.3.0
 
-Fonctionnalités prévues pour v0.3.0 ; version non publiée, aucun tag créé.
+Version préparée pour publication ; aucun tag créé.
+
+- feat(home): limiter « Dernières sorties » aux cinq séances les plus récentes
+  et ajouter le lien vers l’historique complet, en conservant les informations
+  affichées et l’accueil sans séance.
+- test(home): vérifier la limite, l’ordre chronologique, les petites listes,
+  l’état vide et le lien vers l’historique.
+
+- feat(history): regrouper les séances par années et mois repliables avec leurs
+  totaux et ouvrir par défaut les périodes les plus récentes.
+- feat(statistics): ajouter une page filtrable par année, quatre indicateurs et
+  trois graphiques Recharts (distance hebdomadaire, sorties mensuelles et dénivelé
+  hebdomadaire) avec semaines ISO, tableaux et navigation par fenêtres.
+- fix(statistics): distinguer les mesures absentes des zéros et signaler les
+  totaux partiels ; filtrer l'année civile avant le regroupement ISO.
+- test(statistics): vérifier les regroupements, frontières d'année, totaux,
+  données manquantes, volumes importants et contrastes des seize thèmes.
+- docs(statistics): décrire les calculs, limites et vérifications manuelles.
 
 - feat(themes): ajouter les 16 palettes Sombre, Clair et Pouêt, avec leurs noms
   et couleurs exacts, une prévisualisation et une application immédiate.

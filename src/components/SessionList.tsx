@@ -1,9 +1,13 @@
+import { useMemo } from 'react';
 import type { RunningSession } from '../types/session';
 const duration = (value: number) => `${Math.floor(value / 3600)} h ${Math.floor(value / 60) % 60} min ${Math.floor(value % 60)} s`;
 const pace = (value?: number) => { if (value === undefined) return '—'; const s = Math.round(value); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} /km`; };
-export function SessionList({ sessions }: { sessions: RunningSession[] }) {
+export function SessionList({ sessions, limit }: { sessions: RunningSession[]; limit?: number }) {
+  const displayedSessions = useMemo(() => [...sessions]
+    .sort((a, b) => (b.startTime ?? b.date).localeCompare(a.startTime ?? a.date))
+    .slice(0, limit), [sessions, limit]);
   return <ul className="session-list">
-    {[...sessions].sort((a, b) => (b.startTime ?? b.date).localeCompare(a.startTime ?? a.date)).map(session => <li key={session.id} className="session-card">
+    {displayedSessions.map(session => <li key={session.id} className="session-card">
       <div><strong>{session.title}</strong> <time dateTime={session.startTime ?? session.date}>{session.date.split('-').reverse().join('/')}{session.startTime ? ` · ${session.startTime.slice(11, 16)}` : ''}</time></div>
       <dl className="session-metrics">
         <div><dt>Distance</dt><dd>{session.distanceMeters === undefined ? '—' : `${(session.distanceMeters / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} km`}</dd></div>

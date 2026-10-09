@@ -12,13 +12,14 @@ export function Home({ sessions }: { sessions: RunningSession[] }) {
         <a className="button" href="#/historique">Consulter votre historique <span aria-hidden="true">↗</span></a>
       </div>
       <section className="panel" aria-labelledby="activity-title">
-        <div className="panel-heading"><h2 id="activity-title">Vos sorties</h2><span className="tag">Historique</span></div>
+        <div className="panel-heading"><h2 id="activity-title">Dernières sorties</h2><span className="tag">Historique</span></div>
         {sessions.length === 0 ? (
           <EmptyState title="Votre histoire commence ici">
             <p>Vous n’avez encore aucune sortie enregistrée.</p>
             <p>Importez votre archive Polar depuis les Paramètres.</p>
           </EmptyState>
-        ) : <SessionList sessions={sessions} />}
+        ) : <SessionList sessions={sessions} limit={5} />}
+        <div className="panel-heading"><a href="#/historique">Voir tout l’historique</a></div>
       </section>
       <div className="info-grid">
         <section className="info-card"><span className="eyebrow">ENTRAÎNEMENT</span><h2>Préparer la suite</h2><p>La planification sera disponible dans une prochaine étape.</p><a href="#/entrainement">Voir l’espace entraînement <span aria-hidden="true">→</span></a></section>
