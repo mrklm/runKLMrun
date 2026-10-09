@@ -474,3 +474,11 @@ footer>span:first-child {
     padding-top:4px;
   }
 }
+
+.session-list .session-card { display: block; }
+.session-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 1rem; width: 100%; }
+.session-metrics dt { font-size: .8rem; color: var(--text-muted, #666); }
+.session-metrics dd { margin: .3rem 0 0; }
+.import-label { display: grid; gap: .75rem; }
+.import-label input { max-width: 100%; font: inherit; }
+progress { width: 100%; }

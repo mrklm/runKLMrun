@@ -1,7 +1,10 @@
-export function Settings() {
+import { PolarImport } from '../components/PolarImport';
+
+export function Settings({ onImported }: { onImported: () => void }) {
   return (
     <>
       <header className="page-heading"><span className="eyebrow">VOTRE ESPACE PERSONNEL</span><h1>Paramètres</h1><p>Comprenez où sont conservées vos données.</p></header>
+      <PolarImport onImported={onImported} />
       <section className="panel settings-panel" aria-labelledby="storage-title">
         <span className="tag">Stockage local</span><h2 id="storage-title">Vos données restent avec vous</h2>
         <p>runKLMrun conserve vos données dans la base IndexedDB de ce navigateur. Aucun compte n’est nécessaire et vos activités ne sont envoyées à aucun serveur.</p>

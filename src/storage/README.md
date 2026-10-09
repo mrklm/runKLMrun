@@ -1,14 +1,22 @@
 # Stockage local
 
 `database.ts` implémente `SessionRepository` avec IndexedDB via `idb`.
-La base `runklmrun` (version 1) contient un magasin `sessions`, indexé par `id`.
-Chaque opération ferme sa connexion après exécution. Les migrations futures
-seront placées dans le callback `upgrade` en incrémentant la version de la base.
-Les erreurs remontent à l'interface ; aucun stockage de secours silencieux.
+La base `runklmrun` passe de la version 1 à la version 2. La migration ajoute
+uniquement `details` (clé `id`) et conserve intégralement `sessions` et ses clés.
+Chaque opération ferme sa connexion ; une mise à niveau dans un autre onglet
+ferme également les connexions qui la bloqueraient.
 
-`BackupService` réserve le contrat de sauvegarde et de restauration. Il n'a pas
-d'implémentation et n'est pas exposé comme action dans l'interface. Avant de le
-développer, définir un format versionné, une validation des données, une politique
-de conflits et une restauration transactionnelle.
+`list()` lit seulement les résumés ; `getDetails(id)` lit les séries à la demande.
+`addImported()` vérifie la clé `polar:<identifiant>` et ajoute résumé et détails
+dans une transaction commune, sans écrasement. Les transactions concurrentes
+sont sérialisées par IndexedDB. La méthode historique `save()` conserve son
+comportement de mise à jour explicite ; l'import ne l'utilise pas.
 
-Les tests utilisent une base éphémère `fake-indexeddb`, jamais les données utilisateur.
+Les erreurs de stockage sont remontées, sans stockage de secours silencieux.
+Une interruption conserve les séances déjà validées. Effacer les données du
+site supprime l'historique. Pas de synchronisation entre appareils/origines,
+ni de garantie de persistance en navigation privée.
+
+`BackupService` reste un contrat sans implémentation. L'import Polar n'est pas
+une restauration de sauvegarde runKLMrun. Les tests utilisent fake-indexeddb et
+des données synthétiques isolées de l'application.

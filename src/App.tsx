@@ -64,7 +64,7 @@ export function App() {
         {path === '/' && data.status === 'ready' && <Home sessions={data.sessions} />}
         {path === '/historique' && data.status === 'ready' && <History sessions={data.sessions} />}
         {path === '/entrainement' && <Training />}
-        {path === '/parametres' && <Settings />}
+        <div hidden={path !== '/parametres'}><Settings onImported={() => setAttempt(value => value + 1)} /></div>
         {!currentPage && <section className="panel status"><h1>Page introuvable</h1><p>Cette page n’existe pas.</p><a className="button" href="#/">Revenir à l’accueil</a></section>}
       </main>
       <footer><span>runKLMrun</span><span>Un pas après l’autre. À votre rythme.</span></footer>

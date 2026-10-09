@@ -16,7 +16,7 @@ export function Home({ sessions }: { sessions: RunningSession[] }) {
         {sessions.length === 0 ? (
           <EmptyState title="Votre histoire commence ici">
             <p>Vous n’avez encore aucune sortie enregistrée.</p>
-            <p>Vos activités apparaîtront ici lorsque l’ajout de données sera disponible.</p>
+            <p>Importez votre archive Polar depuis les Paramètres.</p>
           </EmptyState>
         ) : <SessionList sessions={sessions} />}
       </section>
