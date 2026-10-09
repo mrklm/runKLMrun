@@ -136,3 +136,40 @@ seule, sans copie des données ni modification de l'historique du navigateur.
 Voir [formats, champs, unités et limites de l'import](src/importers/README.md)
 et [migration et stockage](src/storage/README.md). L'import ne calcule ni charge
 sportive ni planification ; il conserve les métriques Polar disponibles.
+
+
+## Apparence — prévue pour v0.3.0 (non publiée)
+
+Dans **Paramètres → Apparence**, choisissez l'un des 16 thèmes. Le changement
+s'applique immédiatement à toutes les pages et la prévisualisation montre les
+six couleurs originales. **Revenir au thème par défaut** restaure
+**[Sombre] Midnight Garage**.
+
+| Groupe | Thèmes |
+| --- | --- |
+| Sombre | Midnight Garage ; AIR-KLM Night flight ; Café Serré ; Matrix Déjà Vu ; Miami Vice 1987 ; Cyber Licorne |
+| Clair | AIR-KLM Day flight ; Matin Brumeux ; Latte Vanille ; Miellerie La Divette |
+| Pouêt | Chewing-gum Océan ; Pamplemousse ; Raisin Toxique ; Citron qui pique ; Barbie Apocalypse ; Compagnie Créole |
+
+Le catalogue `src/themes/themes.ts` conserve exactement les couleurs fournies :
+`BG → --bg`, `PANEL → --panel`, `FIELD → --field`, `FG → --fg`,
+`FIELD_FG → --field-fg`, `ACCENT → --accent`. Des variables supplémentaires
+adaptent les textes, liens et libellés des boutons aux différentes surfaces :
+la couleur prévue est conservée si son contraste atteint 4,5, sinon une couleur
+noire ou blanche est utilisée. Les six valeurs originales ne changent jamais.
+Les états sélectionnés, survolés et focalisés disposent aussi d'indications
+visuelles (soulignement, bordure ou contour).
+
+La clé **`runklmrun.theme`** de localStorage contient uniquement le nom du thème.
+Elle est restaurée avant le premier rendu React. Une préférence inconnue ramène
+au thème par défaut. Si localStorage est bloqué ou plein, les thèmes restent
+utilisables pour la session et un message indique que la préférence ne peut pas
+être mémorisée. Les changements ne sont pas synchronisés entre onglets ouverts ;
+un rechargement restaure la dernière préférence enregistrée.
+
+L'apparence n'utilise pas IndexedDB et ne modifie ni les entraînements ni
+l'importateur Polar. Aucun graphique n'est actuellement affiché ; des variables
+`--chart-line` et `--chart-grid` et des styles Recharts sont prêts pour leur
+habillage. Les menus natifs peuvent conserver certains détails visuels propres
+au navigateur ou au système. Les numéros de version restent à v0.2.0 jusqu'à la
+préparation de la prochaine version mineure.

@@ -2,6 +2,17 @@
 
 ## [Non publié]
 
+Fonctionnalités prévues pour v0.3.0 ; version non publiée, aucun tag créé.
+
+- feat(themes): ajouter les 16 palettes Sombre, Clair et Pouêt, avec leurs noms
+  et couleurs exacts, une prévisualisation et une application immédiate.
+- feat(themes): mémoriser le choix dans localStorage et restaurer Midnight Garage
+  par défaut ou si la préférence est inconnue ; proposer un bouton de réinitialisation.
+- fix(styles): appliquer les couleurs à toutes les pages, formulaires, boutons et
+  messages, avec des couleurs de texte dérivées pour les fonds peu lisibles.
+- test(themes): vérifier les palettes, contrastes dérivés, changements, persistance
+  et gestion d'un stockage local indisponible.
+
 - fix(import): prendre en charge les exports Polar à `sport.id`, `durationMillis`,
   distances/dénivelés en mètres, statistiques FC et charge `trainingLoadReport.cardioLoad`.
 - fix(import): limiter les correspondances sportives aux codes vérifiés et
