@@ -1,38 +1,52 @@
 import { useEffect, useRef, useState } from 'react';
-import { IMPORT_REASONS, type ImportReason } from '../importers/polar-errors';
+import { takeSelectedFiles } from '../importers/file-selection';
 import { emptyReport, type ImportReport } from '../importers/import-report';
-
+import { emptyTcxReport, importTcxFiles } from '../importers/tcx-files';
+import { selectPolarFiles, tcxReport, zipReport, type UnifiedReport } from '../importers/polar-selection';
+import { sessionRepository } from '../storage/database';
+import { ImportReportView } from './ImportReportView';
 export function PolarImport({ onImported }: { onImported: () => void }) {
-  const [report, setReport] = useState<ImportReport>();
+  const [files, setFiles] = useState<File[]>([]);
+  const [report, setReport] = useState<UnifiedReport>();
+  const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const running = useRef(false), mounted = useRef(true);
   const worker = useRef<Worker | null>(null);
-  useEffect(() => () => worker.current?.terminate(), []);
-  function start(file: File) {
-    setReport(emptyReport()); setBusy(true);
-    const fail = () => { setReport(previous => ({ ...(previous ?? emptyReport()), error: 'Import interrompu. Les séances déjà enregistrées sont conservées. Réessayez sans risque de doublon.' })); setBusy(false); worker.current?.terminate(); onImported(); };
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; worker.current?.terminate(); }; }, []);
+  function finish() { running.current = false; worker.current?.terminate(); worker.current = null; if (mounted.current) { setBusy(false); onImported(); } }
+  async function start() {
+    if (running.current) return;
+    const selection = selectPolarFiles(files);
+    if ('error' in selection) { setError(selection.error); setReport(undefined); return; }
+    setError(undefined); running.current = true; setBusy(true);
+    if (selection.format === 'tcx') {
+      setReport(tcxReport(emptyTcxReport(selection.files.length)));
+      try { const result = await importTcxFiles(selection.files, sessionRepository, r => { if (mounted.current) setReport(tcxReport(r)); }); if (mounted.current) setReport(tcxReport(result)); }
+      catch { if (mounted.current) setError('Import interrompu. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer.'); }
+      finally { finish(); }
+      return;
+    }
+    setReport(zipReport(emptyReport()));
+    const fail = () => { if (mounted.current) setReport(previous => ({ ...(previous ?? zipReport(emptyReport())), error: 'Import interrompu. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer.' })); finish(); };
     try {
       worker.current = new Worker(new URL('../importers/polar.worker.ts', import.meta.url), { type: 'module' });
       worker.current.onerror = fail;
       worker.current.onmessage = event => {
         if (event.data.type === 'error') { fail(); return; }
-        setReport(event.data.report);
-        if (event.data.type === 'done') { setBusy(false); worker.current?.terminate(); onImported(); }
+        if (mounted.current) setReport(zipReport(event.data.report as ImportReport));
+        if (event.data.type === 'done') finish();
       };
-      worker.current.postMessage(file);
+      worker.current.postMessage(selection.files[0]);
     } catch { fail(); }
   }
   return <section className="panel settings-panel" aria-labelledby="polar-title">
-    <h2 id="polar-title">Importer des données Polar</h2>
-    <p>Sélectionnez votre archive ZIP Polar. Le traitement reste entièrement dans ce navigateur. Les séances déjà présentes sont conservées.</p>
-    <label className="import-label">Sélectionner le ZIP<input type="file" accept=".zip,application/zip" disabled={busy} onChange={event => { const file = event.target.files?.[0]; if (file) start(file); event.target.value = ''; }} /></label>
-    {report && <div role="status" aria-live="polite">
-      <p>{busy ? 'Import en cours' : 'Compte rendu'} : {report.processed} / {report.total} fichiers d’entraînement traités.</p>
-      {busy && <progress aria-label="Progression de l’import" value={report.total ? report.processed : undefined} max={report.total || 1} />}
-      <p>{report.imported} ajoutées · {report.duplicates} doublons · {report.ignored} autres sports · {report.invalid} fichiers non pris en charge.</p>
-      {!busy && !report.total && !report.error && <p>Aucun fichier training-session_*.json reconnu dans cette archive.</p>}
-      {!!Object.keys(report.reasons).length && <ul aria-label="Motifs du compte rendu">{Object.entries(report.reasons).map(([reason, count]) => <li key={reason}>{IMPORT_REASONS[reason as ImportReason]} : {count}</li>)}</ul>}
-      {report.error && <p role="alert">{report.error}</p>}
-      {!!report.issues.length && <details><summary>Détails des erreurs (20 maximum)</summary><ul>{report.issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul></details>}
-    </div>}
+    <h2 id="polar-title">Importer des séances Polar</h2>
+    <p>Importez vos séances depuis une archive Polar ou depuis des fichiers TCX exportés de Polar Flow.</p>
+    <p>Formats acceptés : ZIP, TCX. Sélectionnez une archive ZIP ou plusieurs fichiers TCX, sans mélanger les formats. Le traitement reste local.</p>
+    <label className="import-label">Sélectionner les fichiers<input type="file" accept=".zip,.ZIP,.tcx,.TCX" multiple disabled={busy} onChange={event => { const selected = takeSelectedFiles(event.currentTarget); setFiles(selected); setReport(undefined); const result = selectPolarFiles(selected); setError('error' in result ? result.error : undefined); }} /></label>
+    <p>{files.length ? `${files.length} fichier(s) sélectionné(s).` : 'Aucun fichier sélectionné.'}</p>
+    <button className="button" disabled={busy} onClick={() => void start()}>Importer les séances</button>
+    {error && <p role="alert">{error}</p>}
+    {report && <ImportReportView report={report} busy={busy} />}
   </section>;
 }

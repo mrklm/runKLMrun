@@ -1,4 +1,4 @@
-# Import Polar — v0.3.0
+# Import Polar — v0.4.0
 
 L'import est local : pas d'API Polar à l'exécution, de télémétrie, d'envoi de
 fichier, de copie du ZIP dans le dépôt ou de journalisation des données sportives.
@@ -174,3 +174,125 @@ changé. Les migrations et la politique de dédoublonnage restent inchangées.
 - Des valeurs réellement invalides dans un champ reconnu du nouveau schéma
   peuvent entraîner le rejet de la séance entière ; elles ne sont pas corrigées
   arbitrairement.
+
+## Import de fichiers TCX — v0.4.0
+
+Le parcours `tcx.ts` → `tcx-files.ts` → `SessionRepository.addImported()` est
+indépendant de l'import ZIP/JSON. `PolarImport` propose un sélecteur commun ZIP/TCX et permet de sélectionner plusieurs
+fichiers, traités séquentiellement avec un compte rendu par fichier : ajout,
+doublon, fichier invalide ou sport non pris en charge. Les erreurs de stockage
+interrompent le lot et conservent les ajouts déjà validés. Aucun contenu personnel
+ni nom de fichier n'apparaît dans les messages d'erreur.
+
+Le navigateur utilise son `DOMParser` natif. `@xmldom/xmldom` est une dépendance
+**de développement uniquement**, utilisée pour les tests Node. Aucun accès réseau
+n'est réalisé par l'importateur. Les DTD et déclarations d'entités sont refusées.
+La limite est de **16 Mio par fichier** ; XML, objets et empreinte sont en mémoire.
+La lecture XML est synchrone sur le fil principal ; le navigateur reprend la main
+entre les fichiers. La sélection et les compteurs suivent les styles des thèmes.
+
+### Périmètre et données
+
+TCX v2 avec l'espace de noms officiel, une seule `Activity` par fichier et
+`Sport="Running"`. Les espaces de noms sont interprétés indépendamment de leurs
+préfixes. Les autres sports sont comptés à part, sans déduction depuis le titre.
+Les fichiers multi-activités, multisports et les parcours `Courses` ne sont pas
+pris en charge. Plusieurs `Lap` deviennent **une seule séance**.
+
+- Départ : `StartTime` du premier tour. Les dates doivent comporter un fuseau
+  explicite (`Z` ou décalage). `Activity/Id`, généralement une date, n'est pas
+  utilisé seul comme identifiant de séance.
+- Durée : somme des `TotalTimeSeconds` des tours, obligatoires. C'est la durée
+  fournie, qui peut différer du temps écoulé en présence de pauses.
+- Distance : somme des `DistanceMeters` des tours seulement si tous sont connus.
+  Aucun total partiel ni estimation depuis le GPS n'est enregistré comme total.
+- FC : courbe `HeartRateBpm/Value` en bpm. Moyenne des tours pondérée par leur
+  durée uniquement si toutes les moyennes sont fournies ; maximum des maxima
+  uniquement si tous sont disponibles. Aucun calcul depuis une série lacunaire.
+- Altitude : `AltitudeMeters` en mètres, valeurs négatives acceptées.
+- Vitesse : extension `ActivityExtension/v2`, `TPX/Speed`, en m/s, sans division
+  par 3,6. Sans cette extension, aucune vitesse n'est déduite des distances.
+  L'allure moyenne est dérivée de durée/distance ; la fiche dérive sa courbe
+  d'allure de la vitesse, en conservant les interruptions.
+- Cadence : `TPX/RunCadence`, sinon `Trackpoint/Cadence`. Les nombres sont
+  conservés sans conversion. `cadenceUnit: 'source'` empêche la fiche d'attribuer
+  arbitrairement l'unité Polar rpm ou des pas/minute à ces valeurs TCX.
+- Distance des points : valeurs source en mètres, sans correction des remises
+  à zéro éventuelles entre tours. Elles ne servent pas à calculer la vitesse.
+- GPS : latitude/longitude en degrés et altitude en mètres. Les coordonnées
+  absentes, non numériques ou hors limites deviennent nulles ; les autres
+  mesures du point restent conservées. Un tracé sans aucune paire valide n'est
+  pas enregistré. Aucun filtre des sauts géographiques n'est appliqué.
+- Tours : leurs débuts, durées et distances sont conservés dans `details.laps`.
+  Leur affichage individuel n'est pas ajouté à cette étape.
+
+Chaque temps de point est la différence en secondes entre `Trackpoint/Time` et
+le début de séance, sans arrondi ni rééchantillonnage. Temps absents, invalides,
+antérieurs au départ ou décroissants : fichier invalide. Les intervalles peuvent
+être irréguliers, les temps égaux sont conservés. Les mesures manquantes restent
+nulles au bon instant ; une rupture explicite est ajoutée entre les pistes.
+Les séries entièrement absentes ne sont pas inventées. Les autres nombres
+renseignés invalides entraînent le rejet du fichier. Il n'y a pas de validation
+XSD exhaustive ; seuls la structure et les champs utilisés sont contrôlés.
+
+Charge cardio, Running Index, zones cardiaques, dénivelés, puissance, calories,
+notes et extensions propriétaires non décrites ici ne sont pas importés. Aucun
+calcul de dénivelé depuis l'altitude ni aucune interpolation ne les remplace.
+
+Références de structure : [TrainingCenterDatabase v2](https://www8.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd)
+et [ActivityExtension v2](https://www8.garmin.com/xmlschemas/ActivityExtensionv2.xsd).
+Les tests sont synthétiques ; la compatibilité avec chaque variante d'export
+Polar Flow n'est pas une garantie de validation sur des fichiers réels.
+
+### Dédoublonnage et conservation
+
+L'identifiant TCX est `tcx:<SHA-256 du contenu normalisé importé>`. Il ne dépend
+pas du nom de fichier ni de la mise en forme XML. Le contrôle par clé existant
+reste prioritaire et n'écrase jamais résumé ou détails.
+
+Pour chaque **nouvel import TCX**, un contrôle complémentaire compare les résumés
+TCX et Polar existants dans la même transaction IndexedDB. Il exige simultanément :
+
+1. Deux sports reconnus comme course à pied.
+2. Des débuts convertibles en temps absolu, distants d'au plus **1 seconde**.
+3. Des durées positives connues, distantes d'au plus **2 secondes**.
+4. Des distances positives connues, distantes d'au plus **min(5 mètres, 0,2 % de
+   la plus petite distance)**.
+
+Un départ Polar sans suffixe de fuseau n'est comparable que si son
+`timezoneOffsetMinutes` est enregistré. Le fuseau du navigateur n'est jamais
+supposé. Sans mesure complète ou fuseau fiable, l'import est conservé ; une
+ressemblance de distance seule ne suffit jamais. Les tolérances ne constituent
+pas une preuve absolue d'identité mais sont volontairement étroites.
+
+Le contrôle et l'ajout résumé/détails sont atomiques : deux imports TCX
+concurrents ne contournent pas ce contrôle. **Le parcours ZIP/JSON reste inchangé** :
+une archive importée après un TCX conserve sa détection par identifiant Polar ;
+le rapprochement complémentaire est effectué uniquement lors de l'ajout TCX.
+Importer l'archive initiale avant les nouveaux fichiers TCX est le parcours prévu.
+Aucune déduplication rétroactive ni suppression n'est effectuée.
+
+`RunningSession.source`, `SessionDetails.laps` et `cadenceUnit` sont facultatifs.
+Les magasins `sessions` et `details`, leurs clés et la version IndexedDB 2 restent
+inchangés. Les anciennes données ne sont ni migrées ni réécrites.
+
+
+### Interface unifiée et comptes rendus
+
+Dans Paramètres, la section **Importer des séances Polar** propose un seul
+sélecteur acceptant ZIP et TCX (sans distinction de casse), suivi d’un bouton
+**Importer les séances**. `selectPolarFiles` valide la sélection avant le traitement :
+un ZIP unique ou plusieurs TCX. Aucun lot mixte ni lot de plusieurs ZIP n’est lancé.
+Les `File` sont copiés avant réinitialisation du champ et au lancement du lot.
+
+Le ZIP utilise toujours `polar.worker.ts` et `importPolarArchive`. Le TCX utilise
+`importTcxFiles`. `ImportReportView` présente les deux rapports via des adaptateurs
+sans inventer de compteur. Pour le ZIP, le total est celui des JSON d’entraînement
+reconnus dans l’archive ; pendant sa lecture initiale, la progression est
+indéterminée. Une archive sans entraînement est signalée explicitement sans 0/0.
+Pour le TCX, chaque fichier sélectionné est compté, même rejeté. Un arrêt sur erreur
+de stockage conserve le nombre réellement traité et affiche une alerte.
+
+Les motifs de rejet détaillés (20 maximum) ne contiennent ni nom de fichier ni
+donnée personnelle. Les moteurs, limites de taille et règles de dédoublonnage
+ne changent pas. Les anciennes sections distinctes sont remplacées par ce parcours.

@@ -47,6 +47,9 @@ function readable(background: string, preferred: string): string {
   if (contrast(background, preferred) >= 4.5) return preferred;
   return contrast(background, '#000000') >= contrast(background, '#FFFFFF') ? '#000000' : '#FFFFFF';
 }
+function metricColor(background: string, palette: string[]): string {
+  return palette.find(color => contrast(background, color) >= 3) ?? [...palette].sort((a, b) => contrast(background, b) - contrast(background, a))[0];
+}
 /** Variables dérivées seulement : les six couleurs originales restent intactes. */
 export function themeVariables(theme: ThemeOption): Record<string, string> {
   const c = theme.colors;
@@ -57,6 +60,10 @@ export function themeVariables(theme: ThemeOption): Record<string, string> {
     '--page-link': readable(c.BG, c.ACCENT), '--panel-link': readable(c.PANEL, c.ACCENT),
     '--color-scheme': luminance(c.BG) < .18 ? 'dark' : 'light',
     '--progress-fill': readable(c.FIELD, c.ACCENT),
+    '--chart-heartRate': metricColor(c.PANEL, ['#EF476F', '#FFB3C7', '#400015', '#FFF0F5']),
+    '--chart-pace': metricColor(c.PANEL, ['#368BFF', '#B8DDFF', '#00152F', '#EFF8FF']),
+    '--chart-altitude': metricColor(c.PANEL, ['#22A866', '#B3F5C5', '#001F10', '#EFFFF3']),
+    '--chart-cadence': metricColor(c.PANEL, ['#EE8B22', '#FFD3A1', '#301300', '#FFF5E8']),
     '--chart-line': readable(c.PANEL, c.ACCENT), '--chart-grid': readable(c.PANEL, c.FG),
   };
 }

@@ -5,6 +5,7 @@ export interface RunningSession {
   date: string;
   startTime?: string;
   polarId?: string;
+  source?: 'tcx';
   sport?: string;
   polarSportId?: string;
   timezoneOffsetMinutes?: number;
@@ -23,6 +24,9 @@ export interface RunningSession {
 export interface Sample { timeSeconds: number; value: number | null }
 export interface SessionDetails {
   id: string;
+  /** Métadonnées TCX facultatives ; aucun changement des magasins IndexedDB. */
+  laps?: { startTime: string; durationSeconds: number; distanceMeters?: number }[];
+  cadenceUnit?: 'rpm' | 'source';
   heartRate?: Sample[];
   speed?: Sample[];
   cadence?: Sample[];

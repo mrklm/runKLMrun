@@ -5,12 +5,7 @@ import type { RunningSession } from '../types/session';
 export function Home({ sessions }: { sessions: RunningSession[] }) {
   return (
     <>
-      <div className="hero">
-        <span className="eyebrow">VOTRE ESPACE COURSE À PIED</span>
-        <h1>À votre rythme.</h1>
-        <p>Un espace pour suivre vos sorties et préparer la suite de vos entraînements.</p>
-        <a className="button" href="#/historique">Consulter votre historique <span aria-hidden="true">↗</span></a>
-      </div>
+      <h1 className="home-title">Accueil</h1>
       <section className="panel" aria-labelledby="activity-title">
         <div className="panel-heading"><h2 id="activity-title">Dernières sorties</h2><span className="tag">Historique</span></div>
         {sessions.length === 0 ? (

@@ -1,3 +1,4 @@
+import { isTcxDuplicate } from '../importers/session-duplicate';
 import { openDB, type DBSchema } from 'idb';
 import type { RunningSession, SessionDetails } from '../types/session';
 import type { SessionRepository } from './contracts';
@@ -35,6 +36,12 @@ export function createSessionRepository(name = DATABASE_NAME): SessionRepository
       try {
         const tx = database.transaction(['sessions', 'details'], 'readwrite');
         if (await tx.objectStore('sessions').getKey(session.id)) { await tx.done; return false; }
+        // Contrôle TCX dans la même transaction : imports concurrents sérialisés.
+        // Le chemin ZIP/JSON conserve sa politique historique par identifiant.
+        if (session.source === 'tcx') {
+          const existing = await tx.objectStore('sessions').getAll();
+          if (existing.some(item => isTcxDuplicate(session, item))) { await tx.done; return false; }
+        }
         await tx.objectStore('sessions').add(session);
         await tx.objectStore('details').add(details);
         await tx.done;

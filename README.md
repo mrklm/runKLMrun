@@ -1,4 +1,4 @@
-# runKLMrun — v0.3.0 (non publiée)
+# runKLMrun — v0.4.0
 
 Socle d’une application web open source de suivi et de planification des
 entraînements de course à pied. Interface en français, responsive, sans compte,
@@ -141,9 +141,10 @@ sportive ni planification ; il conserve les métriques Polar disponibles.
 ## Apparence
 
 Dans **Paramètres → Apparence**, choisissez l'un des 16 thèmes. Le changement
-s'applique immédiatement à toutes les pages et la prévisualisation montre les
-six couleurs originales. **Revenir au thème par défaut** restaure
-**[Sombre] Midnight Garage**.
+s'applique immédiatement à toutes les pages et reste mémorisé après rechargement.
+La section compacte se trouve tout en bas des Paramètres et contient uniquement
+le titre Apparence, le libellé Thème et la liste déroulante. Pour retrouver le thème
+initial, sélectionnez **[Sombre] Midnight Garage** dans la liste.
 
 | Groupe | Thèmes |
 | --- | --- |
@@ -183,8 +184,19 @@ repliés. Les éléments natifs `details/summary` s'utilisent au clavier (Tab, E
 ou Espace) et exposent leur état aux lecteurs d'écran. Les informations de chaque
 séance sont conservées. Les listes des mois repliés ne sont pas rendues.
 
-**Statistiques** (`#/statistiques`) propose « Toutes les années » ou une année
-civile disponible. Le filtre s'applique au nombre de séances, aux kilomètres,
+**Statistiques** (`#/statistiques`) propose quatre périodes :
+
+- **7 derniers jours**, par défaut : aujourd'hui et les six jours précédents,
+  selon le calendrier local du navigateur, même aux changements de mois,
+  d'année ou d'heure. Il ne s'agit pas d'une semaine civile.
+- **Mois** : mois et année sélectionnables, initialisés au mois courant à chaque
+  activation de ce mode.
+- **Année** : année sélectionnable, initialisée à l'année courante.
+- **Tout** : toutes les séances enregistrées.
+
+La période active est affichée explicitement. Les trois graphiques sont
+journaliers pour les sept derniers jours et le mois (jusqu'à 31 jours).
+Pour Année et Tout, les regroupements suivants sont utilisés. Le filtre s'applique au nombre de séances, aux kilomètres,
 aux heures et au dénivelé positif cumulé, ainsi qu'aux trois graphiques :
 
 - distance parcourue par semaine, en km ;
@@ -217,7 +229,9 @@ Les périodes sans séance enregistrée affichent zéro : cela décrit uniquemen
 l'historique local, pas une certitude d'absence d'activité physique.
 
 Les dates inutilisables restent visibles dans une section distincte de
-l'historique et sont exclues des statistiques avec un message explicite.
+l'historique. Elles sont exclues des périodes datées ; dans Tout, elles sont
+incluses dans les indicateurs mais ne peuvent pas être placées sur les graphiques.
+Un message explicite signale cette différence.
 Les totaux sont calculés sans arrondi intermédiaire ; l'affichage utilise au
 maximum deux décimales. Les temps sont des heures décimales, pas un format h:min.
 Les statistiques concernent exclusivement les séances enregistrées, pas les
@@ -244,3 +258,192 @@ n'est ajoutée.
 5. Réduire la largeur à 320 px : navigation, indicateurs, tableaux et boutons
    restent accessibles. Sur une origine de navigateur sans données, vérifier
    les états vides, sans effacer l'historique existant.
+
+
+## Fiche de séance — v0.4.0
+
+Depuis l’accueil ou l’historique, sélectionnez le titre d’une sortie pour ouvrir
+sa fiche (`#/seance/<identifiant encodé>`). Un lien permet de revenir à l’historique.
+La fiche réutilise le résumé déjà chargé et lit uniquement ses détails dans
+IndexedDB. Les erreurs peuvent être retentées ; une réponse tardive ne remplace
+pas la nouvelle séance. Une ancienne séance sans détails conserve son résumé.
+
+La fiche présente date, heure source, durée, distance, allure moyenne, FC moyenne
+et maximale, dénivelés positif et négatif, charge cardio Polar et Running Index.
+Les zones Polar sont affichées telles qu’enregistrées. « — » signifie une donnée
+absente, jamais un zéro inventé.
+
+Les courbes disponibles montrent la FC (bpm), l’allure (minutes et secondes/km),
+l’altitude (m) et la cadence source (rpm, sans multiplication par deux).
+L’allure vaut `1000 / vitesseEnMètresParSeconde` ; les vitesses nulles,
+négatives ou non finies interrompent la courbe. Chaque série conserve ses temps
+en secondes et son échantillonnage ; aucun alignement par indice ni comblement
+des trous n’est effectué. Les valeurs non finies deviennent des interruptions.
+Les points aux temps invalides sont exclus et une rupture est ajoutée au prochain
+temps valide. Les séries sont triées sur une copie sans écriture dans la base.
+
+Les longues courbes sont réduites par blocs en conservant les extrema,
+les extrémités et les limites des interruptions. La cible de 800 points est souple :
+les séries très fragmentées peuvent la dépasser. Un tableau paginé de 100 lignes
+permet de consulter toutes les valeurs préparées, sans réduction, au clavier ou
+sur écran tactile. Les graphiques suivent les 16 thèmes.
+
+Limites : le détail complet d’une seule séance est chargé en mémoire ; pas de zoom,
+de carte GPS, de RPE ni de synchronisation avec le GPS. Les pauses et les origines
+propres aux flux ne sont pas reconstruites. Un grand nombre de ruptures peut
+encore alourdir le rendu. Aucun changement de schéma IndexedDB ni réimport n’est
+nécessaire.
+
+
+## Importer des séances Polar — v0.4.0
+
+Dans **Paramètres → Importer des séances Polar**, sélectionnez une archive ZIP
+Polar ou un ou plusieurs fichiers TCX, puis cliquez sur **Importer les séances**.
+Les extensions sont reconnues sans distinction de casse (`.zip`, `.ZIP`, `.tcx`,
+`.TCX`). Les lots mixtes et les lots de plusieurs ZIP sont refusés avec explication.
+Le traitement reste local ; les moteurs ZIP/JSON et TCX et leur dédoublonnage
+restent inchangés. Aucune migration ni modification des séances existantes.
+
+Le compte rendu affiche ajouts, doublons, autres sports, fichiers non pris en
+charge et erreurs. Pour un ZIP, la progression compte les entrées JSON reconnues ;
+pour le TCX, elle compte les fichiers sélectionnés. L’analyse initiale du ZIP est
+indéterminée. Une archive sans entraînement produit un message explicite, pas un
+compte rendu 0/0. Les rejets TCX restent comptabilisés, avec leurs motifs.
+
+Le TCX accepte une activité de course par fichier (16 Mio maximum), même composée
+de plusieurs tours. Durée, distance, FC, altitude, GPS, cadence et vitesse fournie
+par l’extension reconnue sont conservés lorsqu’ils existent. Les métadonnées des
+tours sont stockées sans affichage spécifique. Les valeurs absentes ne sont pas
+interpolées. La cadence TCX conserve son unité source, sans conversion arbitraire.
+
+À l’ajout TCX, les doublons sont détectés par identifiant puis par combinaison du
+départ (±1 s), de la durée (±2 s) et de la distance (au plus min(5 m, 0,2 % de la
+plus petite distance)). Les deux séances doivent être des courses avec des mesures
+complètes et des fuseaux fiables. En cas d’incertitude, la nouvelle séance est
+ajoutée. Un ZIP ajouté ensuite garde sa détection historique par identifiant.
+
+Consultez les [formats et limites détaillés](src/importers/README.md).
+
+## Lisibilité des graphiques — v0.4.0
+
+Les axes temporels et infobulles affichent `08:20`, puis `1:08:20` au-delà d’une
+heure, en respectant les temps réels. L’allure est calculée en **secondes/km**
+puis affichée `5:30 min/km` ; son axe est inversé (rapide en haut). Les vitesses
+nulles, négatives ou non finies restent des interruptions.
+
+La FC, l’altitude et la cadence utilisent leurs minima/maxima avec une marge de
+8 % de l’étendue (minimum 0,5 unité). Les altitudes négatives et les cadences
+réellement nulles sont conservées ; aucune valeur extrême de cadence n’est cachée.
+La cadence Polar reste en rpm, sans doublement. La cadence TCX marquée « unité
+source » conserve cette indication.
+
+Pour l’allure, à partir de huit mesures valides, l’échelle adaptée utilise les
+barrières de Tukey : Q1 − 1,5 × IQR et Q3 + 1,5 × IQR, avec quartiles interpolés.
+Les bornes des mesures retenues reçoivent une marge de 8 % (minimum 1 seconde/km).
+Si les quartiles sont égaux, seules les valeurs égales à ce centre définissent
+l’échelle. Cette règle est statistique, sans seuil sportif. Pour moins de huit
+mesures, toutes les valeurs définissent l’échelle.
+
+Les points hors champ deviennent des interruptions **uniquement pour le dessin**.
+Un message indique leur nombre ; **Afficher l’échelle complète** permet de les
+revoir. Toutes les valeurs restent disponibles dans le tableau paginé. Ce choix
+peut masquer temporairement une variation légitime : le signalement et le retour
+à l’échelle complète restent donc accessibles. Les données stockées ne changent pas.
+
+FC rouge/rose, allure bleue, altitude verte et cadence orange sont centralisées
+dans les variables du thème. Leur contraste sur le panneau est testé pour les
+16 thèmes (au moins 3:1). Les grilles restent discrètes, les infobulles utilisent
+les couleurs du thème. Les compteurs de points sont dans **Détails techniques**.
+Les courbes gardent une hauteur de 320 px, 280 px sur smartphone ; le tableau
+permet aussi une consultation tactile et au clavier.
+
+
+## Curseur temporel synchronisé — v0.4.0
+
+Survolez une courbe : un repère apparaît au même temps réel sur toutes les
+courbes disponibles. Un panneau commun indique **Instant : 12:35** et les quatre
+mesures, sans multiplier les infobulles. Quitter le tracé efface le survol.
+Sur écran tactile, touchez le tracé pour conserver la sélection ; le défilement
+vertical reste autorisé. **Effacer la sélection** retire le repère.
+Le contrôle **Choisissez un instant dans la séance** permet aussi la navigation
+au clavier avec les commandes natives du curseur (flèches, début et fin).
+La sélection tactile ou clavier reste visible après la sortie du pointeur.
+
+Les graphiques partagent un axe de zéro jusqu’au dernier échantillon disponible
+(minimum une seconde pour un point isolé). Le temps sélectionné reste en secondes,
+sans synchronisation par indice. La projection du pointeur utilise le rectangle
+de tracé fourni par Recharts, et `ReferenceLine` affiche le même instant partout.
+Les mesures sont recherchées par dichotomie dans les séries complètes préparées,
+pas dans les points réduits. Les index et intervalles sont préparés une seule fois.
+Les mouvements de souris sont regroupés à raison d’un rendu par image au maximum ;
+les tableaux sont mémorisés et aucun accès IndexedDB supplémentaire n’est effectué.
+
+La tolérance de proximité est propre à chaque série : moitié de l’intervalle
+médian positif entre points, plafonnée à **5 secondes**. Un point isolé ne répond
+qu’à son temps exact. Aucune extrapolation avant ou après une série. Entre deux
+points, une valeur nulle à l’une des bornes ou un intervalle supérieur à
+**max(10 secondes, trois intervalles médians)** interdit le rapprochement.
+Un marqueur nul suivi d’une valeur au même temps reste une rupture à cet instant.
+Les valeurs non finies sont indisponibles. Aucun lissage ni interpolation.
+
+Une mesure proche indique explicitement son véritable instant d’acquisition
+(y compris les secondes décimales). Sans mesure fiable : **Donnée indisponible**.
+Une valeur hors de l’échelle adaptée reste consultable dans ce panneau et dans
+le tableau. Les échelles, l’inversion de l’allure et les données originales ne
+changent pas. Pour des séries très irrégulières, la règle prudente peut laisser
+certains instants sans valeur ; le tableau conserve tous les points.
+
+
+## Tests de navigation dans le navigateur
+
+Les cartes de séance sont des liens sur toute leur surface : titre, date,
+mesures et marges intérieures. Elles s’ouvrent aussi au clavier avec Entrée.
+
+Les tests d’intégration Playwright montent l’application réelle dans Chromium,
+avec les vrais composants Recharts et IndexedDB. Chaque test utilise un contexte
+navigateur neuf, une origine locale dédiée (port 4187) et des séances synthétiques.
+Ils n’accèdent pas à votre profil navigateur ni à vos entraînements personnels.
+
+Après installation des dépendances :
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+Le serveur Vite de test est démarré puis arrêté automatiquement. Les erreurs
+JavaScript sont vérifiées ; les rapports locaux sont exclus du dépôt. La suite
+`npm test` conserve les tests unitaires existants. Playwright est une dépendance
+de développement et n’est pas inclus dans l’application publiée.
+
+### Présentation compacte (v0.4.0)
+
+L'Accueil commence directement par les dernières sorties, sans bandeau de
+présentation. La fiche conserve ses informations principales visibles dans une
+grille compacte. « Détails complémentaires » regroupe la FC maximale, le dénivelé
+négatif, la charge cardio Polar, le Running Index et les zones cardiaques.
+Les explications des mesures et du curseur sont repliables. Les quatre courbes,
+le curseur synchronisé, les échelles et les tableaux accessibles sont conservés.
+Aucune donnée ni aucun schéma IndexedDB n'est modifié.
+
+Les tests Chromium vérifient les changements de période dans un fuseau différent
+de UTC, les quatre courbes et l'absence de débordement sur ordinateur, tablette
+et smartphone, avec des données synthétiques dans un navigateur isolé.
+
+### Identité graphique et écran de lancement
+
+Les originaux `logo.png`, `titre.png` et `splash.png` sont copiés sans modification
+sous `public/images/`. L'en-tête utilise un logo doublé dans une zone carrée et un titre de taille
+conservée sur fond transparent, avec une légère ombre claire pour les thèmes sombres ; leur lien revient à l'Accueil.
+Les dimensions s'adaptent au mobile en conservant les proportions.
+
+Une fenêtre blanche centrée de 360 × 380 px, arrondie et adaptée aux petits écrans,
+affiche l'illustration entière pendant trois secondes à chaque
+chargement du document, jamais lors des navigations internes. Un léger voile sombre
+laisse l’application visible derrière. L'application
+continue de charger derrière cette présentation ; ses contrôles sont temporairement
+inactifs. Une disparition discrète termine l'affichage, sans animation lorsque
+le système demande de réduire les mouvements. Aucun stockage n'est réinitialisé.
+La version de l'en-tête et du splash provient de `package.json`, injectée par Vite
+à la compilation. Une modification de version nécessite une nouvelle compilation
+(ou un redémarrage du serveur de développement).

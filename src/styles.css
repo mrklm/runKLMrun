@@ -485,7 +485,7 @@ footer>span:first-child {
   }
 }
 
-.session-list .session-card { display: block; }
+.session-list .session-card { display: block; padding:0; }
 .session-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 1rem; width: 100%; }
 .session-metrics dt { font-size: .8rem; color: var(--text); }
 .session-metrics dd { margin: .3rem 0 0; }
@@ -546,10 +546,6 @@ progress::-webkit-progress-value { background:var(--progress-fill); }
 progress::-moz-progress-bar { background:var(--progress-fill); }
 summary { cursor:pointer; }
 .theme-picker { display:grid; gap:8px; max-width:440px; }
-.theme-preview { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:12px; padding:0; margin:24px 0; list-style:none; }
-.theme-preview li { display:grid; gap:6px; font-size:.8rem; }
-.theme-swatch { height:42px; border:1px solid var(--text); border-radius:6px; }
-.theme-preview code { font-size:.8rem; }
 /* Habillage partagé des graphiques Recharts. */
 .recharts-cartesian-axis-tick-value, .recharts-text { fill:var(--text); }
 .recharts-cartesian-grid line { stroke:var(--chart-grid); opacity:.25; }
@@ -588,3 +584,86 @@ summary { cursor:pointer; }
   .history-year > summary, .history-month > summary { padding:16px; }
   .history-year > summary span, .history-month > summary span { display:block; }
 }
+
+.session-link { color:var(--text); text-decoration:none; display:block; padding:20px 0; }
+.session-link strong { text-decoration:underline; text-underline-offset:4px; }
+.session-link:focus-visible, .session-back:focus-visible { outline:2px solid var(--chart-line); outline-offset:4px; }
+.session-link:hover strong { text-decoration-thickness:3px; }
+.session-detail-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:20px; }
+.session-detail-metrics dd { margin:6px 0 0; font-weight:600; }
+.session-curves { display:grid; gap:24px; margin-top:24px; min-width:0; }
+.session-back { display:inline-block; padding:12px 0; }
+.session-curves .button { min-height:44px; }
+
+.session-detail-metrics + h2 { margin-top:28px; }
+.settings-panel .table-scroll table, .session-information .table-scroll table { width:100%; border-collapse:collapse; text-align:left; }
+.settings-panel .table-scroll th, .settings-panel .table-scroll td, .session-information .table-scroll th, .session-information .table-scroll td { padding:10px; border-bottom:1px solid var(--border); }
+
+.session-curves .chart-frame { height:320px; }
+.session-curves .chart-tooltip { max-width:min(250px,65vw); overflow-wrap:anywhere; }
+.session-curves .chart-data { margin-top:16px; }
+@media (max-width:600px) {
+  .session-curves .chart-frame { height:280px; }
+  .session-curves .chart-panel > p { margin-inline:8px; }
+  .chart-pagination { flex-wrap:wrap; }
+}
+
+.cursor-controls { padding:20px; }
+.cursor-controls label { display:grid; gap:12px; }
+.cursor-controls input[type="range"] { width:100%; min-height:44px; accent-color:var(--panel-link); }
+.cursor-values { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; }
+.cursor-values dd { margin:6px 0; }
+.cursor-values small { display:block; }
+
+.home-title { font-size:1.25rem; margin:0 0 16px; }
+.statistics-period-controls { display:flex; flex-wrap:wrap; gap:12px; align-items:end; }
+.statistics-period-controls label { display:grid; gap:6px; min-width:120px; max-width:100%; }
+.statistics-period-controls select { min-height:44px; max-width:100%; }
+.session-heading h1 { margin:4px 0 12px; font-size:1.5rem; overflow-wrap:anywhere; }
+.session-information { padding:14px 18px; margin-bottom:0; }
+.session-information h2 { font-size:1rem; margin:0 0 10px; }
+.session-information .session-detail-metrics { grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; margin:8px 0; font-size:.85rem; }
+.session-information .session-detail-metrics dd { margin-top:3px; }
+.session-secondary { margin-top:12px; }
+.session-secondary summary, .curve-notes summary, .cursor-help summary { cursor:pointer; }
+.session-curves { gap:12px; margin-top:12px; }
+.session-curves > .panel { margin-bottom:0; }
+.cursor-controls { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px 16px; padding:12px 16px; }
+.cursor-controls p, .cursor-values { margin:0; }
+.cursor-values { grid-column:1 / -1; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; font-size:.85rem; }
+.cursor-controls label { gap:4px; }
+.cursor-help { font-size:.85rem; }
+@media(max-width:600px) {
+  .session-information { padding:12px; }
+  .cursor-controls { grid-template-columns:minmax(0,1fr); padding:12px; }
+  .cursor-controls .button { justify-self:start; }
+  .cursor-values { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+@media (min-width:641px) and (max-width:900px) {
+  .navigation a { padding-inline:10px; }
+}
+
+/* Identité originale : titre transparent, fenêtre de lancement blanche. */
+.site-header .brand { gap:6px; padding:4px 6px; border-radius:8px; background:transparent; color:var(--text); letter-spacing:normal; flex-shrink:0; }
+.brand-logo { width:92px; height:92px; object-fit:contain; border-radius:6px; background:#fff; }
+.brand-title { width:153px; height:auto; object-fit:contain; filter:drop-shadow(0 0 2px #fff); }
+.brand-version { font-size:14px; font-weight:400; opacity:.6; white-space:nowrap; }
+.splash-screen { position:fixed; inset:0; z-index:1000; background:rgb(0 0 0 / 25%); display:flex; align-items:center; justify-content:center; padding:16px; animation:splash-dismiss 3s linear forwards; }
+.splash-window { position:relative; width:360px; height:380px; max-width:calc(100vw - 32px); max-height:calc(100dvh - 32px); padding:20px 16px 56px; background:#fff; color:#00263e; border-radius:12px; box-shadow:0 12px 40px rgb(0 0 0 / 20%); }
+.splash-window img { width:100%; height:100%; object-fit:contain; }
+.splash-version { position:absolute; bottom:20px; left:0; right:0; text-align:center; opacity:.6; font-size:14px; }
+@keyframes splash-dismiss { 0%, 95% { opacity:1; } 100% { opacity:0; } }
+@media(prefers-reduced-motion:reduce) { .splash-screen { animation:none; } }
+@media(max-width:640px) {
+  .site-header { gap:8px; }
+  .site-header .brand { gap:4px; padding:4px; }
+  .brand-logo { width:72px; height:72px; }
+  .brand-title { width:132px; }
+  .brand-version { font-size:12px; }
+
+}
+
+.settings-panel.appearance-panel { padding:16px; }
+.appearance-panel h2 { margin-bottom:8px; }
+.appearance-panel .theme-picker { gap:4px; }

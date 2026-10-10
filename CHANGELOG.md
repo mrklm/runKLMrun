@@ -1,8 +1,31 @@
 # Historique des versions
 
-## [Non publié] — v0.3.0
+## v0.4.0 — 2026-10-10
 
-Version préparée pour publication ; aucun tag créé.
+- feat(session): consulter les détails d’une séance depuis l’Accueil ou l’Historique,
+  avec informations générales, zones cardiaques et chargement ciblé des données.
+- feat(charts): afficher fréquence cardiaque, allure, altitude et cadence avec
+  échelles adaptées, tableaux accessibles et respect des interruptions de mesure.
+- feat(charts): synchroniser le curseur temporel et les mesures entre les quatre
+  courbes, à la souris, au clavier et sur écran tactile.
+- feat(import): importer plusieurs fichiers TCX et réunir ZIP/JSON Polar et TCX
+  dans une interface commune avec progression, validation et compte rendu explicite.
+- feat(storage): détecter prudemment les doublons TCX et interformats sans écraser
+  les séances existantes ni modifier le schéma IndexedDB.
+- feat(statistiques): filtrer les indicateurs et graphiques sur les sept derniers
+  jours locaux, un mois, une année ou tout l’historique, avec agrégations adaptées.
+- fix(navigation): rendre les cartes de séance entièrement cliquables ; compacter
+  les fiches et replier les informations secondaires ; supprimer le bandeau d’Accueil.
+- feat(identite): intégrer le logo et le titre graphiques ainsi qu’un splash compact
+  de trois secondes, avec version automatique et prise en charge des animations réduites.
+- refactor(parametres): placer le sélecteur compact des 16 thèmes en bas de page,
+  en conservant l’application immédiate et la mémorisation locale.
+- style(interface): supprimer « Un pas après l’autre. À votre rythme. » du pied de page.
+- test(interface): couvrir les imports, graphiques, périodes, thèmes et navigations,
+  avec tests Chromium sur ordinateur et mobile.
+
+## v0.3.0
+
 
 - feat(home): limiter « Dernières sorties » aux cinq séances les plus récentes
   et ajouter le lien vers l’historique complet, en conservant les informations
