@@ -13,6 +13,7 @@ export interface TrainingHistory {
   referenceDate: string;
   sessionCount: number;
   activeDays: number;
+  days: { date: string; sessions: number; durationSeconds: number | null }[];
   activeWeeks: number;
   sessionsPerWeek: number;
   distance: CoveredMeasure;
@@ -54,7 +55,11 @@ export function analyzeTrainingHistory(sessions: readonly RunningSession[], week
     if (usable(session.distanceMeters) && (!longest || session.distanceMeters > longest.distanceMeters!
       || (session.distanceMeters === longest.distanceMeters && (session.date > longest.date || (session.date === longest.date && session.id < longest.id))))) longest = session;
   }
+  const daily = new Map<string, RunningSession[]>();
+  for (const session of selected) daily.set(session.date, [...(daily.get(session.date) ?? []), session]);
   return {
+    days: [...daily].sort(([a], [b]) => a.localeCompare(b)).map(([date, entries]) => ({ date, sessions: entries.length,
+      durationSeconds: entries.every(s => usable(s.durationSeconds)) ? entries.reduce((sum, s) => sum + s.durationSeconds, 0) : null })),
     weeks, startDate, referenceDate, sessionCount: selected.length, activeDays: days.size, activeWeeks: blocks.size,
     sessionsPerWeek: selected.length / weeks, distance: covered(selected, 'distanceMeters', weeks), duration: covered(selected, 'durationSeconds', weeks),
     longest: longest ? { id: longest.id, date: longest.date, distanceMeters: longest.distanceMeters!, durationSeconds: usable(longest.durationSeconds) ? longest.durationSeconds : null } : undefined,

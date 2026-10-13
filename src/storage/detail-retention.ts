@@ -1,3 +1,4 @@
+import { retentionLockName } from './operation-lock';
 import { classifyDetails } from '../core/analysis/detail-retention';
 import { validateBackupData } from '../backup/validation';
 import { DATABASE_NAME, openDatabase } from './database-connection';
@@ -14,7 +15,6 @@ export interface CleanupResult { deleted: number; scanned: number; interrupted: 
 export interface CleanupOptions { signal?: AbortSignal; progress?: (result: CleanupResult) => void }
 export type RetentionLock = (task: () => Promise<CleanupResult>) => Promise<CleanupResult | undefined>;
 export const RETENTION_KEY = 'runklmrun-detail-retention-v1';
-const DAY = 86400000;
 const BATCH_SIZE = 25;
 const emptyReport = (): RetentionReport => ({ total: 0, expired: 0, kept: 0, uncertain: 0, invalidSummary: 0 });
 type Preferences = Pick<Storage, 'getItem' | 'setItem'>;
@@ -33,7 +33,7 @@ function category(summary: RunningSession | undefined, key: string, reference: D
 export function browserRetentionLock(name: string): RetentionLock {
   return async task => {
     if (typeof navigator === 'undefined' || !navigator.locks) throw new Error('Votre navigateur ne permet pas de verrouiller le nettoyage entre onglets. Aucun détail n’a été supprimé.');
-    return navigator.locks.request(`runklmrun-retention:${name}`, { ifAvailable: true }, lock => lock ? task() : undefined);
+    return navigator.locks.request(retentionLockName(name), { ifAvailable: true }, lock => lock ? task() : undefined);
   };
 }
 
@@ -118,15 +118,11 @@ export function createRetentionService(options: {
   async function run(confirmed: boolean, automatic: boolean, options: CleanupOptions = {}) {
     if (!automatic && !confirmed) throw new Error('Confirmez explicitement le nettoyage et l’activation de la politique.');
     return lock(async () => {
-      const current = state(), reference = now().getTime();
-      if (automatic && (!current.enabled || (current.checkedAt !== undefined && reference >= current.checkedAt && reference - current.checkedAt < DAY))) {
-        return { deleted: 0, scanned: 0, interrupted: false };
-      }
       if (options.signal?.aborted) return { deleted: 0, scanned: 0, interrupted: true };
       // Le consentement doit pouvoir être mémorisé avant toute suppression.
       if (!automatic) write();
       const result = await clean(options);
-      if (!result.interrupted) write(reference);
+      if (!automatic && !result.interrupted) write(now().getTime());
       return result;
     });
   }
@@ -134,11 +130,8 @@ export function createRetentionService(options: {
     analyze,
     isEnabled: () => state().enabled,
     activateAndClean: (confirmed: boolean, options?: CleanupOptions) => run(confirmed, false, options),
-    maintain: (options?: CleanupOptions) => {
-      // Aucun accès IndexedDB ni verrou si la politique n’a pas été activée.
-      if (!state().enabled) return Promise.resolve<CleanupResult | undefined>(undefined);
-      return run(false, true, options);
-    },
+    // La politique de 30 jours est désormais automatique, sans préférence d’activation.
+    maintain: (options?: CleanupOptions) => run(false, true, options),
   };
 }
 export const retentionService = createRetentionService();

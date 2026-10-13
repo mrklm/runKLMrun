@@ -33,3 +33,46 @@ inactives. La fusion le conserve par défaut. Le remplacement d’un profil exis
 conserve sa date de création sauvegardée, actualise la date de modification et
 avance la révision pour refuser les anciens brouillons. Sans profil local, les
 métadonnées du fichier sont conservées. Voir [la restauration](../../backup/README.md).
+
+## Conseiller : première étape
+
+Le champ facultatif `accompanimentMode` du profil réserve les valeurs `advisor`
+et `trainer`. Seul `advisor` est accepté à cette étape ; l’absence de champ signifie
+Conseiller. Le bouton dédié enregistre ce choix sans modifier les autres valeurs
+persistées du profil. Les écritures conservent le contrôle de révision existant.
+Les sauvegardes JSON/gzip incluent ce champ sans nouveau format ni migration ;
+les anciennes sauvegardes restent lisibles. Entraîneur est désactivé dans l’interface.
+
+`comparison.ts` réutilise le bilan pour deux fenêtres consécutives égales.
+Les différences sont absolues ; les variations de distance/durée ne sont calculées
+que si les deux périodes ont des séances et une couverture complète de la mesure.
+Les totaux partiels restent affichés avec leur couverture. Aucun pourcentage
+potentiellement trompeur sur une base nulle n’est calculé.
+
+`observations.ts` reçoit le bilan comparatif et le profil facultatif complet.
+Il exploite la distance cible, la fréquence souhaitée, les jours réellement courus
+et disponibles, et les durées disponibles. Les dates civiles source déterminent
+les jours de semaine ; plusieurs sorties du même jour comptent comme un seul jour.
+En mode personnalisé, les durées sont cumulées par jour et comparées au plafond
+actif correspondant ; un jour avec une durée manquante ou invalide est exclu.
+En mode simple, la moyenne par sortie utilise uniquement les durées connues,
+avec indication explicite de la couverture. Les disponibilités actuelles ne sont
+pas supposées représenter les disponibilités passées.
+
+Distance et durée produisent des observations indépendantes si la mesure concernée
+est complète dans les deux périodes. Chaque observation possède des explications
+consultables : période, valeurs, couverture et règle appliquée. L’historique peut
+être incomplet même lorsque toutes les séances enregistrées ont leurs mesures.
+
+Quatre observations au maximum sont retenues par priorité décroissante :
+interruption (100), écart de fréquence souhaitée (80), jours hors disponibilités
+(70), durée supérieure au temps déclaré (65), changement de fréquence (60),
+changement de distance/durée (55), objectif (50), puis constats sans écart
+(fréquence souhaitée 20, jours 15, durée 10, fréquence/volume 5).
+À priorité égale, l’ordre de déclaration des règles est conservé. Ces priorités
+éditoriales ne représentent pas une gravité ou un risque sportif.
+L’échéance et le terrain ne produisent pas encore d’observations spécifiques.
+L’interruption exige quatre sorties précédentes au minimum et un intervalle depuis
+la dernière activité au moins égal au maximum de sept jours et de deux intervalles
+moyens précédents (arrondi supérieur). Ce repère décrit les enregistrements et ne
+permet aucune conclusion médicale. Les observations ne sont jamais persistées.

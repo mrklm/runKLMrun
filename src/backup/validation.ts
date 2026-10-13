@@ -31,7 +31,7 @@ export function validateBackupData(value: unknown, source = false): asserts valu
   array(value.sessions); array(value.details);
   const sessions = new Set<string>(), details = new Set<string>();
   for (const s of value.sessions) {
-    fields(s, 'id title date startTime polarId source sport polarSportId timezoneOffsetMinutes distanceMeters durationSeconds averageHeartRate maximumHeartRate ascentMeters descentMeters averagePaceSecondsPerKm heartRateZones runningIndex cardioLoad');
+    fields(s, 'id title date startTime polarId source sport polarSportId timezoneOffsetMinutes distanceMeters durationSeconds averageHeartRate maximumHeartRate ascentMeters ascentEstimate descentMeters averagePaceSecondsPerKm heartRateZones runningIndex cardioLoad');
     if (!id(s.id) || !text(s.title) || !(text(s.date) || (source && s.date === undefined)) || !number(s.durationSeconds)) fail();
     if (sessions.has(s.id)) fail('La sauvegarde contient des identifiants de séances dupliqués.');
     sessions.add(s.id);
@@ -41,6 +41,11 @@ export function validateBackupData(value: unknown, source = false): asserts valu
     if (s.startTime !== undefined && !text(s.startTime)) fail();
     if (s.timezoneOffsetMinutes !== undefined && !number(s.timezoneOffsetMinutes, -1440, 1440)) fail();
     optionalNumbers(s, 'distanceMeters averageHeartRate maximumHeartRate ascentMeters descentMeters averagePaceSecondsPerKm runningIndex cardioLoad');
+    if (s.ascentEstimate !== undefined) {
+      fields(s.ascentEstimate, 'method quality meters');
+      const e = s.ascentEstimate;
+      if (s.source !== 'tcx' || e.method !== 'hysteresis-3m-v1' || !['complete', 'partial'].includes(e.quality as string) || !number(e.meters) || e.meters !== s.ascentMeters) fail();
+    }
     if (s.heartRateZones !== undefined) {
       array(s.heartRateZones);
       for (const zone of s.heartRateZones) {
@@ -106,7 +111,7 @@ export function validateBackupData(value: unknown, source = false): asserts valu
   }
   const p = value.coachProfile;
   if (p !== null) {
-    fields(p, 'id goal availability preferences createdAt updatedAt revision');
+    fields(p, 'id goal availability preferences createdAt updatedAt revision accompanimentMode');
     fields(p.goal, 'kind distance targetDate');
     fields(p.availability, 'sessionsPerWeek days minutesPerSession durationMode maxMinutesByDay');
     fields(p.preferences, 'terrain');

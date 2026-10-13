@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { compareTraining } from '../core/coach/comparison';
 import { CoachProfile } from '../components/CoachProfile';
 import { EmptyState } from '../components/EmptyState';
 import type { RunningSession } from '../types/session';
-import { analyzeTrainingHistory, type CoveredMeasure, type TrainingWeeks } from '../core/analysis/training-history';
+import { type CoveredMeasure, type TrainingWeeks } from '../core/analysis/training-history';
 import { localToday } from '../core/analysis/statistics-period';
 import { formatNumber } from '../core/analysis/session-summary';
 import { duration } from '../core/analysis/session-format';
@@ -25,7 +26,8 @@ export function Training({ sessions }: { sessions: RunningSession[] }) {
     window.addEventListener('focus', refresh);
     return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); };
   }, []);
-  const data = useMemo(() => analyzeTrainingHistory(sessions, weeks, today), [sessions, weeks, today]);
+  const comparison = useMemo(() => compareTraining(sessions, weeks, today), [sessions, weeks, today]);
+  const data = comparison.current;
   return <>
     <header className="page-heading"><h1>Entraînement</h1></header>
     <section className="panel settings-panel training-history" aria-labelledby="training-history-title">
@@ -58,6 +60,6 @@ export function Training({ sessions }: { sessions: RunningSession[] }) {
       </div>
       <p className="training-coverage">Ce bilan décrit les séances enregistrées. Il ne constitue pas une évaluation de votre condition physique.</p>
     </section>
-    <CoachProfile />
+    <CoachProfile comparison={comparison} />
   </>;
 }

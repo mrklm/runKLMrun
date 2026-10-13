@@ -45,7 +45,6 @@ export function App() {
   const currentPage = navigation.find((item) => item.path === path);
   const [data, setData] = useState<DataState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
-  const [retentionError, setRetentionError] = useState('');
   useEffect(() => {
     const controller = new AbortController();
     let running = false;
@@ -56,12 +55,11 @@ export function App() {
         const result = await retentionService.maintain({ signal: controller.signal });
         if (!controller.signal.aborted && result?.deleted) setAttempt(value => value + 1);
       } catch {
-        if (!controller.signal.aborted) setRetentionError('L’entretien des détails n’a pas pu se terminer. Vos résumés sont conservés. Consultez les Paramètres pour actualiser le bilan et réessayer.');
+        // Entretien silencieux : une prochaine ouverture ou importation pourra réessayer.
       } finally { running = false; }
     };
-    queueMicrotask(() => { if (!controller.signal.aborted) void maintain(); });
-    document.addEventListener('visibilitychange', maintain);
-    return () => { controller.abort(); document.removeEventListener('visibilitychange', maintain); };
+    const timer = window.setTimeout(() => { if (!controller.signal.aborted) void maintain(); }, 0);
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, []);
   useEffect(() => {
     if (typeof BroadcastChannel === 'undefined') return;
@@ -103,7 +101,6 @@ export function App() {
         {navigation.map((item) => <a key={item.path} href={`#${item.path}`} aria-current={path === item.path ? 'page' : undefined}><span aria-hidden="true">{item.symbol}</span>{item.label}</a>)}
       </nav>
       <main id="main-content" ref={mainRef} tabIndex={-1}>
-        {retentionError && <p role="alert">{retentionError}</p>}
         {needsData && data.status === 'loading' && <div className="panel status" role="status">Ouverture de votre espace local…</div>}
         {needsData && data.status === 'error' && <div className="panel status" role="alert"><h1>Stockage local indisponible</h1><p>{data.message ?? 'Vos données n’ont pas pu être chargées. Vérifiez que votre navigateur autorise le stockage de ce site, puis réessayez.'}</p><button className="button" onClick={() => setAttempt((value) => value + 1)}>Réessayer</button></div>}
         {path === '/' && data.status === 'ready' && <Home sessions={data.sessions} />}

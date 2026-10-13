@@ -710,3 +710,16 @@ summary { cursor:pointer; }
 .shoe-panel .button { margin:4px 0; }
 .shoe-history { padding:12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 .shoe-history select { max-width:100%; min-width:0; min-height:44px; }
+
+/* Cartes de choix : radios natifs conservés pour le clavier et les lecteurs d’écran. */
+.shoe-mode-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.shoe-panel .shoe-mode-card { position:relative; margin:0; display:block; cursor:pointer; }
+.shoe-panel .shoe-mode-card input[type="radio"] { position:absolute; width:1px; height:1px; min-height:0; padding:0; margin:0; opacity:0; }
+.shoe-mode-content { display:flex; flex-direction:column; gap:8px; height:100%; padding:18px; border:2px solid var(--border); border-radius:12px; background:var(--panel); color:var(--panel-fg, var(--fg)); }
+.shoe-mode-content > strong { font-size:1.1rem; }
+.shoe-mode-selection { margin-top:auto; font-weight:600; }
+.shoe-mode-card input:checked + .shoe-mode-content { border-color:var(--accent); background:var(--field); color:var(--field-text, var(--field-fg)); }
+.shoe-mode-card input:focus-visible + .shoe-mode-content { outline:3px solid var(--text); outline-offset:4px; }
+.shoe-mode-card:hover .shoe-mode-content { text-decoration:underline; text-underline-offset:3px; }
+.shoe-mode-card:has(input:disabled) { cursor:wait; }
+@media(max-width:640px) { .shoe-mode-cards { grid-template-columns:minmax(0,1fr); } }

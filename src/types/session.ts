@@ -1,3 +1,4 @@
+import type { AscentEstimate } from '../core/analysis/ascent';
 /** Résumé léger. Distances/altitudes en m, durées en s, FC en bpm. */
 export interface RunningSession {
   id: string;
@@ -14,6 +15,7 @@ export interface RunningSession {
   averageHeartRate?: number;
   maximumHeartRate?: number;
   ascentMeters?: number;
+  ascentEstimate?: AscentEstimate;
   descentMeters?: number;
   averagePaceSecondsPerKm?: number;
   heartRateZones?: { lower?: number; upper?: number; durationSeconds?: number }[];

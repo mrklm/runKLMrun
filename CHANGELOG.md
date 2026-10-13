@@ -2,6 +2,40 @@
 
 ## [Non publié]
 
+## v0.6.0 — 2026-10-14
+
+### Coach
+
+- feat(coach): comparer deux périodes d’entraînement et proposer des observations
+  personnalisées selon l’historique, les objectifs et les disponibilités.
+- feat(coach): expliquer les observations, exploiter indépendamment les mesures
+  disponibles et sélectionner jusqu’à quatre constats selon des priorités explicites.
+- feat(coach): rendre le mode Conseiller opérationnel et sauvegarder sa préférence ;
+  conserver le mode Entraîneur désactivé, en préparation.
+
+### Importation TCX
+
+- fix(tcx): ignorer les mesures facultatives inutilisables avec avertissement et
+  distinguer les erreurs de fichier, de format et les erreurs techniques.
+- feat(tcx): estimer le D+ depuis les altitudes avec filtrage, sans changer les
+  identifiants ; signaler les estimations partielles et les conserver dans les sauvegardes.
+- fix(affichage): présenter les fréquences cardiaques sans décimale et le D+ avec
+  trois décimales maximum, en français, sans arrondir les données enregistrées.
+
+### Conservation des données
+
+- feat(conservation): nettoyer automatiquement les détails expirés après 30 jours
+  au démarrage et après import réussi, en conservant les résumés permanents.
+- refactor(conservation): retirer l’action manuelle, protéger les dates incertaines
+  et coordonner nettoyage et restauration entre onglets, avec transactions par lots.
+
+### Interface
+
+- feat(interface): différer de 400 ms les indicateurs des imports, sauvegardes et
+  restaurations, sans durée minimale ni faux pourcentage ; protéger les actions incompatibles.
+- style(chaussures): présenter les modes de suivi sous forme de cartes accessibles,
+  adaptées aux thèmes et aux écrans mobiles, avec restitution du focus clavier.
+
 ## v0.5.0 — 2026-10-13
 
 - feat(chaussures): suivre une seule paire automatiquement selon les dates de première

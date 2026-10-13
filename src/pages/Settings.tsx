@@ -15,7 +15,7 @@ export function Settings({ onImported }: { onImported: () => void }) {
         <div className="notice"><strong>À savoir</strong><p>Effacer les données de ce site peut supprimer votre historique. En navigation privée, le stockage peut être indisponible ou supprimé à la fermeture du navigateur.</p></div>
       </section>
       <Backups onRestored={onImported} />
-      <DetailRetention onCleaned={onImported} />
+      <DetailRetention />
       <Appearance />
     </>
   );

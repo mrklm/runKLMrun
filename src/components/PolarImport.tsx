@@ -1,3 +1,6 @@
+import { acquireOperation, useOperationBusy } from './operation-guard';
+import { DelayedOperation } from './DelayedOperation';
+import { maintainAfterImport } from '../storage/automatic-retention';
 import { ImportShoeSuggestion } from './Shoes';
 import { useEffect, useRef, useState } from 'react';
 import { takeSelectedFiles } from '../importers/file-selection';
@@ -12,19 +15,22 @@ export function PolarImport({ onImported }: { onImported: () => void }) {
   const [report, setReport] = useState<UnifiedReport>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const operationBusy = useOperationBusy();
+  const releaseOperation = useRef<(() => void) | undefined>(undefined);
   const running = useRef(false), mounted = useRef(true);
   const worker = useRef<Worker | null>(null);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; worker.current?.terminate(); }; }, []);
-  function finish() { running.current = false; worker.current?.terminate(); worker.current = null; if (mounted.current) { setBusy(false); onImported(); } }
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; if (worker.current) { worker.current.terminate(); releaseOperation.current?.(); releaseOperation.current = undefined; } }; }, []);
+  function finish() { releaseOperation.current?.(); releaseOperation.current = undefined; running.current = false; worker.current?.terminate(); worker.current = null; if (mounted.current) { setBusy(false); onImported(); } }
   async function start() {
     if (running.current) return;
     const selection = selectPolarFiles(files);
     if ('error' in selection) { setError(selection.error); setReport(undefined); return; }
+    const release = acquireOperation(); if (!release) return; releaseOperation.current = release;
     setImportedIds([]); setError(undefined); running.current = true; setBusy(true);
     if (selection.format === 'tcx') {
       const added: string[] = [];
       setReport(tcxReport(emptyTcxReport(selection.files.length)));
-      try { const result = await importTcxFiles(selection.files, sessionRepository, r => { if (mounted.current) setReport(tcxReport(r)); }, undefined, new Date(), id => added.push(id)); if (mounted.current) setReport(tcxReport(result)); }
+      try { const result = await importTcxFiles(selection.files, sessionRepository, r => { if (mounted.current) setReport(tcxReport(r)); }, undefined, new Date(), id => added.push(id)); if (mounted.current) setReport(tcxReport(result)); void maintainAfterImport(result); }
       catch { if (mounted.current) setError('Import interrompu. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer.'); }
       finally { if (mounted.current) setImportedIds(added); finish(); }
       return;
@@ -37,7 +43,7 @@ export function PolarImport({ onImported }: { onImported: () => void }) {
       worker.current.onmessage = event => {
         if (event.data.type === 'error') { fail(); return; }
         if (mounted.current) setReport(zipReport(event.data.report as ImportReport));
-        if (event.data.type === 'done') { if (mounted.current) setImportedIds(event.data.importedIds ?? []); finish(); }
+        if (event.data.type === 'done') { void maintainAfterImport(event.data.report as ImportReport); if (mounted.current) setImportedIds(event.data.importedIds ?? []); finish(); }
       };
       worker.current.postMessage(selection.files[0]);
     } catch { fail(); }
@@ -46,11 +52,11 @@ export function PolarImport({ onImported }: { onImported: () => void }) {
     <h2 id="polar-title">Importer des séances Polar</h2>
     <p>Importez vos séances depuis une archive Polar ou depuis des fichiers TCX exportés de Polar Flow.</p>
     <p>Formats acceptés : ZIP, TCX. Sélectionnez une archive ZIP ou plusieurs fichiers TCX, sans mélanger les formats. Le traitement reste local.</p>
-    <label className="import-label">Sélectionner les fichiers<input type="file" accept=".zip,.ZIP,.tcx,.TCX" multiple disabled={busy} onChange={event => { const selected = takeSelectedFiles(event.currentTarget); setFiles(selected); setReport(undefined); const result = selectPolarFiles(selected); setError('error' in result ? result.error : undefined); }} /></label>
+    <label className="import-label">Sélectionner les fichiers<input type="file" accept=".zip,.ZIP,.tcx,.TCX" multiple disabled={operationBusy} onChange={event => { const selected = takeSelectedFiles(event.currentTarget); setFiles(selected); setReport(undefined); const result = selectPolarFiles(selected); setError('error' in result ? result.error : undefined); }} /></label>
     <p>{files.length ? `${files.length} fichier(s) sélectionné(s).` : 'Aucun fichier sélectionné.'}</p>
-    <button className="button" disabled={busy} onClick={() => void start()}>Importer les séances</button>
+    <button className="button" disabled={operationBusy} onClick={() => void start()}>Importer les séances</button>
     {error && <p role="alert">{error}</p>}
-    {report && <ImportReportView report={report} busy={busy} />}
+    {report && (busy ? <DelayedOperation active={busy}><ImportReportView report={report} busy /></DelayedOperation> : <ImportReportView report={report} busy={false} />)}
     {!busy && importedIds.length > 0 && <ImportShoeSuggestion ids={importedIds} />}
   </section>;
 }

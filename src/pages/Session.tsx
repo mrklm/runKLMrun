@@ -1,9 +1,10 @@
+import { ascentLabel } from '../core/analysis/ascent';
 import { SessionShoes } from '../components/Shoes';
 import { useEffect, useMemo, useState } from 'react';
 import type { RunningSession, SessionDetails } from '../types/session';
 import { sessionRepository } from '../storage/database';
 import { loadSessionDetails, type DetailsState } from '../storage/load-session-details';
-import { duration, measure, pace } from '../core/analysis/session-format';
+import { duration, measure, pace, heartRate, ascent } from '../core/analysis/session-format';
 import { prepareSeries } from '../core/analysis/session-detail';
 import { SynchronizedSessionCharts } from '../components/SynchronizedSessionCharts';
 import { EmptyState } from '../components/EmptyState';
@@ -13,8 +14,8 @@ export function SessionInformation({ session }: { session: RunningSession }) {
     ['Date', session.date ? session.date.split('-').reverse().join('/') : '—'],
     ['Heure', session.startTime?.slice(11, 19) || '—'], ['Durée', duration(session.durationSeconds)],
     ['Distance', measure(session.distanceMeters, 'km', 1000)], ['Allure moyenne', pace(session.averagePaceSecondsPerKm)],
-    ['Fréquence cardiaque moyenne', measure(session.averageHeartRate, 'bpm')], ['Fréquence cardiaque maximale', measure(session.maximumHeartRate, 'bpm')],
-    ['Dénivelé positif', measure(session.ascentMeters, 'm')], ['Dénivelé négatif', measure(session.descentMeters, 'm')],
+    ['Fréquence cardiaque moyenne', heartRate(session.averageHeartRate)], ['Fréquence cardiaque maximale', heartRate(session.maximumHeartRate)],
+    [ascentLabel(session.ascentEstimate), ascent(session.ascentMeters)], ['Dénivelé négatif', measure(session.descentMeters, 'm')],
     ['Charge cardio Polar', measure(session.cardioLoad)], ['Running Index', measure(session.runningIndex)],
   ];
   return <section className="panel session-information"><h2>Informations générales</h2><dl className="session-detail-metrics">{fields.filter(([name]) => !['Fréquence cardiaque maximale', 'Dénivelé négatif', 'Charge cardio Polar', 'Running Index'].includes(name)).map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>

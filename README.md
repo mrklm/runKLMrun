@@ -1,4 +1,4 @@
-# runKLMrun — v0.5.0
+# runKLMrun — v0.6.0
 
 Socle d’une application web open source de suivi et de planification des
 entraînements de course à pied. Interface en français, responsive, sans compte,
@@ -630,3 +630,17 @@ existants. Les durées d’utilisation sont calendaires et inclusives ; les fins
 ne représentent pas la dernière sortie enregistrée. Les seuils d’usure restent des
 repères personnels facultatifs. Les sauvegardes avec chaussures utilisent le format 2,
 tout en conservant la lecture du format 1.
+
+### Entretien et opérations longues
+
+Les détails des séances de plus de 30 jours sont désormais nettoyés automatiquement
+au démarrage et après une importation réussie, sans action dans les Paramètres.
+Les résumés, le profil et les associations de chaussures restent permanents ; les
+dates incertaines sont protégées. Les graphiques détaillés expirés ne sont plus disponibles.
+Le nettoyage reste silencieux, ne prolonge pas le splash et ne s’exécute pas pendant
+une restauration. Un navigateur sans Web Locks n’exécute pas cet entretien.
+
+Les imports et les opérations de sauvegarde/restauration partagent un indicateur
+local à leur section, affiché après 400 ms et retiré dès la fin ou l’erreur.
+Les opérations plus courtes n’affichent pas d’indicateur. Les actions incompatibles
+sont temporairement désactivées sans bloquer la navigation.

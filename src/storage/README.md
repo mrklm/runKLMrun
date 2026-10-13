@@ -89,3 +89,24 @@ sans écrire d’associations. Le changement de mode ne supprime rien. Une conve
 explicite vers les associations manuelles exige un aperçu puis une confirmation ;
 la transaction revérifie les résumés, paires, associations et le mode. Les associations
 existantes ne sont pas écrasées.
+
+### Entretien automatique des détails
+
+Le service de conservation existant intervient au démarrage, sans attendre une
+activation locale, et après un import réussi (ajouts ou doublons reconnus).
+Il ne dépend plus du délai journalier ni du nombre de séances ajoutées.
+Les erreurs sont absorbées par les déclencheurs ; un prochain démarrage ou import
+peut réessayer. L’interface et le splash n’attendent pas la maintenance.
+
+Seuls les détails strictement expirés selon la règle centralisée des 30 jours
+sont supprimés, par lots de 25, avec relecture du résumé dans la transaction.
+Les dates incertaines, résumés invalides et détails orphelins restent protégés.
+Les magasins de résumés, profil et chaussures ne sont jamais supprimés par ce service.
+La restauration prend le même Web Lock exclusif que le nettoyage, depuis sa
+préparation jusqu’à sa fin. Un nettoyage ne démarre pas si ce verrou est occupé.
+Sans Web Locks, aucun nettoyage n’est exécuté ; la restauration conserve ses
+transactions et contrôles de concurrence IndexedDB existants.
+
+L’action manuelle des Paramètres est remplacée par une explication. Ce changement
+rend automatique la suppression des détails anciens existants, y compris sur les
+appareils où la politique n’avait pas été activée. Il n’étend pas la règle des 30 jours.

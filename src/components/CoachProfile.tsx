@@ -1,3 +1,5 @@
+import { CoachObservations } from './CoachObservations';
+import type { TrainingComparison } from '../core/coach/comparison';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { emptyProfileValues, type CoachProfile as Profile, type Weekday } from '../types/coach-profile';
 import { DAYS, DISTANCES, GOALS, TERRAINS, validateProfile, maximumMinutesForDay, formatAvailableMinutes, type ProfileErrors } from '../core/coach/profile';
@@ -8,7 +10,7 @@ import { draftFrom, valuesFrom, type Draft } from '../core/coach/profile-draft';
 import { localToday } from '../core/analysis/statistics-period';
 
 const dateLabel = (date: string) => date.split('-').reverse().join('/');
-export function CoachProfile({ repository = coachProfileRepository }: { repository?: CoachProfileRepository }) {
+export function CoachProfile({ repository = coachProfileRepository, comparison }: { repository?: CoachProfileRepository; comparison?: TrainingComparison }) {
   const [profile, setProfile] = useState<Profile>();
   const [draft, setDraft] = useState<Draft>(() => draftFrom(emptyProfileValues()));
   const [phase, setPhase] = useState<'loading' | 'editing' | 'summary' | 'saving' | 'read-error'>('loading');
@@ -49,9 +51,34 @@ export function CoachProfile({ repository = coachProfileRepository }: { reposito
       setSaveError(error instanceof StorageBlockedError || error instanceof ProfileConflictError ? error.message : 'Votre profil n’a pas pu être enregistré. Vos saisies sont conservées. Vérifiez le stockage de votre navigateur, puis réessayez.');
     }
   }
+  async function rememberMode() {
+    if (phase === 'loading' || phase === 'saving' || phase === 'read-error') return;
+    const token = ++generation.current;
+    setPhase('saving'); setSaveError('');
+    try {
+      const values = profile ?? emptyProfileValues();
+      const saved = await repository.save({ ...values, accompanimentMode: 'advisor' }, profile?.revision);
+      if (token !== generation.current) return;
+      setProfile(saved); setPhase('editing'); setMessage('Le mode Conseiller est enregistré.');
+    } catch (error) {
+      if (token !== generation.current) return;
+      setPhase('editing'); setSaveError(error instanceof Error ? error.message : 'Le mode n’a pas pu être enregistré.');
+      setConflict(error instanceof ProfileConflictError);
+    }
+  }
   const fieldError = (key: keyof ProfileErrors) => errors[key] ? <span className="profile-field-error" id={`profile-${key}-error`}>{errors[key]}</span> : null;
   const attributes = (key: keyof ProfileErrors) => ({ 'aria-invalid': !!errors[key], 'aria-describedby': errors[key] ? `profile-${key}-error` : undefined });
-  return <section className="panel settings-panel coach-profile" aria-labelledby="coach-profile-title">
+  return <>
+    <section className="panel settings-panel" aria-label="Mode d’accompagnement">
+      <h2>Mode d’accompagnement</h2>
+      <label><input type="radio" name="coach-mode" checked readOnly /> Conseiller — Je gère librement mes entraînements.</label>
+      <p><label><input type="radio" name="coach-mode" disabled checked={false} readOnly /> Entraîneur — En préparation : je souhaite un programme personnalisé.</label></p>
+      <p>Conseiller est le mode par défaut. Aucun programme n’est généré.</p>
+      <button className="button" disabled={phase === 'loading' || phase === 'saving' || phase === 'read-error' || profile?.accompanimentMode === 'advisor'} onClick={() => void rememberMode()}>Enregistrer le mode Conseiller</button>
+      {message && <p role="status">{message}</p>}
+    </section>
+    {comparison && phase !== 'loading' && <CoachObservations comparison={comparison} profile={profile} />}
+    <section className="panel settings-panel coach-profile" aria-labelledby="coach-profile-title">
     <h2 id="coach-profile-title">Votre profil de coureur</h2>
     {phase === 'loading' && <p role="status">Chargement de votre profil…</p>}
     {phase === 'read-error' && <><p role="alert">{message}</p><button className="button" onClick={() => setAttempt(a => a + 1)}>Réessayer la lecture du profil</button></>}
@@ -114,5 +141,5 @@ export function CoachProfile({ repository = coachProfileRepository }: { reposito
       {phase === 'saving' && <p role="status">Enregistrement de votre profil…</p>}
     </form>}
     <p className="training-coverage">Vos choix sont modifiables et ne constituent pas une évaluation de vos capacités. Aucun programme n’est généré.</p>
-  </section>;
+  </section></>;
 }

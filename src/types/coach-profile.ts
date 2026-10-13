@@ -4,7 +4,9 @@ export type DistanceKind = '5k' | '10k' | 'half' | 'marathon' | 'custom';
 export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 export type Terrain = 'none' | 'road' | 'trail' | 'treadmill';
 /** Uniquement des choix déclarés. undefined = non renseigné ; aucune suggestion implicite. */
+export type CoachMode = 'advisor' | 'trainer';
 export interface CoachProfileValues {
+  accompanimentMode?: CoachMode;
   goal: { kind?: GoalKind; distance?: { kind: DistanceKind; meters: number }; targetDate?: string };
   availability: { sessionsPerWeek?: number; days?: Weekday[]; minutesPerSession?: number; durationMode?: 'simple' | 'custom'; maxMinutesByDay?: Partial<Record<Weekday, number>> };
   preferences: { terrain?: Terrain };

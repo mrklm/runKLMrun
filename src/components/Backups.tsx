@@ -1,3 +1,5 @@
+import { acquireOperation, useOperationBusy } from './operation-guard';
+import { DelayedOperation } from './DelayedOperation';
 import { memoryError } from '../backup/errors';
 import { sizeLabel } from '../backup/limits';
 import { useEffect, useRef, useState } from 'react';
@@ -30,15 +32,18 @@ export function Backups({ onRestored }: { onRestored: () => void }) {
   const input = useRef<HTMLInputElement>(null), previewHeading = useRef<HTMLHeadingElement>(null), notice = useRef<HTMLParagraphElement>(null);
   const controller = useRef<AbortController | null>(null), generation = useRef(0), locked = useRef(false);
   const busy = phase !== 'idle';
-  useEffect(() => () => { generation.current++; controller.current?.abort(); }, []);
+  const operationBusy = useOperationBusy();
+  const releaseOperation = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => () => { generation.current++; controller.current?.abort(); if (controller.current) { releaseOperation.current?.(); releaseOperation.current = undefined; } }, []);
   useEffect(() => { if (preview) previewHeading.current?.focus(); }, [preview]);
   useEffect(() => { if (error || message) notice.current?.focus(); }, [error, message]);
   function cancel() {
-    generation.current++; controller.current?.abort(); locked.current = false;
+    generation.current++; controller.current?.abort(); locked.current = false; releaseOperation.current?.(); releaseOperation.current = undefined;
     setPreview(undefined); setConfirmed(false); setPhase('idle'); setError(''); setMessage('Restauration annulée. Vos données restent inchangées.');
   }
   async function exportData() {
     if (locked.current) return;
+    const release = acquireOperation(); if (!release) return; releaseOperation.current = release;
     locked.current = true; setPhase('exporting'); setError(''); setMessage(''); setReport(undefined);
     try {
       const { file: blob, jsonBytes } = await service.exportData();
@@ -48,10 +53,11 @@ export function Backups({ onRestored }: { onRestored: () => void }) {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setMessage(`Votre sauvegarde est prête. Fichier : ${sizeLabel(blob.size)} ; avant compression : ${sizeLabel(jsonBytes)} ; réduction : ${((1 - blob.size / jsonBytes) * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %. Conservez ce fichier dans un endroit sûr.`);
     } catch (e) { setError(errorMessage(e)); }
-    finally { locked.current = false; setPhase('idle'); }
+    finally { releaseOperation.current?.(); releaseOperation.current = undefined; locked.current = false; setPhase('idle'); }
   }
   async function selectFile(file: File | undefined) {
     if (!file || locked.current) return;
+    const release = acquireOperation(); if (!release) return; releaseOperation.current = release;
     locked.current = true;
     const token = ++generation.current;
     controller.current = new AbortController();
@@ -61,10 +67,11 @@ export function Backups({ onRestored }: { onRestored: () => void }) {
       const value = await service.preview(file, controller.current.signal);
       if (token === generation.current) setPreview(value);
     } catch (e) { if (token === generation.current) setError(errorMessage(e)); }
-    finally { if (token === generation.current) { locked.current = false; setPhase('idle'); } }
+    finally { if (token === generation.current) { controller.current = null; releaseOperation.current?.(); releaseOperation.current = undefined; locked.current = false; setPhase('idle'); } }
   }
   async function restore() {
     if (!preview || !confirmed || locked.current) return;
+    const release = acquireOperation(); if (!release) return; releaseOperation.current = release;
     locked.current = true; setPhase('restoring'); setError(''); setMessage('');
     try {
       const result = await service.restore(preview, options);
@@ -72,7 +79,7 @@ export function Backups({ onRestored }: { onRestored: () => void }) {
       setMessage('La restauration est terminée. Les données de l’application ont été actualisées.');
       onRestored();
     } catch (e) { setError(errorMessage(e)); setConfirmed(false); }
-    finally { locked.current = false; setPhase('idle'); }
+    finally { releaseOperation.current?.(); releaseOperation.current = undefined; locked.current = false; setPhase('idle'); }
   }
   return <section className="panel settings-panel backups" aria-labelledby="backup-title">
     <h2 id="backup-title">Données et sauvegardes</h2>
@@ -80,12 +87,12 @@ export function Backups({ onRestored }: { onRestored: () => void }) {
     <p className="notice">Votre sauvegarde contient des données personnelles, éventuellement des informations de localisation. Conservez ce fichier dans un endroit sûr.</p>
     <p>Sauvegarde compressée (.json.gz). Restauration : .json ou .json.gz.</p>
     <div className="profile-actions">
-      <button className="button" disabled={busy || !!preview} onClick={exportData}>Exporter mes données</button>
-      <button className="button" disabled={busy || !!preview} onClick={() => input.current?.click()}>Restaurer une sauvegarde</button>
+      <button className="button" disabled={operationBusy || !!preview} onClick={exportData}>Exporter mes données</button>
+      <button className="button" disabled={operationBusy || !!preview} onClick={() => input.current?.click()}>Restaurer une sauvegarde</button>
       <input ref={input} type="file" accept=".json,.JSON,.json.gz,.JSON.GZ,.gz,.GZ,application/json,application/gzip" hidden aria-label="Fichier de sauvegarde" onChange={e => { const file = e.currentTarget.files?.[0]; e.currentTarget.value = ''; void selectFile(file); }} />
     </div>
     <p className="training-coverage">Traitement sur votre appareil, sans envoi. Limites : gzip 128 Mio ; contenu JSON 384 Mio. Des limites de complexité et d’expansion protègent la lecture. L’empreinte détecte des altérations, mais ne garantit pas l’authenticité du fichier.</p>
-    {busy && <p role="status">{phase === 'reading' ? 'Lecture, décompression éventuelle et vérification de la sauvegarde…' : phase === 'exporting' ? 'Préparation et compression de votre sauvegarde… Les historiques volumineux peuvent demander plusieurs instants.' : 'Restauration en cours…'}</p>}
+    <DelayedOperation active={busy}><p>{phase === 'reading' ? 'Lecture, décompression éventuelle et vérification de la sauvegarde…' : phase === 'exporting' ? 'Lecture des données, préparation et compression de votre sauvegarde…' : 'Restauration en cours…'}</p></DelayedOperation>
     {phase === 'reading' && <button className="button" onClick={cancel}>Annuler la lecture</button>}
     {error && <p role="alert" tabIndex={-1} ref={notice}>{error}</p>}
     {message && <p role="status" tabIndex={-1} ref={notice}>{message}</p>}
@@ -110,7 +117,7 @@ export function Backups({ onRestored }: { onRestored: () => void }) {
       <p>Après vérification intégrale de l’empreinte SHA-256, les détails du fichier dépassant 30 jours seront ignorés dans les deux modes. Les résumés seront conservés selon le mode choisi. Les dates incertaines et les dates futures restent protégées ; une date absente sera représentée comme non renseignée.</p>
       {preview.mergeReport && <p>En fusion : {preview.mergeReport.added} séance(s) à ajouter, {preview.mergeReport.retained} déjà présente(s).</p>}
       {preview.mergeReport?.warnings.map(warning => <p className="notice" key={warning}>{warning}</p>)}
-      <fieldset disabled={busy} className="profile-fields">
+      <fieldset disabled={operationBusy} className="profile-fields">
         <legend>Mode de restauration</legend>
         <label className="profile-duration-toggle"><input type="radio" name="restore-mode" checked={options.mode === 'merge'} onChange={() => { setOptions({ mode: 'merge', profile: 'keep' }); setConfirmed(false); }} />Fusionner les séances</label>
         <p>Vos séances, détails, chaussures et associations existants sont conservés. Les conflits de chaussures ou d’associations conservent les valeurs locales. Le mode local est conservé si vous avez déjà des chaussures ou un réglage de mode. Seuls les identifiants absents sont ajoutés. Des détails absents sont complétés uniquement si les résumés sont identiques et si la règle des 30 jours autorise leur conservation. Aucun détail local ancien n’est supprimé par la fusion. Des identifiants différents restent séparés, même pour des dates proches.</p>

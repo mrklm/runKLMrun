@@ -192,3 +192,43 @@ it('conserve les identifiants et résumés TCX avec ou sans stockage des détail
   expect((await importTcxFiles([file(text)], recent, () => {}, readXml, new Date('2026-10-13'))).duplicates).toBe(1);
   expect(await recent.getDetails(parsed.session.id)).toEqual(parsed.details);
 });
+it('ignore une distance de point non finie avec deux pistes dans un tour', async () => {
+  const xml = tcx(lap(0, point(0, '<DistanceMeters>NaN</DistanceMeters><HeartRateBpm><Value>140</Value></HeartRateBpm>')).replace('</Lap>', `<Track>${point(2)}</Track></Lap>`));
+  const warnings: string[] = [];
+  const parsed = (await parseTcx(xml, readXml, m => warnings.push(m)))!;
+  expect(parsed.session.distanceMeters).toBe(150);
+  expect(parsed.details.distance?.[0]).toEqual({ timeSeconds: 0, value: null });
+  expect(parsed.details.heartRate?.[0].value).toBe(140);
+  expect(warnings).toEqual(['Mesure facultative DistanceMeters inutilisable : valeur ignorée.']);
+  const storage = repository();
+  const report = await importTcxFiles([file(xml), file(xml)], storage, () => {}, readXml);
+  expect(report.imported).toBe(1); expect(report.duplicates).toBe(1); expect(report.invalid).toBe(0);
+  expect(report.issues.join(' ')).toContain('Mesure facultative');
+});
+it('préserve les identifiants des mesures valides et traite les mesures ignorées comme absentes', async () => {
+  const invalidMeasure = tcx(lap(0, point(0, '<AltitudeMeters>NaN</AltitudeMeters>')));
+  expect((await parse(invalidMeasure))?.session.id).toBe((await parse(invalidMeasure.replace('<AltitudeMeters>NaN</AltitudeMeters>', '')))?.session.id);
+});
+it('distingue erreur technique, format incompatible et durée invalide sans écriture', async () => {
+  const storage = { addImported: vi.fn() } as unknown as Parameters<typeof importTcxFiles>[1];
+  for (const [xml, expected] of [[tcx().replace('/TrainingCenterDatabase/v2', '/TrainingCenterDatabase/v1'), 'Format non pris en charge'], [tcx().replace('<TotalTimeSeconds>60', '<TotalTimeSeconds>-1'), 'Durée de tour invalide']]) {
+    const report = await importTcxFiles([file(xml)], storage, () => {}, readXml);
+    expect(report.issues.join(' ')).toContain(expected);
+  }
+  vi.stubGlobal('crypto', { subtle: { digest: () => { throw new Error('secret interne'); } } });
+  const report = await importTcxFiles([file()], storage, () => {}, readXml);
+  expect(report.issues.join(' ')).toContain('Erreur technique interne');
+  expect(report.issues.join(' ')).not.toContain('secret interne');
+  expect(storage.addImported).not.toHaveBeenCalled();
+});
+it('calcule le D+ après l’empreinte historique sans changer la déduplication', async () => {
+  const xml = tcx(lap(0, point(0, '<AltitudeMeters>0</AltitudeMeters>') + point(1, '<AltitudeMeters>10</AltitudeMeters>') + point(2, '<AltitudeMeters>0</AltitudeMeters>')));
+  const result = (await parse(xml))!;
+  expect(result.session.ascentMeters).toBe(10);
+  const { ascentMeters: _ascent, ascentEstimate: _estimate, ...session } = result.session;
+  const legacy = JSON.stringify({ session: { ...session, id: '' }, details: { ...result.details, id: '' } });
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(legacy));
+  expect(result.session.id).toBe(`tcx:${Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, '0')).join('')}`);
+  const report = await importTcxFiles([file(xml), file(xml)], repository(), () => {}, readXml);
+  expect(report.imported).toBe(1); expect(report.duplicates).toBe(1);
+});

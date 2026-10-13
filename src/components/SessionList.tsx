@@ -1,7 +1,8 @@
+import { ascentLabel } from '../core/analysis/ascent';
 import { ShoeHistorySelect } from './ShoeHistory';
 import { useMemo } from 'react';
 import type { RunningSession } from '../types/session';
-import { duration, pace } from '../core/analysis/session-format';
+import { duration, pace, heartRate, ascent } from '../core/analysis/session-format';
 import { sessionHref } from '../core/analysis/session-detail';
 export function SessionList({ sessions, limit, shoeSelection = false }: { sessions: RunningSession[]; limit?: number; shoeSelection?: boolean }) {
   const displayedSessions = useMemo(() => [...sessions]
@@ -15,8 +16,8 @@ export function SessionList({ sessions, limit, shoeSelection = false }: { sessio
         <div><dt>Distance</dt><dd>{session.distanceMeters === undefined ? '—' : `${(session.distanceMeters / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} km`}</dd></div>
         <div><dt>Durée</dt><dd>{duration(session.durationSeconds)}</dd></div>
         <div><dt>Allure moyenne</dt><dd>{pace(session.averagePaceSecondsPerKm)}</dd></div>
-        <div><dt>FC moyenne</dt><dd>{session.averageHeartRate === undefined ? '—' : `${session.averageHeartRate} bpm`}</dd></div>
-        <div><dt>Dénivelé positif</dt><dd>{session.ascentMeters === undefined ? '—' : `${session.ascentMeters} m`}</dd></div>
+        <div><dt>FC moyenne</dt><dd>{heartRate(session.averageHeartRate)}</dd></div>
+        <div><dt>{ascentLabel(session.ascentEstimate)}</dt><dd>{ascent(session.ascentMeters)}</dd></div>
       </dl>
       </a>
       {shoeSelection && <ShoeHistorySelect sessionId={session.id} />}

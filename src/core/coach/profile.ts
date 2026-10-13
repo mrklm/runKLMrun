@@ -11,6 +11,7 @@ const has = (options: object, key: unknown) => typeof key === 'string' && Object
 export function validateProfile(values: CoachProfileValues, today: string, previous?: CoachProfileValues): ProfileErrors {
   const errors: ProfileErrors = {};
   if (!validSessionDate(today) || !object(values) || !object(values.goal) || !object(values.availability) || !object(values.preferences)) return { form: 'Le profil est invalide. Vérifiez les données renseignées.' };
+  if (values.accompanimentMode !== undefined && values.accompanimentMode !== 'advisor') errors.form = 'Le mode Entraîneur est en préparation. Choisissez Conseiller.';
   const { goal, availability: a, preferences } = values;
   if (goal.kind !== undefined && !has(GOALS, goal.kind)) errors.goal = 'Choisissez un objectif reconnu.';
   if (goal.distance !== undefined) {

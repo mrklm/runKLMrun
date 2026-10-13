@@ -47,13 +47,12 @@ describe('conservation explicite des détails', () => {
     expect(get.mock.contexts.every(store => (store as IDBObjectStore).name === 'sessions')).toBe(true);
     expect(getAll).not.toHaveBeenCalled(); expect(cursor).not.toHaveBeenCalled();
   });
-  it('ne supprime rien sans confirmation ni activation, même après analyse', async () => {
+  it('nettoie automatiquement sans activation après analyse', async () => {
     const { service, repository } = await setup();
     await service.analyze();
     await expect(service.activateAndClean(false)).rejects.toThrow('Confirmez');
-    expect(await service.maintain()).toBeUndefined();
-    expect(service.isEnabled()).toBe(false);
-    expect(await repository.getDetails('old')).toBeDefined();
+    expect((await service.maintain())?.deleted).toBe(1);
+    expect(await repository.getDetails('old')).toBeUndefined();
   });
   it('préserve résumés, coach, dates incertaines et détails orphelins après confirmation', async () => {
     const { name, service, repository } = await setup([old('old'), { ...old('uncertain'), date: 'invalide' }, { ...old('invalid'), title: 42 as unknown as string }]);
@@ -108,22 +107,23 @@ describe('conservation explicite des détails', () => {
     expect(await secondTab.activateAndClean(true)).toBeUndefined();
     release(); expect((await first)?.deleted).toBe(26);
   });
-  it('entretient après expiration et évite un nouveau parcours durant 24 heures', async () => {
+  it('revérifie au démarrage même sans attendre 24 heures', async () => {
     let current = new Date('2026-01-31T12:00:00Z');
     const { service, config, repository } = await setup([old('old')], { now: () => current });
     expect((await service.activateAndClean(true))?.deleted).toBe(0);
     const restarted = createRetentionService(config);
-    expect((await restarted.maintain())?.scanned).toBe(0);
+    expect((await restarted.maintain())?.scanned).toBe(1);
     current = new Date('2026-02-01T12:00:00Z');
     expect((await restarted.maintain())?.deleted).toBe(1);
     expect(await repository.list()).toEqual([old('old')]);
   });
-  it('ne démarre pas pour une préférence malformée et échoue avant suppression si elle ne peut être écrite', async () => {
-    const { service, config, repository, map } = await setup();
-    map.set(RETENTION_KEY, '{invalid'); expect(await service.maintain()).toBeUndefined();
+  it('ne dépend plus des préférences pour l’entretien automatique', async () => {
+    const { config, repository, map } = await setup();
+    map.set(RETENTION_KEY, '{invalid');
     const broken = createRetentionService({ ...config, preferences: { getItem: () => null, setItem: () => { throw new Error('stockage bloqué'); } } });
     await expect(broken.activateAndClean(true)).rejects.toThrow('stockage bloqué');
     expect(await repository.getDetails('old')).toBeDefined();
+    expect((await broken.maintain())?.deleted).toBe(1);
   });
   it('préserve historique, liens, statistiques et consultation du résumé sans courbes', async () => {
     const { service, repository } = await setup();

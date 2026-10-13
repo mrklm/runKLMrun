@@ -2,7 +2,7 @@ import { sessionRepository } from '../storage/database';
 import { classifyDetails } from '../core/analysis/detail-retention';
 import { validSessionDate } from '../core/analysis/session-summary';
 import { localToday } from '../core/analysis/statistics-period';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, useRef } from 'react';
 import type { Shoe } from '../types/shoe';
 import type { RunningSession } from '../types/session';
 import { shoeRepository, type ConversionPreview, type AssignmentPreview } from '../storage/shoes';
@@ -105,6 +105,17 @@ export function Shoes({ sessions }: { sessions: RunningSession[] }) {
     setBusy(true); setConversion(undefined); setConfirmed(false);
     try { await shoeRepository.setMode(value, data.settings?.revision); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'Changement impossible.'); } finally { setBusy(false); }
   }
+  const pendingModeFocus = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (busy || !pendingModeFocus.current) return;
+    const input = pendingModeFocus.current;
+    pendingModeFocus.current = null;
+    if (input.isConnected && (document.activeElement === document.body || document.activeElement?.closest('.shoe-mode-cards'))) input.focus();
+  }, [busy]);
+  async function selectMode(value: 'automatic' | 'manual', input: HTMLInputElement) {
+    pendingModeFocus.current = input;
+    await mode(value);
+  }
   async function previewConversion() {
     setBusy(true); setConfirmed(false);
     try { setConversion(await shoeRepository.previewConversion(today)); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'Aperçu impossible.'); } finally { setBusy(false); }
@@ -136,8 +147,10 @@ export function Shoes({ sessions }: { sessions: RunningSession[] }) {
     {data.loading ? <p role="status">Chargement de vos chaussures…</p> : <>
       {!data.shoes.length && <section className="panel settings-panel shoe-panel"><h2>Votre première paire</h2><p>Ajoutez une paire, puis choisissez les sorties à lui associer. Les dates renseignées ne déclenchent aucune attribution.</p></section>}
       <fieldset className="panel settings-panel shoe-panel" disabled={busy}><legend>Mode de suivi</legend>
-        <label><input type="radio" name="shoe-mode" checked={automatic} onChange={() => void mode('automatic')} /> Une seule paire — Automatique</label><p>Les kilomètres sont calculés selon les dates de première utilisation, sans modifier les séances.</p>
-        <label><input type="radio" name="shoe-mode" checked={!automatic} onChange={() => void mode('manual')} /> Plusieurs paires — Par séance</label><p>Vous choisissez les chaussures utilisées pour chaque sortie. Vos associations manuelles restent conservées lorsque vous changez de mode.</p>
+        <div className="shoe-mode-cards">
+          <label className="shoe-mode-card"><input type="radio" name="shoe-mode" aria-label="Une seule paire — Automatique" aria-describedby="shoe-mode-automatic-description" checked={automatic} onChange={event => void selectMode('automatic', event.currentTarget)} /><span className="shoe-mode-content"><strong>Une seule paire</strong><span>Automatique</span><span id="shoe-mode-automatic-description">Kilométrage calculé selon les dates de première utilisation.</span><span className="shoe-mode-selection" aria-hidden="true">{automatic ? '✓ Sélectionné' : '\u00a0'}</span></span></label>
+          <label className="shoe-mode-card"><input type="radio" name="shoe-mode" aria-label="Plusieurs paires — Par séance" aria-describedby="shoe-mode-manual-description" checked={!automatic} onChange={event => void selectMode('manual', event.currentTarget)} /><span className="shoe-mode-content"><strong>Plusieurs paires</strong><span>Par séance</span><span id="shoe-mode-manual-description">Choix des chaussures utilisées pour chaque sortie.</span><span className="shoe-mode-selection" aria-hidden="true">{!automatic ? '✓ Sélectionné' : '\u00a0'}</span></span></label>
+        </div>
       </fieldset>
       {automatic && timeline.issues.map(issue => <p role="alert" key={issue}>{issue} Aucun kilomètre automatique n’est attribué tant que les dates sont ambiguës.</p>)}
       {automatic && !!timeline.invalidDates && <p>{timeline.invalidDates} séance(s) sans date valide : non attribuées.</p>}

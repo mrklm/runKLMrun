@@ -235,9 +235,8 @@ Les séries entièrement absentes ne sont pas inventées. Les autres nombres
 renseignés invalides entraînent le rejet du fichier. Il n'y a pas de validation
 XSD exhaustive ; seuls la structure et les champs utilisés sont contrôlés.
 
-Charge cardio, Running Index, zones cardiaques, dénivelés, puissance, calories,
-notes et extensions propriétaires non décrites ici ne sont pas importés. Aucun
-calcul de dénivelé depuis l'altitude ni aucune interpolation ne les remplace.
+Charge cardio, Running Index, zones cardiaques, puissance, calories,
+notes et extensions propriétaires non décrites ici ne sont pas importés. Le D+ est estimé séparément depuis les altitudes (voir ci-dessous), sans interpolation.
 
 Références de structure : [TrainingCenterDatabase v2](https://www8.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd)
 et [ActivityExtension v2](https://www8.garmin.com/xmlschemas/ActivityExtensionv2.xsd).
@@ -299,3 +298,31 @@ ne changent pas. Les anciennes sections distinctes sont remplacées par ce parco
 
 La base IndexedDB v3 ajoute un magasin `coachProfile` indépendant des imports,
 sans modification des résumés ou détails Polar.
+
+
+### D+ TCX estimé
+
+La méthode `hysteresis-3m-v1` suit les minima et maxima de chaque segment.
+Une montée est reconnue quand elle atteint 3 m depuis le minimum ; elle se poursuit
+jusqu’à un recul d’au moins 3 m depuis son maximum. Les montées reconnues sont
+additionnées, y compris à la fin d’un segment ; les descentes ne sont jamais ajoutées.
+Le seuil de 3 m est un compromis logiciel explicite pour ignorer de petites oscillations,
+non une précision garantie du capteur. Il peut perdre de petites bosses et conserver
+des erreurs GPS supérieures au seuil ; le résultat ne prétend pas reproduire Polar.
+
+Les valeurs manquantes, non finies, les ruptures de pistes et temps non croissants
+séparent les segments, sans raccord ni interpolation. Au moins deux points temporels
+exploitables dans un même segment sont nécessaires. Un zéro signifie « aucune montée
+détectée avec ce filtre », pas une preuve de terrain parfaitement plat. Une rupture
+ou un point isolé rend le résultat partiel ; « complet » concerne seulement la série
+reçue, pas la qualité physique des mesures ou l’absence de points omis dans le fichier.
+
+Le résumé conserve `ascentMeters` et `ascentEstimate` (méthode, qualité, mètres).
+L’enrichissement intervient après le SHA-256 historique de l’identifiant TCX.
+Le D+ survit donc à la suppression des détails après 30 jours, sans changer l’identifiant.
+Les sauvegardes acceptent cette métadonnée facultative ; les valeurs Polar ne changent pas.
+
+Les D+ estimés déjà enregistrés restent conservés. L’action ponctuelle de maintenance
+des anciennes séances a été retirée des Paramètres ; aucun recalcul automatique
+n’est effectué. Sans altitudes conservées, le résumé seul ne permet pas de reconstruire
+un D+. L’estimation lors des nouvelles importations reste active.

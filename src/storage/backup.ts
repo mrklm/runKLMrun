@@ -1,3 +1,4 @@
+import { withRestoreLock } from './operation-lock';
 import { checkBackupFile } from '../backup/compression';
 import type { IDBPTransaction } from 'idb';
 import { DATABASE_NAME, openDatabase, type RunDatabase } from './database-connection';
@@ -49,6 +50,7 @@ export function createBackupService(processor: Processor, name = DATABASE_NAME):
       return { ...preview, mergeReport: report };
     },
     async restore(preview, requestedOptions) {
+      return withRestoreLock(name, async () => {
       const options = { ...requestedOptions };
       if (!['replace', 'merge'].includes(options.mode) || !['keep', 'restore'].includes(options.profile)) throw new BackupError('Choisissez un mode de restauration valide.');
       if (options.mode === 'merge' && options.profile === 'restore' && !preview.backup.data.coachProfile) throw new BackupError('Cette sauvegarde ne contient pas de profil à restaurer.');
@@ -90,6 +92,7 @@ export function createBackupService(processor: Processor, name = DATABASE_NAME):
         try { const channel = new BroadcastChannel(RESTORED_CHANNEL); channel.postMessage('restored'); channel.close(); } catch { /* La notification ne remet pas en cause la transaction déjà validée. */ }
       }
       return prepared.report;
+      });
     },
   };
 }
