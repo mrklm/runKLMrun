@@ -158,7 +158,7 @@ peuvent occuper davantage de mémoire que leur taille brute. La progression comp
 les fichiers terminés. La navigation interne reste possible ; fermer/recharger
 l'onglet arrête l'import et une réimportation peut le reprendre.
 
-IndexedDB v2 conserve les résumés dans `sessions` et les détails dans `details`.
+IndexedDB conserve les résumés dans `sessions` et les détails dans `details`.
 L'ajout est atomique et ne remplace jamais une clé existante, même si l'export a
 changé. Les migrations et la politique de dédoublonnage restent inchangées.
 
@@ -273,7 +273,7 @@ Importer l'archive initiale avant les nouveaux fichiers TCX est le parcours pré
 Aucune déduplication rétroactive ni suppression n'est effectuée.
 
 `RunningSession.source`, `SessionDetails.laps` et `cadenceUnit` sont facultatifs.
-Les magasins `sessions` et `details`, leurs clés et la version IndexedDB 2 restent
+Les magasins `sessions` et `details` et leurs clés restent
 inchangés. Les anciennes données ne sont ni migrées ni réécrites.
 
 
@@ -296,3 +296,6 @@ de stockage conserve le nombre réellement traité et affiche une alerte.
 Les motifs de rejet détaillés (20 maximum) ne contiennent ni nom de fichier ni
 donnée personnelle. Les moteurs, limites de taille et règles de dédoublonnage
 ne changent pas. Les anciennes sections distinctes sont remplacées par ce parcours.
+
+La base IndexedDB v3 ajoute un magasin `coachProfile` indépendant des imports,
+sans modification des résumés ou détails Polar.

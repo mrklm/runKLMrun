@@ -151,7 +151,7 @@ describe('compte rendu et persistance du nouveau schéma', () => {
       'training-session_json.json': '{invalid', 'training-session_structure.json': '{}', 'sleep.json': '{invalid',
     });
     const storage = repository();
-    const report = await importPolarArchive(file, storage, () => {});
+    const report = await importPolarArchive(file, storage, () => {}, new Date('2026-01-02'));
     expect(report).toMatchObject({ total: 7, processed: 7, imported: 1, ignored: 1, invalid: 5, reasons: {
       otherSport: 1, unknownSport: 1, missingDuration: 1, invalidNumbers: 1, invalidJson: 1, unsupportedStructure: 1,
     } });
@@ -204,4 +204,20 @@ describe('erreurs de conteneur ZIP', () => {
     const result = parsePolar(JSON.stringify({ exercises: [{ sport: 'RUNNING', startTime: '2026-01-01T10:00:00', duration: 'PT1M', samples: { heartRate: [{ time: 'PT0S', value: 130 }, { time: 'PT1S', value: 'NaN' }, { time: 'PT2S', value: 140 }] } }] }), 'training-session_synthetic.json');
     expect(result?.details.heartRate).toEqual([{ timeSeconds: 0, value: 130 }, { timeSeconds: 1, value: null }, { timeSeconds: 2, value: 140 }]);
   });
+});
+
+it('préserve le résumé moderne complet sans construire les séries anciennes', () => {
+  const text = JSON.stringify(fixture());
+  const full = parsePolar(text, 'training-session_test.json')!;
+  const summary = parsePolar(text, 'training-session_test.json', true, () => false)!;
+  expect(summary.session).toEqual(full.session);
+  expect(summary.details).toEqual({ id: full.session.id });
+});
+
+it('importe un ancien JSON moderne sans détails et conserve toutes ses statistiques', async () => {
+  const storage = repository();
+  const file = await archive({ 'training-session_old.json': JSON.stringify(fixture()) });
+  expect((await importPolarArchive(file, storage, () => {}, new Date('2026-10-13'))).imported).toBe(1);
+  expect(await storage.list()).toEqual([parse()!.session]);
+  expect(await storage.getDetails('polar:synthetic-modern')).toBeUndefined();
 });

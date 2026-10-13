@@ -1,0 +1,147 @@
+import { test, expect, type Page } from '@playwright/test';
+async function openTraining(page: Page) {
+  await page.clock.setFixedTime(new Date('2026-10-10T12:00:00Z'));
+  await page.goto('./#/entrainement');
+  await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Votre profil de coureur' })).toBeVisible();
+}
+const panel = (page: Page) => page.getByRole('region', { name: 'Votre profil de coureur' });
+for (const width of [390, 1280]) test(`créer, modifier et conserver le profil à ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 }); await openTraining(page);
+  await expect(page.getByRole('heading', { name: 'Votre activité récente' })).toBeVisible();
+  const profile = panel(page);
+  await expect(profile.getByRole('combobox', { name: 'Objectif principal', exact: true })).toHaveValue('');
+  await profile.getByRole('combobox', { name: 'Objectif principal', exact: true }).selectOption('race');
+  await profile.getByRole('combobox', { name: 'Distance cible', exact: true }).selectOption('custom');
+  await profile.getByRole('textbox', { name: 'Distance personnalisée (km)', exact: true }).fill('12,5');
+  await profile.getByLabel('Échéance (facultative)', { exact: true }).fill('2027-03-20');
+  await profile.getByRole('textbox', { name: /Séances souhaitées par semaine/ }).fill('2');
+  await profile.getByRole('checkbox', { name: 'Lundi', exact: true }).check();
+  const friday = profile.getByRole('checkbox', { name: 'Vendredi', exact: true }); await friday.focus(); await friday.press('Space'); await expect(friday).toBeChecked();
+  await profile.getByRole('textbox', { name: /Durée disponible par séance/ }).fill('45');
+  await profile.getByRole('combobox', { name: 'Terrain préféré', exact: true }).selectOption('trail');
+  await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  await expect(profile.getByRole('status')).toHaveText('Votre profil a été enregistré.');
+  await expect(profile.getByText('12.5 km', { exact: true })).toBeVisible();
+  await expect(profile.getByText('Lundi, Vendredi')).toBeVisible();
+  await profile.getByRole('button', { name: 'Modifier mon profil' }).click();
+  await profile.getByRole('combobox', { name: 'Objectif principal', exact: true }).selectOption('return');
+  await expect(profile.getByRole('textbox', { name: /Durée disponible par séance/ })).toHaveValue('45');
+  await expect(profile.getByRole('combobox', { name: 'Distance cible', exact: true })).toHaveValue('custom');
+  await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  await expect(profile.getByRole('button', { name: 'Modifier mon profil' })).toBeVisible();
+  await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await expect(profile.getByText('Reprendre la course', { exact: true })).toBeVisible();
+  await expect(profile.getByText('Chemins / sentiers', { exact: true })).toBeVisible();
+  await expect(profile.getByText('12.5 km', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test('signale les disponibilités incohérentes sans perdre la saisie', async ({ page }) => {
+  await openTraining(page); const profile = panel(page);
+  await profile.getByRole('textbox', { name: /Séances souhaitées/ }).fill('3');
+  await profile.getByRole('checkbox', { name: 'Lundi', exact: true }).check();
+  await profile.getByRole('checkbox', { name: 'Mardi', exact: true }).check();
+  await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  await expect(profile.getByRole('alert')).toContainText('Corrigez');
+  await expect(profile.getByText(/Vous souhaitez 3 séances mais avez choisi 2 jours/)).toBeVisible();
+  await expect(profile.getByRole('textbox', { name: /Séances souhaitées/ })).toHaveValue('3');
+  await expect(profile.getByRole('checkbox', { name: 'Lundi', exact: true })).toBeChecked();
+  await profile.getByRole('checkbox', { name: 'Mercredi', exact: true }).check();
+  await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  await expect(profile.getByRole('button', { name: 'Modifier mon profil' })).toBeVisible();
+});
+test('conserve les saisies après erreur d’écriture et permet de réessayer', async ({ page }) => {
+  await openTraining(page); const profile = panel(page);
+  await page.evaluate(() => {
+    const put = IDBObjectStore.prototype.put;
+    (window as unknown as { restoreWrite: () => void }).restoreWrite = () => { IDBObjectStore.prototype.put = put; };
+    IDBObjectStore.prototype.put = function (...args) { if (this.name === 'coachProfile') throw new DOMException('Quota synthétique', 'QuotaExceededError'); return put.apply(this, args); };
+  });
+  await profile.getByRole('combobox', { name: 'Objectif principal', exact: true }).selectOption('endurance');
+  await profile.getByRole('textbox', { name: /Durée disponible par séance/ }).fill('40');
+  await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  await expect(profile.getByRole('alert')).toContainText('Vos saisies sont conservées');
+  await expect(profile.getByRole('textbox', { name: /Durée disponible par séance/ })).toHaveValue('40');
+  await page.evaluate(() => (window as unknown as { restoreWrite: () => void }).restoreWrite());
+  await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  await expect(profile.getByText('Améliorer son endurance', { exact: true })).toBeVisible();
+});
+test('distingue l’erreur de lecture d’un profil absent et conserve le bilan', async ({ page }) => {
+  await page.addInitScript(() => {
+    const get = IDBObjectStore.prototype.get;
+    (window as unknown as { restoreRead: () => void }).restoreRead = () => { IDBObjectStore.prototype.get = get; };
+    IDBObjectStore.prototype.get = function (...args) { if (this.name === 'coachProfile') throw new Error('Lecture synthétique indisponible'); return get.apply(this, args); };
+  });
+  await openTraining(page); const profile = panel(page);
+  await expect(profile.getByRole('alert')).toContainText('Votre profil n’a pas pu être lu');
+  await expect(page.getByRole('heading', { name: 'Votre activité récente' })).toBeVisible();
+  await expect(profile.getByRole('button', { name: 'Enregistrer mon profil' })).toHaveCount(0);
+  await page.evaluate(() => (window as unknown as { restoreRead: () => void }).restoreRead());
+  await profile.getByRole('button', { name: 'Réessayer la lecture du profil' }).click();
+  await expect(profile.getByRole('button', { name: 'Enregistrer mon profil' })).toBeVisible();
+});
+test('empêche un onglet ancien d’écraser le profil modifié', async ({ page, context }) => {
+  await openTraining(page); await panel(page).getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  await panel(page).getByRole('button', { name: 'Modifier mon profil' }).click();
+  await panel(page).getByRole('combobox', { name: 'Objectif principal', exact: true }).selectOption('regular');
+  const second = await context.newPage(); await openTraining(second);
+  await panel(second).getByRole('button', { name: 'Modifier mon profil' }).click();
+  await panel(second).getByRole('combobox', { name: 'Objectif principal', exact: true }).selectOption('return');
+  await panel(second).getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  await expect(panel(second).getByRole('button', { name: 'Modifier mon profil' })).toBeVisible();
+  await panel(page).getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  await expect(panel(page).getByRole('alert')).toContainText('autre onglet');
+  await expect(panel(page).getByRole('combobox', { name: 'Objectif principal', exact: true })).toHaveValue('regular');
+  await panel(page).getByRole('button', { name: 'Recharger le profil enregistré' }).click();
+  await expect(panel(page).getByText('Reprendre la course', { exact: true })).toBeVisible();
+});
+
+for (const width of [390, 1280]) test(`personnaliser les durées sans perte de saisie à ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 }); await openTraining(page);
+  const profile = panel(page);
+  const mode = profile.getByRole('checkbox', { name: 'Personnaliser la durée selon les jours' });
+  const monday = profile.getByRole('checkbox', { name: 'Lundi', exact: true });
+  const duration = (day: string) => profile.getByRole('textbox', { name: `${day} — durée maximale (minutes)`, exact: true });
+  await expect(mode).not.toBeChecked();
+  await profile.getByRole('textbox', { name: /Durée disponible par séance/ }).fill('40');
+  await profile.getByRole('textbox', { name: /Séances souhaitées/ }).fill('3');
+  for (const day of ['Lundi', 'Mercredi', 'Vendredi', 'Samedi', 'Dimanche']) await profile.getByRole('checkbox', { name: day, exact: true }).check();
+  await expect(duration('Lundi')).toHaveCount(0);
+  await mode.focus(); await mode.press('Space'); await mode.press('Tab');
+  await expect(duration('Lundi')).toBeFocused();
+  await duration('Lundi').fill('45');
+  await duration('Samedi').fill('90'); await duration('Dimanche').fill('120');
+  await expect(duration('Mardi')).toHaveCount(0);
+  await monday.uncheck(); await expect(duration('Lundi')).toHaveCount(0);
+  await monday.check(); await expect(duration('Lundi')).toHaveValue('45');
+  await mode.uncheck(); await expect(duration('Lundi')).toHaveCount(0);
+  await mode.check(); await expect(duration('Lundi')).toHaveValue('45');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  for (const text of ['Lundi : 45 min', 'Samedi : 1 h 30', 'Dimanche : 2 h', 'Mercredi : Durée non précisée']) await expect(profile.getByText(text, { exact: true })).toBeVisible();
+  await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await expect(profile.getByText('Samedi : 1 h 30', { exact: true })).toBeVisible();
+  await profile.getByRole('button', { name: 'Modifier mon profil' }).click();
+  await expect(mode).toBeChecked(); await expect(duration('Samedi')).toHaveValue('90');
+  await duration('Samedi').fill('75'); await mode.uncheck();
+  await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  await expect(profile.getByText('40 min', { exact: true })).toBeVisible();
+  await expect(profile.getByText('Disponibilités maximales par jour')).toHaveCount(0);
+  await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await profile.getByRole('button', { name: 'Modifier mon profil' }).click();
+  await expect(mode).not.toBeChecked(); await mode.check();
+  await expect(duration('Samedi')).toHaveValue('75');
+});
+
+test('signale une durée individuelle invalide même masquée sans perdre la saisie', async ({ page }) => {
+  await openTraining(page); const profile = panel(page);
+  const mode = profile.getByRole('checkbox', { name: 'Personnaliser la durée selon les jours' });
+  await profile.getByRole('checkbox', { name: 'Lundi', exact: true }).check(); await mode.check();
+  const duration = profile.getByRole('textbox', { name: 'Lundi — durée maximale (minutes)', exact: true });
+  await duration.fill('0'); await mode.uncheck();
+  await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  await expect(profile.getByText(/Pour corriger une durée masquée/)).toBeVisible();
+  await mode.check(); await expect(duration).toHaveValue('0'); await duration.fill('');
+  await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
+  await expect(profile.getByText('Lundi : Durée non précisée', { exact: true })).toBeVisible();
+});

@@ -1,0 +1,10 @@
+import type { CoachProfileValues, DistanceKind, GoalKind, Terrain, Weekday } from '../../types/coach-profile';
+import { DISTANCES } from './profile';
+
+export interface Draft { goal: string; distanceKind: string; distanceKm: string; targetDate: string; sessions: string; days?: Weekday[]; minutes: string; terrain: string; durationMode: 'simple' | 'custom'; dailyMinutes: Partial<Record<Weekday, string>> }
+export const draftFrom = (p: CoachProfileValues): Draft => ({ goal: p.goal.kind ?? '', distanceKind: p.goal.distance?.kind ?? '', distanceKm: p.goal.distance ? String(p.goal.distance.meters / 1000) : '', targetDate: p.goal.targetDate ?? '', sessions: p.availability.sessionsPerWeek === undefined ? '' : String(p.availability.sessionsPerWeek), days: p.availability.days ? [...p.availability.days] : undefined, minutes: p.availability.minutesPerSession === undefined ? '' : String(p.availability.minutesPerSession), terrain: p.preferences.terrain ?? '', durationMode: p.availability.durationMode ?? 'simple', dailyMinutes: Object.fromEntries(Object.entries(p.availability.maxMinutesByDay ?? {}).map(([day, minutes]) => [day, String(minutes)])) });
+const numberFrom = (text: string) => text.trim() === '' ? undefined : /^\d+(?:[.,]\d+)?$/.test(text.trim()) ? Number(text.trim().replace(',', '.')) : NaN;
+export function valuesFrom(d: Draft): CoachProfileValues {
+  const distanceKind = d.distanceKind as DistanceKind;
+  return { goal: { kind: (d.goal || undefined) as GoalKind | undefined, distance: distanceKind ? { kind: distanceKind, meters: distanceKind === 'custom' ? (numberFrom(d.distanceKm) ?? NaN) * 1000 : DISTANCES[distanceKind].meters! } : undefined, targetDate: d.targetDate || undefined }, availability: { sessionsPerWeek: numberFrom(d.sessions), days: d.days, minutesPerSession: numberFrom(d.minutes), durationMode: d.durationMode, maxMinutesByDay: Object.fromEntries(Object.entries(d.dailyMinutes).filter(([, text]) => text.trim() !== '').map(([day, text]) => [day, numberFrom(text)])) }, preferences: { terrain: (d.terrain || undefined) as Terrain | undefined } };
+}

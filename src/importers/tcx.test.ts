@@ -83,7 +83,7 @@ describe('lecture TCX', () => {
 describe('importation TCX et dédoublonnage atomique', () => {
   it('traite plusieurs fichiers, poursuit après erreur et publie des instantanés', async () => {
     const storage = repository(); const reports: TcxReport[] = [];
-    const report = await importTcxFiles([file(), file(tcx(), 'renommee.tcx'), file('<bad'), file(tcx(lap(), 'Biking')), file(tcx(lap(120, point(120))))], storage, r => reports.push(r), readXml);
+    const report = await importTcxFiles([file(), file(tcx(), 'renommee.tcx'), file('<bad'), file(tcx(lap(), 'Biking')), file(tcx(lap(120, point(120))))], storage, r => reports.push(r), readXml, new Date('2026-01-02'));
     expect(report).toMatchObject({ total: 5, processed: 5, imported: 2, duplicates: 1, invalid: 1, unsupported: 1 });
     expect(reports[0].processed).toBe(0); expect(reports.at(-1)?.processed).toBe(5);
     expect(await storage.list()).toHaveLength(2);
@@ -145,7 +145,7 @@ describe('importation TCX et dédoublonnage atomique', () => {
 describe('régression sélection et comptage TCX', () => {
   it.each(['sortie.TCX', 'sortie.tcx', 'sortie.TcX'])('traite le fichier sélectionné %s et garde son total à chaque progression', async name => {
     const storage = repository(), reports: TcxReport[] = [];
-    const result = await importTcxFiles([file(tcx(), name)], storage, r => reports.push(r), readXml);
+    const result = await importTcxFiles([file(tcx(), name)], storage, r => reports.push(r), readXml, new Date('2026-01-02'));
     expect(result).toMatchObject({ total: 1, processed: 1, imported: 1, invalid: 0 });
     expect(reports.every(r => r.total === 1)).toBe(true); expect(reports[0].processed).toBe(0);
   });
@@ -176,4 +176,19 @@ describe('régression sélection et comptage TCX', () => {
     const report = await importTcxFiles(files, repository(), () => { files.length = 0; }, readXml);
     expect(report).toMatchObject({ total: 1, processed: 1, imported: 1 });
   });
+});
+
+it('conserve les identifiants et résumés TCX avec ou sans stockage des détails', async () => {
+  const recent = repository(), old = repository();
+  const text = tcx(lap() + lap(60));
+  const parsed = (await parse(text))!;
+  expect((await importTcxFiles([file(text)], recent, () => {}, readXml, new Date('2026-01-02'))).imported).toBe(1);
+  expect((await importTcxFiles([file(text)], old, () => {}, readXml, new Date('2026-10-13'))).imported).toBe(1);
+  expect(await recent.list()).toEqual([parsed.session]);
+  expect(await old.list()).toEqual([parsed.session]);
+  expect(await recent.getDetails(parsed.session.id)).toEqual(parsed.details);
+  expect(await old.getDetails(parsed.session.id)).toBeUndefined();
+  expect((await importTcxFiles([file(text)], old, () => {}, readXml, new Date('2026-10-13'))).duplicates).toBe(1);
+  expect((await importTcxFiles([file(text)], recent, () => {}, readXml, new Date('2026-10-13'))).duplicates).toBe(1);
+  expect(await recent.getDetails(parsed.session.id)).toEqual(parsed.details);
 });

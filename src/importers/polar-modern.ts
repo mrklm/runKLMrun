@@ -41,7 +41,7 @@ const STREAMS = {
   DISTANCE: { key: 'distance', divisor: 1, min: 0 },
 } as const;
 
-export function parseModernPolar(root: Obj, exercise: Obj, filename: string): { session: RunningSession; details: SessionDetails } | null {
+export function parseModernPolar(root: Obj, exercise: Obj, filename: string, keepDetails: (session: RunningSession) => boolean = () => true): { session: RunningSession; details: SessionDetails } | null {
   const sportId = object(exercise.sport).id;
   const sport = typeof sportId === 'string' && Object.hasOwn(POLAR_SPORT_IDS, sportId) ? POLAR_SPORT_IDS[sportId] : undefined;
   if (!sport) throw new PolarImportError('unknownSport');
@@ -82,31 +82,40 @@ export function parseModernPolar(root: Obj, exercise: Obj, filename: string): { 
     return { lower, upper, durationSeconds: inZoneMillis === undefined ? undefined : inZoneMillis / 1000 };
   });
   const details: SessionDetails = { id };
+  const retain = keepDetails(session);
+  const seen = new Set<string>();
   for (const item of list(object(exercise.samples).samples)) {
     const stream = object(item);
     if (typeof stream.type !== 'string' || !Object.hasOwn(STREAMS, stream.type)) continue;
     const spec = STREAMS[stream.type as keyof typeof STREAMS];
-    if (details[spec.key] !== undefined || !Array.isArray(stream.values)) throw new PolarImportError('unsupportedStructure');
+    if (seen.has(spec.key) || !Array.isArray(stream.values)) throw new PolarImportError('unsupportedStructure');
+    seen.add(spec.key);
     const interval = requiredNumber(stream.intervalMillis);
     if (interval <= 0) throw new PolarImportError('invalidNumbers');
-    details[spec.key] = stream.values.map((v, index): Sample => {
+    const values: Sample[] = [];
+    stream.values.forEach((v, index) => {
       const value = sampleValue(v, spec.min);
-      return { timeSeconds: requiredNumber(index * interval) / 1000, value: value === null ? null : value / spec.divisor };
+      const timeSeconds = requiredNumber(index * interval) / 1000;
+      if (retain) values.push({ timeSeconds, value: value === null ? null : value / spec.divisor });
     });
+    if (retain) details[spec.key] = values;
   }
   const route = object(object(exercise.routes).route);
   if (route.wayPoints !== undefined) {
     // elapsedMillis est relatif à route.startTime, qui est conservé séparément.
     details.gpsStartTime = missing(route.startTime) ? undefined : validStart(route.startTime);
     let previous = -1;
-    details.gps = list(route.wayPoints).map(item => {
+    const gps: NonNullable<SessionDetails['gps']> = [];
+    list(route.wayPoints).forEach(item => {
       const p = object(item), timeSeconds = requiredNumber(p.elapsedMillis) / 1000;
       if (timeSeconds < previous) throw new PolarImportError('invalidNumbers');
       previous = timeSeconds;
       const latitude = sampleValue(p.latitude, -90), longitude = sampleValue(p.longitude, -180);
       if ((latitude !== null && latitude > 90) || (longitude !== null && longitude > 180)) throw new PolarImportError('invalidNumbers');
-      return { timeSeconds, latitude, longitude, altitudeMeters: p.altitude === 'NaN' || p.altitude === null ? undefined : numeric(p.altitude, -Number.MAX_SAFE_INTEGER) };
+      const altitudeMeters = p.altitude === 'NaN' || p.altitude === null ? undefined : numeric(p.altitude, -Number.MAX_SAFE_INTEGER);
+      if (retain) gps.push({ timeSeconds, latitude, longitude, altitudeMeters });
     });
+    if (retain) details.gps = gps;
   }
-  return { session, details };
+  return { session, details: retain ? details : { id } };
 }

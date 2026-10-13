@@ -1,3 +1,4 @@
+import { ShoeHistoryProvider } from '../components/ShoeHistory';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { SessionList } from '../components/SessionList';
@@ -7,7 +8,7 @@ function Month({ month, initialOpen }: { month: MonthGroup; initialOpen: boolean
   const [open, setOpen] = useState(initialOpen);
   return <details className="history-month" open={open} onToggle={e => setOpen(e.currentTarget.open)}>
     <summary><strong>{month.label}</strong><span>{month.totals.count} séances · {formatMeasure(month.totals.distance, 1000)} km{month.totals.distance.known < month.totals.count && ' (partiel)'}</span></summary>
-    {open && <><p className="group-coverage">{coverage(month.totals.distance)}</p><SessionList sessions={month.sessions} /></>}
+    {open && <><p className="group-coverage">{coverage(month.totals.distance)}</p><SessionList shoeSelection sessions={month.sessions} /></>}
   </details>;
 }
 function Year({ group, initialOpen }: { group: YearGroup; initialOpen: boolean }) {
@@ -19,9 +20,9 @@ function Year({ group, initialOpen }: { group: YearGroup; initialOpen: boolean }
 }
 export function History({ sessions }: { sessions: RunningSession[] }) {
   const { years, undated } = useMemo(() => groupHistory(sessions), [sessions]);
-  return <>
+  return <ShoeHistoryProvider>
     <header className="page-heading"><span className="eyebrow">VOS SORTIES</span><h1>Historique</h1><p>Retrouvez vos entraînements par année et par mois. Les distances partielles ne comprennent que les mesures renseignées.</p></header>
     {sessions.length === 0 ? <section className="panel"><EmptyState title="Aucune sortie enregistrée" symbol="≡"><p>Importez votre archive Polar depuis les Paramètres.</p></EmptyState></section> : years.map((group, i) => <Year key={group.year} group={group} initialOpen={i === 0} />)}
-    {!!undated.length && <section className="panel settings-panel"><h2>Séances sans date exploitable</h2><p>{undated.length} séances ne peuvent pas être classées. Elles restent conservées.</p><SessionList sessions={undated} /></section>}
-  </>;
+    {!!undated.length && <section className="panel settings-panel"><h2>Séances sans date exploitable</h2><p>{undated.length} séances ne peuvent pas être classées. Elles restent conservées.</p><SessionList shoeSelection sessions={undated} /></section>}
+  </ShoeHistoryProvider>;
 }

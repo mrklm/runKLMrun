@@ -4,7 +4,7 @@ test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-01-04T01:00:00Z')); // 3 janvier localement
   await page.goto('./'); await expect(page.getByText('Votre histoire commence ici')).toBeVisible();
   await page.evaluate(async () => {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => { const r = indexedDB.open('runklmrun', 2); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
+    const db = await new Promise<IDBDatabase>((resolve, reject) => { const r = indexedDB.open('runklmrun'); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
     const tx = db.transaction(['sessions', 'details'], 'readwrite');
     ['2025-12-27', '2025-12-28', '2026-01-03', '2026-01-04', '2024-02-29'].forEach(date => tx.objectStore('sessions').put({ id: date, title: `Synthétique ${date}`, date, durationSeconds: 600, distanceMeters: 1000, cardioLoad: 15 }));
     const samples = Array.from({ length: 10 }, (_, i) => ({ timeSeconds: i, value: 100 + i }));

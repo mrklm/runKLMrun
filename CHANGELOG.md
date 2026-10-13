@@ -1,5 +1,70 @@
 # Historique des versions
 
+## [Non publié]
+
+## v0.5.0 — 2026-10-13
+
+- feat(chaussures): suivre une seule paire automatiquement selon les dates de première
+  utilisation, à partir des résumés permanents, avec historique, kilomètres et durées.
+- feat(chaussures): attribuer manuellement une paire depuis l’historique ou une fiche,
+  proposer une paire par défaut pour les nouvelles séances récentes et conserver les
+  associations lors des changements de mode ; confirmer toute conversion des périodes.
+- feat(chaussures): gérer les paires, les dates indépendantes de l’achat, l’archivage
+  et les limites kilométriques avec alertes personnalisables ; signaler les dates ambiguës.
+- feat(sauvegarde): conserver chaussures, dates, associations et mode de suivi dans
+  les sauvegardes JSON/gzip, avec compatibilité des anciennes sauvegardes, intégrité
+  SHA-256, aperçu, fusion et remplacement atomiques avec protection des conflits.
+- feat(conservation): conserver les détails des nouvelles importations pendant 30 jours,
+  préserver les résumés et proposer un nettoyage par lots après confirmation explicite,
+  avec entretien glissant après activation ; appliquer la règle après vérification des sauvegardes.
+- test(chaussures): couvrir les périodes, attributions, changements de mode, sauvegardes
+  et parcours navigateur sur données synthétiques, dont l’affichage mobile.
+
+- fix(sauvegarde): séparer profondeur, nœuds et valeurs primitives ; réserver aux
+  séries de mesures un budget dérivé de la taille JSON, sans troncature.
+- fix(sauvegarde): préciser les contrôles dépassés avec leurs valeurs et plafonds,
+  limiter les propriétés par objet et signaler les erreurs mémoire identifiables.
+- test(sauvegarde): reproduire le plafond historique de 40 millions de jetons
+  avec 4,5 millions de points GPS synthétiques, sans augmenter les limites d’octets.
+
+- fix(sauvegarde): lever le plafond unique de 128 Mio de JSON avant export,
+  réduire les copies et distinguer les limites gzip, JSON et complexité.
+- feat(sauvegarde): exporter en .json.gz, lire gzip et les anciens JSON v1,
+  conserver SHA-256 et afficher les tailles avant/après compression.
+- test(sauvegarde): couvrir corruption gzip, troncature, expansion excessive,
+  compatibilité JSON et conservation des données, avec contrôle synthétique > 128 Mio.
+
+- feat(sauvegarde): exporter et restaurer séances, détails et profil dans un JSON
+  versionné avec empreinte SHA-256, traitement local et prévisualisation.
+- feat(stockage): remplacer ou fusionner dans une transaction unique, conserver
+  les conflits et demander un choix explicite pour le profil, sans migration.
+- test(sauvegarde): couvrir intégrité, relations, atomicité, concurrence,
+  restauration, téléchargement, clavier et affichage mobile.
+
+- feat(profil): personnaliser les durées maximales par jour disponible, avec mode
+  simple par défaut, résumé lisible et conservation des valeurs entre les modes.
+- test(profil): vérifier les durées facultatives, les anciens profils, la
+  persistance, les erreurs de saisie et les parcours clavier/mobile, sans migration.
+
+- feat(profil): ajouter objectifs, distances, échéances, disponibilités et terrain
+  dans Entraînement, avec formulaire facultatif, résumé et modification explicite.
+- feat(stockage): ajouter le profil unique par migration additive IndexedDB v3,
+  sans réécrire les séances ; signaler les migrations bloquées et conflits entre onglets.
+- fix(profil): conserver les saisies en cas d’erreur, valider les contraintes
+  déclarées et ne déduire aucune préférence de l’historique.
+- test(profil): couvrir validation, persistance, migration, conservation des données,
+  erreurs, concurrence, clavier et affichage mobile.
+
+- style(identite): retirer le logo de l’en-tête, centrer le titre, l’agrandir de 5 %
+  et supprimer son effet d’ombre.
+
+- feat(entrainement): afficher un bilan récent sur 4, 8 ou 12 semaines glissantes,
+  avec volumes, fréquence, semaines actives, sortie la plus longue et dernière activité.
+- fix(analysis): distinguer mesures absentes, invalides et réellement égales à zéro,
+  signaler les totaux partiels et exclure les dates invalides ou futures.
+- test(entrainement): couvrir les limites calendaires, la couverture des mesures,
+  les changements de période et la navigation réelle sur ordinateur et mobile.
+
 ## v0.4.0 — 2026-10-10
 
 - feat(session): consulter les détails d’une séance depuis l’Accueil ou l’Historique,

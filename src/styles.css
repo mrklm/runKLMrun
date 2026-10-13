@@ -646,8 +646,7 @@ summary { cursor:pointer; }
 
 /* Identité originale : titre transparent, fenêtre de lancement blanche. */
 .site-header .brand { gap:6px; padding:4px 6px; border-radius:8px; background:transparent; color:var(--text); letter-spacing:normal; flex-shrink:0; }
-.brand-logo { width:92px; height:92px; object-fit:contain; border-radius:6px; background:#fff; }
-.brand-title { width:153px; height:auto; object-fit:contain; filter:drop-shadow(0 0 2px #fff); }
+.brand-title { width:160.65px; height:auto; object-fit:contain; }
 .brand-version { font-size:14px; font-weight:400; opacity:.6; white-space:nowrap; }
 .splash-screen { position:fixed; inset:0; z-index:1000; background:rgb(0 0 0 / 25%); display:flex; align-items:center; justify-content:center; padding:16px; animation:splash-dismiss 3s linear forwards; }
 .splash-window { position:relative; width:360px; height:380px; max-width:calc(100vw - 32px); max-height:calc(100dvh - 32px); padding:20px 16px 56px; background:#fff; color:#00263e; border-radius:12px; box-shadow:0 12px 40px rgb(0 0 0 / 20%); }
@@ -658,8 +657,7 @@ summary { cursor:pointer; }
 @media(max-width:640px) {
   .site-header { gap:8px; }
   .site-header .brand { gap:4px; padding:4px; }
-  .brand-logo { width:72px; height:72px; }
-  .brand-title { width:132px; }
+  .brand-title { width:138.6px; }
   .brand-version { font-size:12px; }
 
 }
@@ -667,3 +665,48 @@ summary { cursor:pointer; }
 .settings-panel.appearance-panel { padding:16px; }
 .appearance-panel h2 { margin-bottom:8px; }
 .appearance-panel .theme-picker { gap:4px; }
+
+.training-history > select { min-height:44px; max-width:100%; margin:4px 0 12px; }
+.training-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr)); gap:12px; }
+.training-metrics > div { padding:12px; border:1px solid var(--border); border-radius:8px; }
+.training-metrics dd { margin:4px 0 0; }
+.training-metrics dd:first-of-type { font-size:1.15rem; font-weight:600; }
+.training-coverage { display:block; font-size:.85rem; font-weight:400; }
+.training-highlights { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr)); gap:16px; margin:20px 0; }
+.training-highlights h3 { font-size:1rem; margin:0 0 8px; }
+.training-history { overflow-wrap:anywhere; }
+
+.site-header { position:relative; }
+.site-header .brand { position:absolute; left:50%; transform:translateX(-50%); }
+.site-header .brand-version { position:absolute; left:100%; }
+.site-header .local-label { position:absolute; right:0; bottom:4px; }
+
+.profile-fields { border:0; padding:0; margin:16px 0; min-width:0; }
+.profile-fields > legend { font-weight:600; margin-bottom:12px; }
+.profile-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:16px; }
+.profile-grid label { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.profile-grid input, .profile-grid select { width:100%; min-width:0; min-height:44px; }
+.profile-grid small, .profile-field-error { font-size:.85rem; }
+.profile-field-error { display:block; font-weight:600; }
+.profile-days { margin:20px 0; border:1px solid var(--border); border-radius:8px; min-width:0; padding:12px; }
+.profile-days > div { display:flex; flex-wrap:wrap; gap:8px 16px; }
+.profile-days label { display:flex; align-items:center; gap:8px; min-height:44px; }
+.profile-actions { display:flex; flex-wrap:wrap; gap:12px; }
+.coach-profile { overflow-wrap:anywhere; }
+
+.profile-duration-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-bottom: 12px; }
+.coach-profile .profile-actions { margin-top: 16px; }
+
+.backups { overflow-wrap: anywhere; }
+.backup-preview { margin-top: 20px; }
+.backups fieldset { min-width: 0; }
+
+/* Chaussures : mêmes surfaces et champs que les autres préférences. */
+.navigation { flex-wrap:wrap; }
+.shoe-panel { overflow-wrap:anywhere; }
+.shoe-panel label { display:flex; flex-direction:column; gap:6px; margin:12px 0; min-width:0; }
+.shoe-panel label:has(input[type="checkbox"]) { flex-direction:row; align-items:center; }
+.shoe-panel input:not([type="checkbox"]), .shoe-panel select { width:100%; min-width:0; min-height:44px; }
+.shoe-panel .button { margin:4px 0; }
+.shoe-history { padding:12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.shoe-history select { max-width:100%; min-width:0; min-height:44px; }

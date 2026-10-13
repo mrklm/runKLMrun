@@ -1,8 +1,9 @@
+import { ShoeHistorySelect } from './ShoeHistory';
 import { useMemo } from 'react';
 import type { RunningSession } from '../types/session';
 import { duration, pace } from '../core/analysis/session-format';
 import { sessionHref } from '../core/analysis/session-detail';
-export function SessionList({ sessions, limit }: { sessions: RunningSession[]; limit?: number }) {
+export function SessionList({ sessions, limit, shoeSelection = false }: { sessions: RunningSession[]; limit?: number; shoeSelection?: boolean }) {
   const displayedSessions = useMemo(() => [...sessions]
     .sort((a, b) => (b.startTime ?? b.date).localeCompare(a.startTime ?? a.date))
     .slice(0, limit), [sessions, limit]);
@@ -18,6 +19,7 @@ export function SessionList({ sessions, limit }: { sessions: RunningSession[]; l
         <div><dt>Dénivelé positif</dt><dd>{session.ascentMeters === undefined ? '—' : `${session.ascentMeters} m`}</dd></div>
       </dl>
       </a>
+      {shoeSelection && <ShoeHistorySelect sessionId={session.id} />}
     </li>)}
   </ul>;
 }

@@ -1,3 +1,5 @@
+import { DetailRetention } from '../components/DetailRetention';
+import { Backups } from '../components/Backups';
 import { Appearance } from '../components/Appearance';
 import { PolarImport } from '../components/PolarImport';
 
@@ -12,7 +14,8 @@ export function Settings({ onImported }: { onImported: () => void }) {
         <p>Chaque navigateur et chaque appareil dispose de son propre stockage. Vos données ne sont pas synchronisées entre vos appareils.</p>
         <div className="notice"><strong>À savoir</strong><p>Effacer les données de ce site peut supprimer votre historique. En navigation privée, le stockage peut être indisponible ou supprimé à la fermeture du navigateur.</p></div>
       </section>
-      <section className="panel settings-panel" aria-labelledby="backup-title"><span className="tag">À venir</span><h2 id="backup-title">Sauvegarde et restauration</h2><p>L’architecture prévoit la sauvegarde et la restauration de vos données. Ces fonctions ne sont pas encore disponibles.</p></section>
+      <Backups onRestored={onImported} />
+      <DetailRetention onCleaned={onImported} />
       <Appearance />
     </>
   );

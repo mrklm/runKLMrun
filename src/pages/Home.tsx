@@ -1,3 +1,4 @@
+import { ShoeAlert } from '../components/Shoes';
 import { EmptyState } from '../components/EmptyState';
 import { SessionList } from '../components/SessionList';
 import type { RunningSession } from '../types/session';
@@ -6,6 +7,7 @@ export function Home({ sessions }: { sessions: RunningSession[] }) {
   return (
     <>
       <h1 className="home-title">Accueil</h1>
+      <ShoeAlert sessions={sessions} />
       <section className="panel" aria-labelledby="activity-title">
         <div className="panel-heading"><h2 id="activity-title">Dernières sorties</h2><span className="tag">Historique</span></div>
         {sessions.length === 0 ? (

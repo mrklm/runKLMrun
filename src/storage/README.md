@@ -1,7 +1,7 @@
 # Stockage local
 
 `database.ts` implémente `SessionRepository` avec IndexedDB via `idb`.
-La base `runklmrun` utilise le schéma version 2. La migration historique depuis
+La base `runklmrun` utilise désormais le schéma version 5. La migration historique depuis
 la version 1 ajoute uniquement `details` (clé `id`) et conserve `sessions` et ses
 clés. La publication applicative v0.4.0 ne nécessite aucune nouvelle migration.
 Chaque opération ferme sa connexion ; une mise à niveau dans un autre onglet
@@ -21,6 +21,71 @@ Une interruption conserve les séances déjà validées. Effacer les données du
 site supprime l'historique. Pas de synchronisation entre appareils/origines,
 ni de garantie de persistance en navigation privée.
 
-`BackupService` reste un contrat sans implémentation. L'import Polar n'est pas
+`BackupService` est implémenté dans `backup.ts`. L'import Polar n'est pas
 une restauration de sauvegarde runKLMrun. Les tests utilisent fake-indexeddb et
 des données synthétiques isolées de l'application.
+
+## Profil du coach (chantier v0.5.0)
+
+`database-connection.ts` centralise la migration additive et l’ouverture pour les
+deux dépôts. Depuis v2, seul `coachProfile` (clé `id`) est ajouté. `sessions` et
+`details` restent intacts. Les opérations de migration appartiennent à la
+transaction native `versionchange` d’IndexedDB.
+
+`coach-profile.ts` implémente `CoachProfileRepository` : `get()` lit le profil
+`local` et `save(values, expectedRevision)` crée ou modifie ce profil après
+validation. Le dépôt préserve la date de création, incrémente la révision et refuse
+les écritures concurrentes obsolètes dans la même transaction. L’horloge et le nom
+de base sont injectables pour les tests. Une valeur corrompue produit une erreur
+de lecture, jamais une réinitialisation silencieuse.
+
+L’événement `blocking` ferme les connexions de cette application. L’événement
+`blocked` remonte `StorageBlockedError` avec consigne de fermer les autres onglets.
+Une ouverture en attente ne peut pas être annulée nativement : si elle aboutit
+après l’erreur, sa connexion est fermée et aucune opération métier différée n’est
+exécutée. L’utilisateur peut réessayer ; aucun délai arbitraire ne déclenche de
+suppression de base.
+
+
+L’étape 2 bis ajoute au profil des champs facultatifs de mode et de durées par
+jour, sans changer le schéma v3 ni les magasins. Le dépôt utilise la validation
+commune pour ces champs et conserve également les durées inactives. Les anciens
+profils sans ces champs sont acceptés ; aucune réécriture à la lecture.
+
+
+## Sauvegardes (étape 3)
+
+`backup.ts` lit un instantané dans une transaction readonly commune aux trois
+magasins. La restauration valide son entrée avant une transaction readwrite unique.
+Elle compare alors l’état courant à la prévisualisation, puis applique le plan.
+Toute erreur annule les écritures et suppressions. Le schéma courant est en version 5.
+La fusion est fondée sur les identifiants, sans réutiliser l’asymétrie de dédoublonnage
+des imports. Voir le [format, les conflits et les limites](../backup/README.md).
+
+
+### Compression des sauvegardes (étape 3 bis)
+
+L’enveloppe logique v1 et IndexedDB v3 restent inchangés. L’export produit un
+`.json.gz` ; la prévisualisation accepte aussi les anciens JSON. Détection réelle
+du gzip, décompression bornée, précontrôle de complexité, validation métier et
+SHA-256 précèdent toute transaction d’écriture.
+Les règles de fusion, de profil, de conflit et d’atomicité sont inchangées.
+Le processeur worker copie les entrées via `postMessage`, sans clone préalable
+redondant ; le processeur natif fige lui-même son entrée.
+Les lectures `getAll` et la comparaison finale restent complètes en mémoire :
+voir les [limites et allocations](../backup/README.md).
+
+
+## Chaussures et mode de suivi
+
+La migration additive crée `shoes` (clé `id`), `shoeAssignments` (clé `sessionId`)
+et `shoeSettings` (réglage `local`). Elle ne réécrit aucun résumé ni détail.
+`shoes.ts` contrôle les révisions des paires et du mode, l’unicité de la paire
+active par défaut et les références des associations. Sans réglage, le mode est
+manuel, compatible avec les associations existantes.
+
+Le mode automatique calcule les périodes depuis les dates de première utilisation,
+sans écrire d’associations. Le changement de mode ne supprime rien. Une conversion
+explicite vers les associations manuelles exige un aperçu puis une confirmation ;
+la transaction revérifie les résumés, paires, associations et le mode. Les associations
+existantes ne sont pas écrasées.

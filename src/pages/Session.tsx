@@ -1,3 +1,4 @@
+import { SessionShoes } from '../components/Shoes';
 import { useEffect, useMemo, useState } from 'react';
 import type { RunningSession, SessionDetails } from '../types/session';
 import { sessionRepository } from '../storage/database';
@@ -40,6 +41,7 @@ export function Session({ session }: { session?: RunningSession }) {
     <header className="session-heading"><h1>{session?.title ?? 'Séance introuvable'}</h1></header>
     {!session ? <section className="panel settings-panel"><p>Cette séance n’est pas disponible sur cet appareil.</p></section> : <>
       <SessionInformation session={session} />
+      <SessionShoes sessionId={session.id} session={session} />
       {state.status === 'loading' && <p role="status">Chargement des détails de votre séance…</p>}
       {state.status === 'error' && <section className="panel settings-panel" role="alert"><h2>Stockage local indisponible</h2><p>Les détails n’ont pas pu être chargés. Vous pouvez réessayer.</p><button className="button" onClick={() => setAttempt(v => v + 1)}>Réessayer</button></section>}
       {state.status === 'ready' && <SessionCurves details={state.details} />}

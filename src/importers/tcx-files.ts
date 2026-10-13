@@ -1,8 +1,9 @@
+import { shouldKeepDetails } from '../core/analysis/detail-retention';
 import type { SessionRepository } from '../storage/contracts';
 import { MAX_TCX_BYTES, parseTcx, type XmlReader } from './tcx';
 export interface TcxReport { total: number; processed: number; imported: number; duplicates: number; invalid: number; unsupported: number; issues: string[]; error?: string }
 export const emptyTcxReport = (total: number): TcxReport => ({ total, processed: 0, imported: 0, duplicates: 0, invalid: 0, unsupported: 0, issues: [] });
-export async function importTcxFiles(files: readonly File[], repository: SessionRepository, progress: (report: TcxReport) => void, readXml?: XmlReader): Promise<TcxReport> {
+export async function importTcxFiles(files: readonly File[], repository: SessionRepository, progress: (report: TcxReport) => void, readXml?: XmlReader, reference = new Date(), onAdded?: (id: string) => void): Promise<TcxReport> {
   const selected = [...files];
   const report = emptyTcxReport(selected.length);
   const emit = () => progress({ ...report, issues: [...report.issues] });
@@ -29,7 +30,7 @@ export async function importTcxFiles(files: readonly File[], repository: Session
     if (!parsed) report.unsupported++;
     else {
       try {
-        if (await repository.addImported(parsed.session, parsed.details)) report.imported++;
+        if (await repository.addImported(parsed.session, shouldKeepDetails(parsed.session, reference) ? parsed.details : undefined)) { report.imported++; onAdded?.(parsed.session.id); }
         else report.duplicates++;
       } catch {
         report.error = 'Import interrompu : stockage local indisponible ou plein. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer.';

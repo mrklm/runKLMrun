@@ -1,4 +1,4 @@
-# runKLMrun — v0.4.0
+# runKLMrun — v0.5.0
 
 Socle d’une application web open source de suivi et de planification des
 entraînements de course à pied. Interface en français, responsive, sans compte,
@@ -36,7 +36,7 @@ npm run test:watch
 
 Vitest exécute les tests unitaires. Les tests du stockage utilisent
 `fake-indexeddb` et vérifient une base vide, la persistance après réouverture et
-la migration v1 → v2, les doublons, les détails, les conversions et les erreurs d’import. Leurs données sont isolées : aucune donnée sportive
+les migrations v1 → v2 → v3, le profil du coureur, les doublons, les détails, les conversions et les erreurs d’import. Leurs données sont isolées : aucune donnée sportive
 de démonstration n’est injectée dans l’application.
 
 ## Compilation et aperçu
@@ -82,7 +82,8 @@ src/
 L’interface lit les sorties via le contrat `SessionRepository`. Le dépôt
 IndexedDB expose la lecture, l’enregistrement et l’ajout transactionnel sans
 écrasement des séances Polar. Les états de chargement, de base vide et d’erreur sont distincts.
-Les pages Entraînement et Paramètres restent accessibles en cas d’erreur de stockage.
+Les Paramètres restent accessibles en cas d’erreur de stockage. Entraînement
+utilise les mêmes états de chargement et d’erreur que les pages fondées sur les résumés.
 
 Les agrégations de résumés restent indépendantes de React, du DOM et d’IndexedDB.
 Aucun calcul de charge sportive ni planificateur n’est implémenté. Recharts affiche
@@ -91,17 +92,18 @@ L’importateur Polar est disponible dans Paramètres ; son périmètre exact es
 
 ## Données et prochaines étapes
 
-La base `runklmrun`, version 2, contient les magasins `sessions` (résumés) et `details` (séries). Il n’y a ni
+La base `runklmrun`, version 3, contient les magasins `sessions` (résumés),
+`details` (séries) et `coachProfile` (profil déclaré). Il n’y a ni
 synchronisation ni envoi des activités à un service distant. Effacer le stockage
 du site supprime les données ; le mode privé peut limiter ou supprimer la
 persistance. Le stockage dépend de l’origine du site et n’est pas partagé entre
-navigateurs ou appareils. Aucune garantie de fonctionnement hors connexion
-n’est apportée à cette étape : aucun service worker n’est installé.
+navigateurs ou appareils. Le démarrage hors connexion n’est pas garanti : aucun
+service worker n’est installé. Les sauvegardes peuvent être traitées hors ligne
+par l’application de production déjà chargée.
 
-Le contrat `BackupService` réserve la sauvegarde et la restauration ; aucune
-implémentation de sauvegarde/restauration n’est disponible. Le format versionné,
-la validation et les règles de restauration restent à définir. Voir
-[`src/storage/README.md`](src/storage/README.md).
+Les sauvegardes locales sont disponibles dans **Paramètres → Données et sauvegardes**.
+Le format JSON versionné, exporté en gzip, inclut les séances, leurs détails et le profil. Consultez
+la [documentation du format et de la restauration](src/backup/README.md).
 
 ## Tester l'import Polar
 
@@ -433,8 +435,8 @@ et smartphone, avec des données synthétiques dans un navigateur isolé.
 ### Identité graphique et écran de lancement
 
 Les originaux `logo.png`, `titre.png` et `splash.png` sont copiés sans modification
-sous `public/images/`. L'en-tête utilise un logo doublé dans une zone carrée et un titre de taille
-conservée sur fond transparent, avec une légère ombre claire pour les thèmes sombres ; leur lien revient à l'Accueil.
+sous `public/images/`. L'en-tête affiche uniquement le titre graphique centré, agrandi de 5 %,
+sur fond transparent sans ombre ni filtre ; leur lien revient à l'Accueil.
 Les dimensions s'adaptent au mobile en conservant les proportions.
 
 Une fenêtre blanche centrée de 360 × 380 px, arrondie et adaptée aux petits écrans,
@@ -447,3 +449,184 @@ le système demande de réduire les mouvements. Aucun stockage n'est réinitiali
 La version de l'en-tête et du splash provient de `package.json`, injectée par Vite
 à la compilation. Une modification de version nécessite une nouvelle compilation
 (ou un redémarrage du serveur de développement).
+
+## Bilan de l’activité récente — v0.5.0
+
+L’onglet **Entraînement** présente un bilan descriptif des résumés enregistrés,
+sans programme, score de niveau ou recommandation sportive. Le choix initial est
+**8 semaines** ; les choix 4 et 12 semaines sont également disponibles.
+
+Les fenêtres contiennent 28, 56 ou 84 dates calendaires, aujourd’hui inclus.
+Aujourd’hui est déterminé dans le fuseau du navigateur ; les dates civiles des
+séances sont conservées, sans conversion de leur heure de départ vers UTC.
+Les semaines actives sont des blocs de sept jours depuis le début de la fenêtre,
+pas des semaines ISO. Les moyennes divisent les totaux par 4, 8 ou 12, y compris
+les blocs sans enregistrement. Plusieurs séances le même jour restent plusieurs
+séances, mais un seul jour actif. Les dates invalides et futures sont exclues.
+
+Le bilan indique les séances, les jours et semaines actifs, la fréquence,
+les distances et durées totales et hebdomadaires. La sortie la plus longue est
+celle de plus grande **distance valide dans la fenêtre**, avec lien vers sa fiche.
+À distance égale, la date la plus récente puis l’identifiant départagent les séances.
+La dernière activité et le nombre de jours écoulés sont recherchés sur tout
+l’historique jusqu’à aujourd’hui, même hors fenêtre.
+
+Une mesure absente (`undefined` ou `null`) est distincte d’une mesure invalide
+(négative, non numérique ou non finie) et d’un zéro enregistré. Les totaux et
+moyennes partiels portent une indication de couverture ; sans aucune mesure
+exploitable, ils affichent « — ». Une période vide affiche un message explicite.
+Une durée zéro est conservée comme valeur source, sans en déduire un effort.
+L’absence de séances enregistrées ne prouve pas l’absence d’entraînement.
+
+Le calcul pur `analyzeTrainingHistory` reçoit une date de référence explicite.
+La page réutilise les résumés chargés par l’application ; aucun détail, parcours
+GPS ou point de graphique n’est lu. Le stockage et le schéma IndexedDB restent
+inchangés. La date de référence est rafraîchie au retour sur la fenêtre et toutes
+les minutes pendant l’affichage. Les mesures physiologiques ne sont pas utilisées.
+
+## Profil du coureur — v0.5.0
+
+Sous le bilan récent, **Votre profil de coureur** permet d’enregistrer vos
+objectifs, disponibilités et préférences. Vous pouvez laisser tous les champs
+non renseignés et continuer à consulter votre bilan. Après enregistrement, un
+résumé et le bouton **Modifier mon profil** permettent de revenir au formulaire.
+
+Objectifs proposés : régularité, reprise, endurance, préparation d’une distance
+ou d’une compétition. Distances proposées : 5 km, 10 km, semi-marathon (21,0975 km),
+marathon (42,195 km) et distance personnalisée en kilomètres. L’échéance est
+facultative. Changer d’objectif conserve les autres informations, y compris une
+distance et une échéance précédemment choisies ; vous pouvez les retirer explicitement.
+
+Les disponibilités comprennent les jours, le nombre souhaité de séances et la
+durée disponible. Les terrains sont sans préférence, route, chemins/sentiers ou
+tapis. « Non renseigné » est distinct de « Sans préférence », de zéro séance et
+d’une liste explicitement vide de jours. Aucune préférence n’est préremplie depuis
+les données Polar. Cette étape ne propose pas de suggestion ni de programme.
+
+Validations (limites de saisie, pas recommandations sportives) :
+
+- Nombre entier de séances de 0 à 7 ; cette première représentation permet au
+  plus une séance par jour disponible. Si des jours sont renseignés, leur nombre
+  doit être suffisant. Les choix incohérents restent affichés pour correction.
+- Durée entière de 1 à 1 440 minutes, soit au plus une journée.
+- Distance personnalisée finie, strictement positive, dans la plage numérique
+  sûre en mètres ; virgule et point décimaux sont acceptés.
+- Date calendaire valide, aujourd’hui ou ultérieure lors d’une nouvelle saisie.
+  Une échéance enregistrée devenue passée reste conservée et peut être modifiée.
+
+Le profil unique porte l’identifiant `local`, des dates de création/modification
+et une révision. Ses objectifs, disponibilités et préférences sont séparés des
+observations historiques. Ces déclarations ne prouvent aucune capacité physique.
+La migration IndexedDB v2 → v3 ajoute seulement `coachProfile` ; elle ne réécrit
+aucune séance ni série Polar. Les dépôts partagent l’ouverture de base, mais leurs
+opérations restent séparées. Aucun magasin de programme ou de ressenti n’est créé.
+
+Les erreurs de lecture sont distinctes d’un profil absent. Une erreur d’écriture
+conserve les saisies. Si un autre onglet a modifié le profil, l’enregistrement est
+refusé et vous pouvez recharger explicitement sa version ; ce rechargement remplace
+le brouillon. Une migration bloquée demande de fermer les autres onglets puis de
+réessayer. Le profil n’est pas synchronisé entre appareils et reste soumis aux
+limites du stockage local ; exportez régulièrement une sauvegarde.
+
+### Durées disponibles selon les jours (étape 2 bis)
+
+Par défaut, le profil utilise le mode simple : la durée habituelle reste indicative.
+« Personnaliser la durée selon les jours » affiche un champ facultatif pour chaque
+jour disponible. Ces durées sont des maxima disponibles, jamais des durées
+d’entraînement imposées. Vous pouvez souhaiter 3 séances avec 5 jours disponibles.
+
+Les durées sont des minutes entières de 1 à 1 440 (limite calendaire, pas une
+recommandation sportive). Un champ vide reste non renseigné et apparaît comme
+« Durée non précisée » dans le résumé ; aucune valeur n’est déduite.
+Décocher un jour ou désactiver la personnalisation conserve les valeurs saisies,
+y compris après enregistrement. Elles sont ignorées tant que leur jour ou le mode
+personnalisé est inactif. Une valeur invalide, même masquée, empêche l’enregistrement :
+le message indique comment réafficher le champ pour la corriger ou le vider.
+
+Le mode choisi persiste. Les profils plus anciens restent en mode simple.
+Ces champs facultatifs ne nécessitent aucune migration supplémentaire (base v3) ;
+les séances, leurs détails, les dates du profil et sa protection contre les
+modifications concurrentes conservent leur fonctionnement.
+
+### Sauvegarde et restauration (étape 3)
+
+Dans **Paramètres → Données et sauvegardes**, « Exporter mes données » télécharge
+un fichier `.json.gz` non chiffré avec vos séances, détails (GPS compris) et profil complet.
+Le thème reste une préférence propre à l’appareil, inchangée par la restauration.
+Conservez ce fichier personnel dans un endroit sûr.
+
+« Restaurer une sauvegarde » accepte les anciens `.json` et les nouveaux `.json.gz`,
+vérifie leur contenu réel et leur empreinte, puis présente
+sa date, son format, son contenu et les éventuels conflits. Vous pouvez annuler
+sans changement. Choisissez la fusion ou le remplacement, le traitement du profil,
+puis cochez la confirmation et validez :
+
+- **Fusion** : identifiants absents ajoutés ; en cas de conflit, données locales
+  conservées. Des détails manquants peuvent être complétés si les résumés sont
+  identiques. Aucun rapprochement automatique sur une date ou une distance.
+- **Remplacement** : toutes les séances, détails et le profil sont remplacés ;
+  l’absence de profil dans le fichier supprime le profil local.
+- **Profil en fusion** : conservé par défaut, restauré seulement sur votre choix.
+
+L’opération est atomique : en cas d’échec, aucune restauration partielle ne reste.
+Si les données changent entre prévisualisation et confirmation, sélectionnez à
+nouveau le fichier. Les pages sont actualisées après succès. L’empreinte SHA-256
+détecte des altérations mais ne garantit pas l’authenticité du fichier.
+
+Tout reste local, sans synchronisation ni transmission. L’application de production
+déjà chargée fonctionne pour ces opérations hors ligne (Web Crypto, HTTPS/localhost).
+Les gros fichiers nécessitent de la mémoire ; l’analyse et le calcul d’empreinte
+s’effectuent dans un worker. Voir les [limites détaillées](src/backup/README.md).
+
+### Sauvegardes volumineuses et gzip (étape 3 bis)
+
+L’export est compressé avec les API natives, sans perte de détails ni de précision.
+Le format logique reste `runKLMrun-backup`, version 1, avec la même empreinte
+SHA-256 calculée avant compression. Les tailles avant/après et la réduction sont
+affichées après téléchargement.
+
+Limites distinctes : 128 Mio pour gzip, 384 Mio pour le JSON brut ou décompressé.
+La décompression s’arrête aussi en cas d’expansion anormale ; la profondeur et le
+nombre d’éléments JSON sont bornés avant analyse. Voir les
+[seuils précis et leur justification](src/backup/README.md).
+Le volume dépend des détails, pas seulement du nombre de séances.
+
+Le traitement reste local et hors ligne dans l’application de production déjà
+chargée. Gzip n’est pas du chiffrement. Chromium est testé ; un navigateur sans
+les API de compression natives affiche un message explicite.
+Le correctif réduit les copies mais conserve des données et buffers complets en
+mémoire : il ne garantit pas un fonctionnement à mémoire constante ni sur tout
+appareil pour les plus gros fichiers.
+
+
+### Diagnostic des limites de sauvegarde (correctif 3 ter)
+
+Les messages distinguent taille, profondeur, nombre de nœuds, nombre de valeurs
+et propriétés par objet, avec valeur observée et plafond. Les millions de mesures
+ne sont plus mélangés aux clés et aux conteneurs généraux. Leur budget séparé est
+calculé à partir des 384 Mio autorisés et de la taille minimale d’un échantillon.
+Aucun plafond d’octets n’est relevé, aucune mesure n’est supprimée. Les protections
+contre les JSON pathologiques restent actives ; voir la
+[justification et la reproduction GPS](src/backup/README.md#correctif-3-ter--profondeur-et-volume-ne-sont-plus-confondus).
+
+
+### Mes chaussures
+
+Le suivi reste facultatif et local. Le mode initial « Plusieurs paires — Par séance »
+conserve les associations existantes. Le sélecteur « Chaussures utilisées » est disponible
+directement dans l’historique et dans chaque fiche. La paire par défaut est seulement
+proposée pour les nouvelles séances récentes ; les imports historiques et doublons
+ne reçoivent aucune attribution automatique.
+
+Le mode « Une seule paire — Automatique » calcule les kilomètres depuis les dates
+de première utilisation, jusqu’à la veille du début de la paire suivante. La date
+est saisissable au calendrier ou manuellement, modifiable, indépendante de l’achat
+et sauvegardée. Les dates identiques ou manquantes suspendent le calcul et demandent
+une correction. Les paires futures ne deviennent pas actuelles avant leur date.
+
+Changer de mode conserve toutes les associations manuelles. Leur reprise depuis les
+périodes automatiques nécessite un aperçu et une confirmation, sans écraser les choix
+existants. Les durées d’utilisation sont calendaires et inclusives ; les fins déduites
+ne représentent pas la dernière sortie enregistrée. Les seuils d’usure restent des
+repères personnels facultatifs. Les sauvegardes avec chaussures utilisent le format 2,
+tout en conservant la lecture du format 1.

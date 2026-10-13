@@ -1,30 +1,11 @@
 import { isTcxDuplicate } from '../importers/session-duplicate';
-import { openDB, type DBSchema } from 'idb';
-import type { RunningSession, SessionDetails } from '../types/session';
+import { DATABASE_NAME, openDatabase } from './database-connection';
+export { DATABASE_NAME } from './database-connection';
 import type { SessionRepository } from './contracts';
 
-interface RunDatabase extends DBSchema {
-  details: { key: string; value: SessionDetails };
-  sessions: { key: string; value: RunningSession };
-}
-
-export const DATABASE_NAME = 'runklmrun';
-const DATABASE_VERSION = 2;
-
-/** L'ouverture est différée : importer ce module n'accède pas au navigateur. */
+/** L'ouverture est différée et partagée avec le dépôt du profil. */
 export function createSessionRepository(name = DATABASE_NAME): SessionRepository {
-  const connect = () => openDB<RunDatabase>(name, DATABASE_VERSION, {
-    upgrade(database) {
-      if (!database.objectStoreNames.contains('details')) database.createObjectStore('details', { keyPath: 'id' });
-      if (!database.objectStoreNames.contains('sessions')) {
-        database.createObjectStore('sessions', { keyPath: 'id' });
-      }
-    },
-    blocking(_currentVersion, _blockedVersion, event) {
-      // Libérer la connexion si un autre onglet doit migrer la base.
-      (event.target as IDBDatabase).close();
-    },
-  });
+  const connect = () => openDatabase(name);
 
   return {
     async getDetails(id) {
@@ -43,7 +24,7 @@ export function createSessionRepository(name = DATABASE_NAME): SessionRepository
           if (existing.some(item => isTcxDuplicate(session, item))) { await tx.done; return false; }
         }
         await tx.objectStore('sessions').add(session);
-        await tx.objectStore('details').add(details);
+        if (details) await tx.objectStore('details').add(details);
         await tx.done;
         return true;
       } finally { database.close(); }

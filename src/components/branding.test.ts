@@ -9,7 +9,7 @@ it('utilise la version du projet pour les deux présentations', () => {
 });
 it('conserve les images originales et le lien accessible vers l’accueil', () => {
   const html = renderToStaticMarkup(createElement(Branding));
-  expect(html).toContain('images/logo.png'); expect(html).toContain('images/titre.png');
+  expect(html).not.toContain('images/logo.png'); expect(html).toContain('images/titre.png');
   expect(html).toContain('href="#/"'); expect(html).toContain('alt="runKLMrun"');
   expect(renderToStaticMarkup(createElement(SplashScreen))).toContain('images/splash.png');
 });

@@ -1,3 +1,4 @@
+import { ImportShoeSuggestion } from './Shoes';
 import { useEffect, useRef, useState } from 'react';
 import { takeSelectedFiles } from '../importers/file-selection';
 import { emptyReport, type ImportReport } from '../importers/import-report';
@@ -6,6 +7,7 @@ import { selectPolarFiles, tcxReport, zipReport, type UnifiedReport } from '../i
 import { sessionRepository } from '../storage/database';
 import { ImportReportView } from './ImportReportView';
 export function PolarImport({ onImported }: { onImported: () => void }) {
+  const [importedIds, setImportedIds] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [report, setReport] = useState<UnifiedReport>();
   const [error, setError] = useState<string>();
@@ -18,12 +20,13 @@ export function PolarImport({ onImported }: { onImported: () => void }) {
     if (running.current) return;
     const selection = selectPolarFiles(files);
     if ('error' in selection) { setError(selection.error); setReport(undefined); return; }
-    setError(undefined); running.current = true; setBusy(true);
+    setImportedIds([]); setError(undefined); running.current = true; setBusy(true);
     if (selection.format === 'tcx') {
+      const added: string[] = [];
       setReport(tcxReport(emptyTcxReport(selection.files.length)));
-      try { const result = await importTcxFiles(selection.files, sessionRepository, r => { if (mounted.current) setReport(tcxReport(r)); }); if (mounted.current) setReport(tcxReport(result)); }
+      try { const result = await importTcxFiles(selection.files, sessionRepository, r => { if (mounted.current) setReport(tcxReport(r)); }, undefined, new Date(), id => added.push(id)); if (mounted.current) setReport(tcxReport(result)); }
       catch { if (mounted.current) setError('Import interrompu. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer.'); }
-      finally { finish(); }
+      finally { if (mounted.current) setImportedIds(added); finish(); }
       return;
     }
     setReport(zipReport(emptyReport()));
@@ -34,7 +37,7 @@ export function PolarImport({ onImported }: { onImported: () => void }) {
       worker.current.onmessage = event => {
         if (event.data.type === 'error') { fail(); return; }
         if (mounted.current) setReport(zipReport(event.data.report as ImportReport));
-        if (event.data.type === 'done') finish();
+        if (event.data.type === 'done') { if (mounted.current) setImportedIds(event.data.importedIds ?? []); finish(); }
       };
       worker.current.postMessage(selection.files[0]);
     } catch { fail(); }
@@ -48,5 +51,6 @@ export function PolarImport({ onImported }: { onImported: () => void }) {
     <button className="button" disabled={busy} onClick={() => void start()}>Importer les séances</button>
     {error && <p role="alert">{error}</p>}
     {report && <ImportReportView report={report} busy={busy} />}
+    {!busy && importedIds.length > 0 && <ImportShoeSuggestion ids={importedIds} />}
   </section>;
 }

@@ -1,3 +1,4 @@
+import { shouldKeepDetails } from '../core/analysis/detail-retention';
 import { BlobReader, TextWriter, ZipReader } from '@zip.js/zip.js';
 import type { SessionRepository } from '../storage/contracts';
 import { parsePolar } from './polar';
@@ -5,7 +6,7 @@ import { IMPORT_REASONS, PolarImportError, type ImportReason } from './polar-err
 
 import { emptyReport, type ImportReport } from './import-report';
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
-export async function importPolarArchive(file: Blob, repository: SessionRepository, progress: (report: ImportReport) => void): Promise<ImportReport> {
+export async function importPolarArchive(file: Blob, repository: SessionRepository, progress: (report: ImportReport) => void, reference = new Date(), onAdded?: (id: string) => void): Promise<ImportReport> {
   const report = emptyReport();
   // BlobReader performs random-access reads; the archive is never read as one ArrayBuffer.
   const reader = new ZipReader(new BlobReader(file), { useWebWorkers: false });
@@ -25,7 +26,7 @@ export async function importPolarArchive(file: Blob, repository: SessionReposito
         if (entry.uncompressedSize > MAX_FILE_BYTES) throw new PolarImportError('oversized');
         const text = await entry.getData!(new TextWriter(), { checkSignature: true, onprogress: size => { if (size > MAX_FILE_BYTES) { oversized = true; throw new PolarImportError('oversized'); } } });
         reading = false;
-        parsed = parsePolar(text, entry.filename, true);
+        parsed = parsePolar(text, entry.filename, true, session => shouldKeepDetails(session, reference));
       } catch (error) {
         const reason = oversized ? 'oversized' : error instanceof PolarImportError ? error.reason : reading ? 'decompression' : 'unsupportedStructure';
         report.invalid++;
@@ -36,7 +37,7 @@ export async function importPolarArchive(file: Blob, repository: SessionReposito
       if (parsed === null) { report.ignored++; countReason('otherSport'); }
       else {
         try {
-          if (await repository.addImported(parsed.session, parsed.details)) report.imported++;
+          if (await repository.addImported(parsed.session, shouldKeepDetails(parsed.session, reference) ? parsed.details : undefined)) { report.imported++; onAdded?.(parsed.session.id); }
           else report.duplicates++;
         } catch {
           report.error = 'Import interrompu : stockage local indisponible ou plein. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer sans doublons.';

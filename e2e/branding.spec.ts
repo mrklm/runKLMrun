@@ -13,7 +13,7 @@ test('splash initial de trois secondes, version commune et navigation interne', 
   await page.clock.fastForward(1);
   await expect(page.locator('.splash-screen')).toHaveCount(0);
   await expect(page.locator('.brand-version')).toHaveText(version);
-  await expect(page.getByRole('img', { name: 'Logo runKLMrun', exact: true })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Logo runKLMrun', exact: true })).toHaveCount(0);
   await expect(page.getByRole('img', { name: 'runKLMrun', exact: true })).toBeVisible();
   for (const name of ['Historique', 'Statistiques', 'Entraînement', 'Paramètres', 'Accueil']) {
     await page.getByRole('navigation').getByRole('link', { name }).click();
@@ -36,15 +36,15 @@ for (const width of [320, 768, 1280]) test(`images intactes et responsive à ${w
   expect(bounds!.x + bounds!.width / 2).toBeCloseTo(width / 2);
   expect(bounds!.y + bounds!.height / 2).toBeCloseTo(450);
   await page.clock.fastForward(3000);
-  for (const selector of ['.brand-logo', '.brand-title']) {
+  for (const selector of ['.brand-title']) {
     const img = page.locator(selector);
     await expect(img).toBeVisible();
     expect(await img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0)).toBe(true);
     await expect(img).toHaveCSS('object-fit', 'contain');
-    if (selector === '.brand-logo') {
-      await expect(img).toHaveCSS('width', width <= 640 ? '72px' : '92px');
-      await expect(img).toHaveCSS('height', width <= 640 ? '72px' : '92px');
-    }
+    await expect(img).toHaveCSS('filter', 'none');
+    const title = await img.boundingBox();
+    expect(title!.width).toBeCloseTo(width <= 640 ? 138.6 : 160.65, 1);
+    expect(title!.x + title!.width / 2).toBeCloseTo(width / 2, 1);
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.locator('.brand')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');

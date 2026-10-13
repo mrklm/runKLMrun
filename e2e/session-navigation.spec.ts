@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByText('Votre histoire commence ici')).toBeVisible();
   await page.evaluate(async () => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('runklmrun', 2);
+      const request = indexedDB.open('runklmrun');
       request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
     });
     const tx = database.transaction(['sessions', 'details'], 'readwrite');

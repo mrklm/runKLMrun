@@ -35,7 +35,7 @@ describe('archive et stockage', () => {
   it('importe progressivement, ignore les fichiers privés, conserve les détails et évite les doublons', async () => {
     const { storage } = repo(); const file = await zip({ 'folder/training-session_test-1.json': JSON.stringify({ exercises: [exercise] }), 'personal.json': '{invalid', 'training-session_broken.json': '{invalid', 'training-session_bike.json': JSON.stringify({ exercises: [{ ...exercise, sport: 'CYCLING' }] }) });
     const progress: number[] = [];
-    const first = await importPolarArchive(file, storage, r => progress.push(r.processed));
+    const first = await importPolarArchive(file, storage, r => progress.push(r.processed), new Date('2026-01-02T00:00:00Z'));
     expect(first).toMatchObject({ total: 3, processed: 3, imported: 1, invalid: 1, ignored: 1 });
     expect(progress).toContain(1);
     expect(await storage.getDetails('polar:test-1')).toEqual(parse()?.details);
@@ -47,4 +47,19 @@ describe('archive et stockage', () => {
   it('arrête proprement sur erreur de stockage', async () => { const { storage } = repo(); storage.addImported = async () => { throw new Error('Quota'); }; const file = await zip({ 'training-session_test.json': JSON.stringify({ exercises: [exercise] }) }); expect((await importPolarArchive(file, storage, () => {})).error).toContain('stockage'); });
   it('gère une archive sans entraînement', async () => { const { storage } = repo(); expect((await importPolarArchive(await zip({ 'sleep.json': '{}' }), storage, () => {})).total).toBe(0); });
   it('sérialise deux importations concurrentes sans doublon', async () => { const { storage } = repo(); const p = parse()!; expect((await Promise.all([storage.addImported(p.session, p.details), storage.addImported(p.session, p.details)])).sort()).toEqual([false, true]); });
+});
+
+it('applique les 30 jours aux nouveaux imports JSON sans toucher aux détails existants', async () => {
+  const { storage } = repo();
+  const file = await zip({ 'training-session_test-1.json': JSON.stringify({ exercises: [exercise] }) });
+  const recent = new Date('2026-01-02T00:00:00Z'), old = new Date('2026-10-13T00:00:00Z');
+  expect((await importPolarArchive(file, storage, () => {}, recent)).imported).toBe(1);
+  const details = await storage.getDetails('polar:test-1');
+  expect((await importPolarArchive(file, storage, () => {}, old)).duplicates).toBe(1);
+  expect(await storage.getDetails('polar:test-1')).toEqual(details);
+  const { storage: fresh } = repo();
+  expect((await importPolarArchive(file, fresh, () => {}, old)).imported).toBe(1);
+  expect(await fresh.list()).toEqual([parse()!.session]);
+  expect(await fresh.getDetails('polar:test-1')).toBeUndefined();
+  expect((await importPolarArchive(file, fresh, () => {}, old)).duplicates).toBe(1);
 });

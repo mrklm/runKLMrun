@@ -2,7 +2,6 @@ export const appVersion = `v${__APP_VERSION__}`;
 const imagePath = (name: string) => `${import.meta.env.BASE_URL}images/${name}.png`;
 export function Branding() {
   return <a href="#/" className="brand" aria-label="runKLMrun — Accueil">
-    <img className="brand-logo" src={imagePath('logo')} alt="Logo runKLMrun" />
     <img className="brand-title" src={imagePath('titre')} alt="runKLMrun" />
     <span className="brand-version">{appVersion}</span>
   </a>;
