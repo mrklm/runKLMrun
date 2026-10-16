@@ -1,3 +1,4 @@
+import { storageChanges } from './changes';
 import { isTcxDuplicate } from '../importers/session-duplicate';
 import { DATABASE_NAME, openDatabase } from './database-connection';
 export { DATABASE_NAME } from './database-connection';
@@ -8,6 +9,7 @@ export function createSessionRepository(name = DATABASE_NAME): SessionRepository
   const connect = () => openDatabase(name);
 
   return {
+    beginImportBatch: () => storageChanges.batch(name),
     async getDetails(id) {
       const database = await connect();
       try { return await database.get('details', id); } finally { database.close(); }
@@ -26,6 +28,7 @@ export function createSessionRepository(name = DATABASE_NAME): SessionRepository
         await tx.objectStore('sessions').add(session);
         if (details) await tx.objectStore('details').add(details);
         await tx.done;
+        storageChanges.committed(name, ['sessions']);
         return true;
       } finally { database.close(); }
     },
@@ -41,6 +44,7 @@ export function createSessionRepository(name = DATABASE_NAME): SessionRepository
       const database = await connect();
       try {
         await database.put('sessions', session);
+        storageChanges.committed(name, ['sessions']);
       } finally {
         database.close();
       }

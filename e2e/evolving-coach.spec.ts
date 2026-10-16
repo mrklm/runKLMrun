@@ -88,7 +88,7 @@ test('deux onglets : conflit explicite, saisies conservées et rechargement', as
   await b.getByRole('combobox', { name: 'Votre objectif', exact: true }).selectOption('endurance');
   await b.getByRole('button', { name: 'Enregistrer mes choix' }).click();
   await expect(b.getByRole('status')).toContainText('enregistrés');
-  await a.getByRole('button', { name: 'Enregistrer mes choix' }).click();
+  await expect(a.getByRole('button', { name: 'Enregistrer mes choix' })).toBeDisabled();
   await expect(a.getByRole('alert')).toContainText('autre onglet');
   await expect(a.getByRole('combobox', { name: 'Votre objectif', exact: true })).toHaveValue('begin');
   await a.getByRole('button', { name: 'Recharger la configuration' }).click();

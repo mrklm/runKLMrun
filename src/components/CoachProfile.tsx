@@ -1,3 +1,4 @@
+import { subscribeStorage } from '../storage/changes';
 import { CoachObservations } from './CoachObservations';
 import type { TrainingComparison } from '../core/coach/comparison';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
@@ -12,6 +13,7 @@ import { localToday } from '../core/analysis/statistics-period';
 const dateLabel = (date: string) => date.split('-').reverse().join('/');
 export function CoachProfile({ repository = coachProfileRepository, comparison, onChange, children }: { repository?: CoachProfileRepository; comparison?: TrainingComparison; onChange?: () => void; children?: ReactNode }) {
   const [profile, setProfile] = useState<Profile>();
+  const [observationProfile, setObservationProfile] = useState<Profile>();
   const [draft, setDraft] = useState<Draft>(() => draftFrom(emptyProfileValues()));
   const [phase, setPhase] = useState<'loading' | 'editing' | 'summary' | 'saving' | 'read-error'>('loading');
   const [message, setMessage] = useState('');
@@ -26,11 +28,27 @@ export function CoachProfile({ repository = coachProfileRepository, comparison, 
     setPhase('loading'); setMessage('');
     repository.get().then(value => {
       if (generation.current !== token) return;
-      setProfile(value); setDraft(draftFrom(value ?? emptyProfileValues()));
+      setObservationProfile(value); setProfile(value); setDraft(draftFrom(value ?? emptyProfileValues()));
       setPhase(value ? 'summary' : 'editing'); setErrors({}); setSaveError(''); setConflict(false);
     }, error => { if (generation.current === token) { setPhase('read-error'); setMessage(error instanceof StorageBlockedError ? error.message : 'Votre profil n’a pas pu être lu. Vos séances restent conservées. Vous pouvez réessayer.'); } });
     return () => { generation.current++; };
   }, [repository, attempt]);
+  const current = useRef({ phase, profile }); current.current = { phase, profile };
+  useEffect(() => subscribeStorage(['profile'], () => {
+    if (current.current.phase === 'saving') return;
+    const token = ++generation.current;
+    repository.get().then(value => {
+      if (token !== generation.current) return;
+      setObservationProfile(value);
+      if (current.current.phase !== 'loading' && value?.revision === current.current.profile?.revision) return;
+      if (current.current.phase === 'editing') {
+        setConflict(true); setSaveError(new ProfileConflictError().message);
+      } else {
+        setProfile(value); setDraft(draftFrom(value ?? emptyProfileValues()));
+        setPhase(value ? 'summary' : 'editing'); setConflict(false);
+      }
+    }, () => { if (token === generation.current) { setPhase('read-error'); setMessage('Votre profil n’a pas pu être lu. Vos séances restent conservées. Vous pouvez réessayer.'); } });
+  }), [repository]);
   useEffect(() => { if (Object.keys(errors).length || saveError) errorRef.current?.focus(); }, [errors, saveError]);
   const change = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft(d => ({ ...d, [key]: value }));
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -47,7 +65,7 @@ export function CoachProfile({ repository = coachProfileRepository, comparison, 
     try {
       const saved = await repository.save(values, profile?.revision);
       if (token !== generation.current) return;
-      onChange?.(); setProfile(saved); setDraft(draftFrom(saved)); setPhase('summary'); setMessage('Votre profil a été enregistré.');
+      onChange?.(); setObservationProfile(saved); setProfile(saved); setDraft(draftFrom(saved)); setPhase('summary'); setMessage('Votre profil a été enregistré.');
     } catch (error) {
       if (token !== generation.current) return;
       setPhase('editing'); setConflict(error instanceof ProfileConflictError);
@@ -57,7 +75,7 @@ export function CoachProfile({ repository = coachProfileRepository, comparison, 
   const fieldError = (key: keyof ProfileErrors) => errors[key] ? <span className="profile-field-error" id={`profile-${key}-error`}>{errors[key]}</span> : null;
   const attributes = (key: keyof ProfileErrors) => ({ 'aria-invalid': !!errors[key], 'aria-describedby': errors[key] ? `profile-${key}-error` : undefined });
   return <>
-    {comparison && phase !== 'loading' && <CoachObservations comparison={comparison} profile={profile} />}
+    {comparison && phase !== 'loading' && <CoachObservations comparison={comparison} profile={observationProfile} />}
     {children}
     <section className="panel settings-panel coach-profile" aria-labelledby="coach-profile-title">
     <h2 id="coach-profile-title">Votre profil de coureur</h2>
@@ -113,7 +131,7 @@ export function CoachProfile({ repository = coachProfileRepository, comparison, 
           </div>
         </>}
         {fieldError('maxMinutesByDay')}
-        <div className="profile-actions"><button type="submit" className="button">{phase === 'saving' ? 'Enregistrement…' : 'Enregistrer mon profil'}</button>{profile && <button type="button" className="button" onClick={() => { setDraft(draftFrom(profile)); setErrors({}); setSaveError(''); setPhase('summary'); }}>Annuler les modifications</button>}</div>
+        <div className="profile-actions"><button type="submit" className="button">{phase === 'saving' ? 'Enregistrement…' : 'Enregistrer mon profil'}</button>{profile && <button type="button" className="button" onClick={() => { if (conflict) setAttempt(a => a + 1); setDraft(draftFrom(profile)); setErrors({}); setSaveError(''); setPhase('summary'); }}>Annuler les modifications</button>}</div>
       </fieldset>
       {phase === 'saving' && <p role="status">Enregistrement de votre profil…</p>}
     </form>}

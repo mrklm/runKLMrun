@@ -15,8 +15,8 @@ async function seed(p:Page,kind='begin',preference='accepted'){
 }
 test('aucune séance fictive sans choix, consentement ou disponibilité',async({page})=>{
  await open(page);await expect(planning(page).getByRole('button',{name:'Accepter',exact:true})).toHaveCount(0);
- await seed(page,'begin','declined');await expect(planning(page).getByText('Aucun accord explicite', {exact:false})).toBeVisible();
- await seed(page,'wellbeing');await expect(planning(page).getByText('Plaisir et forme : aucune planification structurée.', {exact:true})).toBeVisible();
+ await seed(page,'begin','declined');await expect(planning(page).getByRole('paragraph').filter({hasText:'Aucun accord explicite'})).toBeVisible();
+ await seed(page,'wellbeing');await expect(planning(page).getByRole('paragraph').filter({hasText:/^Plaisir et forme : aucune planification structurée\.$/})).toBeVisible();
  await seed(page,'begin');
  await page.evaluate(async()=>new Promise<void>(resolve=>{const r=indexedDB.open('runklmrun');r.onsuccess=()=>{const db=r.result,tx=db.transaction('coachProfile','readwrite'),s=tx.objectStore('coachProfile'),q=s.get('local');q.onsuccess=()=>s.put({...q.result,availability:{days:[]}});tx.oncomplete=()=>{db.close();resolve();};};}));
  await page.reload();await expect(page.locator('.splash-screen')).toHaveCount(0);await expect(planning(page).getByRole('button',{name:'Accepter',exact:true})).toHaveCount(0);
@@ -48,7 +48,7 @@ test('conflit entre onglets conserve la saisie et exige un rechargement',async({
  const second=await context.newPage();await open(second);const a=planning(page),b=planning(second);
  await a.getByRole('button',{name:'Modifier cette séance'}).click();await a.getByLabel('Note personnelle').fill('Brouillon conservé');
  await b.getByRole('button',{name:'Annuler cette séance'}).click();await expect(b.getByRole('article').getByText('Annulée',{exact:false})).toBeVisible();
- await a.getByRole('button',{name:'Enregistrer la séance'}).click();await expect(a.getByRole('alert')).toContainText('autre onglet');await expect(a.getByLabel('Note personnelle')).toHaveValue('Brouillon conservé');
+ await expect(a.getByRole('button',{name:'Enregistrer la séance'})).toBeDisabled();await expect(a.getByRole('alert')).toContainText('autre onglet');await expect(a.getByLabel('Note personnelle')).toHaveValue('Brouillon conservé');
  await a.getByRole('button',{name:'Recharger le planning'}).click();await expect(a.getByRole('article').getByText('Annulée',{exact:false})).toBeVisible();
 });
 test('changement d’objectif et retrait du consentement conservent les séances acceptées',async({page})=>{
@@ -56,7 +56,7 @@ test('changement d’objectif et retrait du consentement conservent les séances
  const c=page.getByRole('region',{name:'Votre accompagnement',exact:true});await c.getByRole('button',{name:'Modifier mes choix'}).click();await c.getByLabel('Votre préférence d’accompagnement').selectOption('declined');await c.getByRole('button',{name:'Enregistrer mes choix'}).click();
  await expect(p.getByRole('button',{name:'Accepter',exact:true})).toHaveCount(0);await expect(p.getByRole('button',{name:'Modifier cette séance'})).toBeVisible();
  await c.getByRole('button',{name:'Modifier mes choix'}).click();await c.getByRole('combobox',{name:'Votre objectif',exact:true}).selectOption('wellbeing');await c.getByRole('button',{name:'Enregistrer mes choix'}).click();
- await expect(p.getByText('Plaisir et forme : aucune planification structurée.',{exact:true})).toBeVisible();await expect(p.getByRole('button',{name:'Annuler cette séance'})).toBeVisible();
+ await expect(p.getByRole('paragraph').filter({hasText:/^Plaisir et forme : aucune planification structurée\.$/})).toBeVisible();await expect(p.getByRole('button',{name:'Annuler cette séance'})).toBeVisible();
 });
 
 test('planning sauvegardé gzip, restauré JSON en fusion puis gzip en remplacement',async({page})=>{
@@ -129,4 +129,31 @@ for (const width of [390,1280]) test(`présentation compacte et explications lis
  await p.getByRole('button',{name:'Accepter',exact:true}).click();
  await expect(p.getByRole('heading',{name:'Séances acceptées',exact:true})).toBeVisible();
  await expect(note).toHaveCount(0);await expect(p.getByRole('button',{name:'Modifier cette séance'})).toBeVisible();
+});
+
+test('trois références : endurance de 30 minutes et diagnostic conservé après refus',async({page})=>{
+ await page.clock.setFixedTime(new Date('2026-10-16T12:00:00Z'));
+ await open(page);await seed(page,'endurance');
+ await page.evaluate(()=>new Promise<void>((resolve,reject)=>{
+  const r=indexedDB.open('runklmrun');r.onerror=()=>reject(r.error);r.onsuccess=()=>{
+   const db=r.result,tx=db.transaction(['sessions','coachProfile'],'readwrite');
+   ['2026-10-05','2026-10-09','2026-10-11','2026-10-12','2026-10-13'].forEach((date,i)=>tx.objectStore('sessions').put({id:`reference-${i}`,date,title:'Sortie synthétique',durationSeconds:2193}));
+   const store=tx.objectStore('coachProfile'),q=store.get('local');q.onsuccess=()=>{const p=q.result;delete p.availability.minutesPerSession;store.put(p);};
+   tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>reject(tx.error);
+  };
+ }));
+ await page.reload();await expect(page.locator('.splash-screen')).toHaveCount(0);
+ const p=planning(page),diagnostic=p.locator('details').filter({has:page.getByText('Diagnostic Coach',{exact:true})});
+ await expect(p.getByRole('button',{name:'Accepter',exact:true})).toBeVisible();
+ await diagnostic.getByText('Diagnostic Coach',{exact:true}).click();
+ await expect(diagnostic.locator('div').filter({has:page.locator('dt').getByText('Durée finale proposée',{exact:true})})).toContainText('30 min');
+ await expect(diagnostic).toContainText('Non renseignée — aucun plafond ajouté');
+ await page.evaluate(()=>new Promise<void>((resolve,reject)=>{
+  const r=indexedDB.open('runklmrun');r.onerror=()=>reject(r.error);r.onsuccess=()=>{const db=r.result,tx=db.transaction('coachProfile','readwrite'),s=tx.objectStore('coachProfile'),q=s.get('local');q.onsuccess=()=>s.put({...q.result,availability:{...q.result.availability,minutesPerSession:20}});tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>reject(tx.error);};
+ }));
+ await page.reload();await expect(page.locator('.splash-screen')).toHaveCount(0);
+ await expect(p.getByRole('button',{name:'Accepter',exact:true})).toHaveCount(0);
+ await diagnostic.getByText('Diagnostic Coach',{exact:true}).click();
+ await expect(diagnostic).toContainText('0,8');await expect(diagnostic).toContainText('après plafonds 20 min');
+ await expect(p).not.toContainText('Aucun jour compatible');
 });

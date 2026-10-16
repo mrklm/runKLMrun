@@ -14,6 +14,6 @@ export function productPolicy(goal: EvolvingCoachValues['goal']['kind']): Propos
   return {
     horizonDays:t.horizonDays,evidenceAgeLimitDays:180,rhythmIntervals:t.rhythmIntervals,recentCycles:t.recentCycles,staleCycles:t.staleCycles,minimumSuggestionSeconds:simple?1800:t.minimumSuggestionSeconds,
     ...(simple ? {} : {discoverySeconds:goal==='return'?1200:1800}),
-    duration:{minimumReferences:4,freshCycles:t.freshCycles,maximumDurationSpread:t.maximumDurationSpread,maximumGapSpread:t.maximumGapSpread,supportedFraction:0.8,cautiousFraction:0.5,cautiousMaximumSeconds:2700},
+    duration:{minimumReferences:simple?3:4,freshCycles:t.freshCycles,maximumDurationSpread:t.maximumDurationSpread,maximumGapSpread:t.maximumGapSpread,supportedFraction:0.8,cautiousFraction:0.5,cautiousMaximumSeconds:2700},
   };
 }

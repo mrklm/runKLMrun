@@ -67,7 +67,7 @@ function selectDuration(e: ProposalEvidence, p: ProposalPolicy, goal: string) {
   const observed = e.medianDurationSeconds;
   if (observed === null) return p.discoverySeconds === undefined ? undefined : {
     observedMedianSeconds: null, proposedMaximumSeconds: p.discoverySeconds,
-    diagnostic: { coefficient: null, coefficientReasons: ['Aucun coefficient : durée de découverte configurée.'], durationSpread: null, gapSpread: null, afterCoefficientSeconds: null, prudentCapSeconds: null, editorialMinimumApplied: false },
+    diagnostic: { freshnessLimitDays: null, coefficient: null, coefficientReasons: ['Aucun coefficient : durée de découverte configurée.'], durationSpread: null, gapSpread: null, afterCoefficientSeconds: null, prudentCapSeconds: null, editorialMinimumApplied: false },
     assessment: 'discovery' as const, reasons: ['Durée de découverte explicitement paramétrée, au plus 30 minutes ; maximum facultatif.'],
   };
   const d = p.duration;
@@ -94,7 +94,7 @@ function selectDuration(e: ProposalEvidence, p: ProposalPolicy, goal: string) {
   const editorialMinimumApplied = !cautious && ['endurance','speed','distance','race'].includes(goal)
     && calculatedMaximum < p.minimumSuggestionSeconds && observed >= p.minimumSuggestionSeconds;
   const proposed = editorialMinimumApplied ? p.minimumSuggestionSeconds : calculatedMaximum;
-  const diagnostic = { coefficient: fraction, coefficientReasons: [...reasons], durationSpread, gapSpread,
+  const diagnostic = { freshnessLimitDays: freshLimit, coefficient: fraction, coefficientReasons: [...reasons], durationSpread, gapSpread,
     afterCoefficientSeconds, prudentCapSeconds: cautious ? d.cautiousMaximumSeconds : null, editorialMinimumApplied };
   if (editorialMinimumApplied) reasons.push(`Minimum éditorial de ${p.minimumSuggestionSeconds} s retenu avec des références représentatives, sans dépasser la médiane observée.`);
   reasons.push(`Médiane observée ${observed} s, fraction éditoriale ${fraction}, maximum proposé ${proposed} s avant disponibilité${cautious ? ` ; plafond prudent ${d.cautiousMaximumSeconds} s` : ''}.`,
@@ -118,7 +118,7 @@ export function proposeNextSession(input: ProposalInput): CoachProposal {
   const horizon = { from: dateAt(from), to: dateAt(from + policy.horizonDays - 1) };
   if (horizon.to.length !== 10) throw new Error('Horizon hors des dates calendaires prises en charge.');
   const goal: CoachGoal | null = configuration?.goal ?? (profile?.goal.kind ? { model: 'legacy', value: structuredClone(profile.goal) } : null);
-  const result: CoachProposal = { status: 'not-enabled', goal: goal ? structuredClone(goal) : null, horizon, suggestions: [], reasons: [], constraints: [], evidence, policy,
+  const result: CoachProposal = { status: 'not-enabled', goal: goal ? structuredClone(goal) : null, horizon, suggestions: [], reasons: [], constraints: [], evidence, policy, diagnostic: { availability: profile ? structuredClone(profile.availability) : undefined, attempts: [] },
     limitations: [...evidence.observed.limitations, 'Les résumés ne permettent pas de justifier une intensité soutenue ni une cible de fréquence cardiaque. Aucune météo n’est déduite.', 'Une seule prochaine suggestion : ce résultat n’est pas un programme complet.'] };
   if (!configuration) { result.reasons.push('Aucune configuration évolutive : aucun objectif historique converti.'); return result; }
   validateEvolvingCoachValues(configuration);
@@ -136,9 +136,20 @@ export function proposeNextSession(input: ProposalInput): CoachProposal {
   const recentIds = evidence.horizons.find(h => h.kind === 'recent')!.sessionIds;
   const discovery = evidence.medianDurationSeconds === null;
   const durationBasis = selectDuration(evidence, policy, configuration.goal.kind);
+  result.diagnostic!.durationBasis = durationBasis;
+  result.diagnostic!.freshnessLimitDays = durationBasis?.diagnostic.freshnessLimitDays;
   const seconds = durationBasis?.proposedMaximumSeconds;
   if (seconds === undefined) {
-    result.status = 'insufficient-data'; result.constraints.push('Aucune durée récente exploitable et aucune durée de découverte fournie dans la politique.'); return result;
+    result.status = 'insufficient-data'; result.constraints.push('Vos références récentes sont insuffisantes pour déterminer une durée de séance.'); return result;
+  }
+  const roundedBeforeAvailability = roundProposalDuration(seconds);
+  result.diagnostic!.roundedBeforeAvailability = roundedBeforeAvailability;
+  if (roundedBeforeAvailability < policy.minimumSuggestionSeconds) {
+    result.status = 'unavailable';
+    if (evidence.knownDurations < policy.duration.minimumReferences || evidence.knownDurations < recentIds.length)
+      result.constraints.push('Vos références récentes sont trop peu nombreuses ou incomplètes pour retenir une durée plus longue.');
+    result.constraints.push(`La durée calculée à partir de vos sorties est inférieure à ${policy.minimumSuggestionSeconds / 60} min. Aucune séance n’est proposée.`);
+    return result;
   }
   const kind = configuration.goal.kind;
   result.reasons.push(kind === 'begin' ? 'Découvrir sans test de performance ni progression imposée.' : kind === 'return' ? 'Reprendre sans chercher à retrouver les anciennes performances.' : kind === 'endurance' ? 'Privilégier la continuité et l’aisance, sans augmentation automatique.' : kind === 'speed' ? 'L’objectif vitesse ne justifie pas à lui seul une séance intense.' : 'Une première sortie aisée, sans chercher immédiatement à atteindre la distance cible.');
@@ -175,7 +186,8 @@ export function proposeNextSession(input: ProposalInput): CoachProposal {
     const cap = a.durationMode === 'custom' ? maximumMinutesForDay(profile!, weekday) : a.minutesPerSession;
     const afterCapsSeconds = Math.min(seconds, cap === undefined ? seconds : cap * 60);
     const duration = roundProposalDuration(afterCapsSeconds);
-    if (duration < policy.minimumSuggestionSeconds) { skipped.add(`Après arrondi inférieur par pas de 5 minutes, durée inférieure au minimum éditorial fourni (${policy.minimumSuggestionSeconds} s), sans dépassement du plafond.`); continue; }
+    result.diagnostic!.attempts.push({ date, availableMaximumSeconds: cap === undefined ? null : cap * 60, afterCapsSeconds, roundedSeconds: duration });
+    if (duration < policy.minimumSuggestionSeconds) { skipped.add(`Vos disponibilités sur les jours compatibles sont trop courtes pour une séance de ${policy.minimumSuggestionSeconds / 60} min.`); continue; }
     const limits = [...result.limitations];
     if (cap === undefined) limits.push('Plafond de durée non renseigné pour ce jour ; aucun plafond supposé.');
     if (duration < seconds) limits.push(`Durée réduite à ${duration} s après application des plafonds et arrondi inférieur par pas de 5 minutes.`);
@@ -187,6 +199,7 @@ export function proposeNextSession(input: ProposalInput): CoachProposal {
     result.status = durationBasis?.assessment !== 'supported' || discovery || evidence.possibleGap || evidence.knownDurations < recentIds.length || evidence.medianGapDays === null || cap === undefined || !!deadline ? 'cautious' : 'possible';
     result.constraints.push(...skipped); return result;
   }
-  result.status = 'unavailable'; result.constraints.push(...skipped, 'Aucun créneau compatible dans cet horizon court. Aucune séance ajoutée pour remplir le calendrier.');
+  result.status = 'unavailable'; result.constraints.push(...skipped);
+  if (!result.diagnostic!.attempts.length) result.constraints.push('Aucun jour compatible avec vos disponibilités et votre rythme dans cet horizon court.');
   return result;
 }

@@ -1,3 +1,4 @@
+import { subscribeStorage } from '../storage/changes';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createEvolvingCoachRepository } from '../storage/evolving-coach';
 import type { EvolvingCoachRepository } from '../storage/contracts';
@@ -20,6 +21,20 @@ export function CoachConfiguration({ repository = repositoryDefault, onChange }:
     }, () => { if (token === generation.current) { setPhase('error'); setError('Votre configuration n’a pas pu être lue. Vos observations restent consultables.'); } });
     return () => { generation.current++; };
   }, [repository, attempt]);
+  const current = useRef({ phase, record }); current.current = { phase, record };
+  useEffect(() => subscribeStorage(['configuration'], () => {
+    if (busy.current) return;
+    const token = ++generation.current;
+    repository.get().then(value => {
+      if (token !== generation.current) return;
+      if (current.current.phase !== 'loading' && value?.revision === current.current.record?.revision) return;
+      if (current.current.phase === 'editing') {
+        setConflict(true); setError('Votre configuration a été modifiée dans un autre onglet. Vos saisies sont conservées. Rechargez la configuration avant de réessayer.');
+      } else {
+        setRecord(value); setDraft(configurationDraft(value?.configuration)); setPhase('ready'); setConflict(false);
+      }
+    }, () => { if (token === generation.current) { setPhase('error'); setError('Votre configuration n’a pas pu être lue. Vos observations restent consultables.'); } });
+  }), [repository]);
   useEffect(() => { if (error) alert.current?.focus(); }, [error]);
   const change = <K extends keyof ConfigurationDraft>(key: K, value: ConfigurationDraft[K]) => setDraft(old => ({ ...old, [key]: value }));
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -78,7 +93,7 @@ export function CoachConfiguration({ repository = repositoryDefault, onChange }:
           </select></label>}
         </div>
         {draft.goal === 'wellbeing' && <p>Pour le plaisir et la forme : analyse et suggestions facultatives, sans programme structuré.</p>}
-        <div className="profile-actions"><button type="submit" className="button" disabled={conflict}>{phase === 'saving' ? 'Enregistrement…' : 'Enregistrer mes choix'}</button><button type="button" className="button" onClick={() => { setPhase('ready'); setError(''); setConflict(false); setDraft(configurationDraft(configuration)); }}>Annuler</button></div>
+        <div className="profile-actions"><button type="submit" className="button" disabled={conflict}>{phase === 'saving' ? 'Enregistrement…' : 'Enregistrer mes choix'}</button><button type="button" className="button" onClick={() => { if (conflict) setAttempt(a => a + 1); setPhase('ready'); setError(''); setConflict(false); setDraft(configurationDraft(configuration)); }}>Annuler</button></div>
       </fieldset>
     </form>}
   </section>;

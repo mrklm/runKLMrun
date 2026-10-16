@@ -1,3 +1,4 @@
+import { storageChanges } from './changes';
 import { DATABASE_NAME, openDatabase } from './database-connection';
 import type { CoachPlanningRepository } from './contracts';
 import type { CoachPlanning } from '../types/coach-planning';
@@ -41,7 +42,7 @@ export function createCoachPlanningRepository(name = DATABASE_NAME, now = () => 
         }
         record.revision=nextCoachRevision(previous?.revision); record.updatedAt=time;
         validateCoachPlanning(record);
-        await tx.objectStore('coachPlanning').put(record); await tx.done; return record;
+        await tx.objectStore('coachPlanning').put(record); await tx.done; storageChanges.committed(name, ['planning']); return record;
       } catch(error) { try {tx.abort();} catch { /* Déjà terminée. */ } await tx.done.catch(()=>undefined); throw error; }
       finally {db.close();}
     },

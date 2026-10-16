@@ -20,7 +20,6 @@ function Coverage({ measure, name }: { measure: CoveredMeasure; name: string }) 
   </span>;
 }
 export function Training({ sessions }: { sessions: RunningSession[] }) {
-  const [coachRefresh, setCoachRefresh] = useState(0);
   const [weeks, setWeeks] = useState<TrainingWeeks>(8);
   const [today, setToday] = useState(localToday);
   useEffect(() => {
@@ -33,8 +32,8 @@ export function Training({ sessions }: { sessions: RunningSession[] }) {
   const data = comparison.current;
   return <>
     <header className="page-heading"><h1>Coach</h1></header>
-    <CoachPlanning sessions={sessions} refreshToken={coachRefresh} />
-    <CoachProfile comparison={comparison} onChange={() => setCoachRefresh(n => n + 1)}>
+    <CoachPlanning sessions={sessions} />
+    <CoachProfile comparison={comparison}>
 <section className="panel settings-panel training-history" aria-labelledby="training-history-title">
       <h2 id="training-history-title">Votre activité récente</h2>
       <label className="theme-picker" htmlFor="training-weeks">Période du bilan</label>
@@ -65,7 +64,7 @@ export function Training({ sessions }: { sessions: RunningSession[] }) {
       </div>
       <p className="training-coverage">Ce bilan décrit les séances enregistrées. Il ne constitue pas une évaluation de votre condition physique.</p>
     </section>
-      <CoachConfiguration onChange={() => setCoachRefresh(n => n + 1)} />
+      <CoachConfiguration />
     </CoachProfile>
   </>;
 }

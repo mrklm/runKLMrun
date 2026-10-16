@@ -1,4 +1,4 @@
-import { notifyCoachChanged } from './coach-change';
+import { storageChanges } from './changes';
 import type { EvolvingCoachRepository } from './contracts';
 import type { EvolvingCoachRecord, EvolvingCoachValues } from '../types/evolving-coach';
 import { validateEvolvingCoachRecord, validateEvolvingCoachValues, nextCoachRevision } from '../core/coach/configuration';
@@ -16,7 +16,7 @@ export function createEvolvingCoachRepository(name = DATABASE_NAME, now: () => D
       if (previous?.revision !== expectedRevision) throw new ProfileConflictError();
       const record: EvolvingCoachRecord = { id: 'local', configuration: copy, revision: nextCoachRevision(previous?.revision), createdAt: previous?.createdAt ?? time, updatedAt: time };
       validateEvolvingCoachRecord(record);
-      await tx.store.put(record); await tx.done; notifyCoachChanged(); return record;
+      await tx.store.put(record); await tx.done; storageChanges.committed(name, ['configuration']); return record;
     } catch (error) {
       try { tx.abort(); } catch { /* Transaction déjà terminée. */ }
       await tx.done.catch(() => undefined); throw error;

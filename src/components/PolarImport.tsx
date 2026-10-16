@@ -1,3 +1,5 @@
+import { storageChanges } from '../storage/changes';
+import { DATABASE_NAME } from '../storage/database-connection';
 import { acquireOperation, useOperationBusy } from './operation-guard';
 import { DelayedOperation } from './DelayedOperation';
 import { maintainAfterImport } from '../storage/automatic-retention';
@@ -9,7 +11,7 @@ import { emptyTcxReport, importTcxFiles } from '../importers/tcx-files';
 import { selectPolarFiles, tcxReport, zipReport, type UnifiedReport } from '../importers/polar-selection';
 import { sessionRepository } from '../storage/database';
 import { ImportReportView } from './ImportReportView';
-export function PolarImport({ onImported }: { onImported: () => void }) {
+export function PolarImport() {
   const [importedIds, setImportedIds] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [report, setReport] = useState<UnifiedReport>();
@@ -20,7 +22,7 @@ export function PolarImport({ onImported }: { onImported: () => void }) {
   const running = useRef(false), mounted = useRef(true);
   const worker = useRef<Worker | null>(null);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; if (worker.current) { worker.current.terminate(); releaseOperation.current?.(); releaseOperation.current = undefined; } }; }, []);
-  function finish() { releaseOperation.current?.(); releaseOperation.current = undefined; running.current = false; worker.current?.terminate(); worker.current = null; if (mounted.current) { setBusy(false); onImported(); } }
+  function finish() { releaseOperation.current?.(); releaseOperation.current = undefined; running.current = false; worker.current?.terminate(); worker.current = null; if (mounted.current) { setBusy(false); } }
   async function start() {
     if (running.current) return;
     const selection = selectPolarFiles(files);
@@ -36,14 +38,16 @@ export function PolarImport({ onImported }: { onImported: () => void }) {
       return;
     }
     setReport(zipReport(emptyReport()));
-    const fail = () => { if (mounted.current) setReport(previous => ({ ...(previous ?? zipReport(emptyReport())), error: 'Import interrompu. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer.' })); finish(); };
+    let committedInWorker = 0;
+    const fail = () => { if (committedInWorker) storageChanges.committed(DATABASE_NAME, ['sessions']); if (mounted.current) setReport(previous => ({ ...(previous ?? zipReport(emptyReport())), error: 'Import interrompu. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer.' })); finish(); };
     try {
       worker.current = new Worker(new URL('../importers/polar.worker.ts', import.meta.url), { type: 'module' });
       worker.current.onerror = fail;
       worker.current.onmessage = event => {
+        committedInWorker = event.data.report?.imported ?? committedInWorker;
         if (event.data.type === 'error') { fail(); return; }
         if (mounted.current) setReport(zipReport(event.data.report as ImportReport));
-        if (event.data.type === 'done') { void maintainAfterImport(event.data.report as ImportReport); if (mounted.current) setImportedIds(event.data.importedIds ?? []); finish(); }
+        if (event.data.type === 'done') { if (typeof BroadcastChannel === 'undefined' && committedInWorker) storageChanges.committed(DATABASE_NAME, ['sessions']); void maintainAfterImport(event.data.report as ImportReport); if (mounted.current) setImportedIds(event.data.importedIds ?? []); finish(); }
       };
       worker.current.postMessage(selection.files[0]);
     } catch { fail(); }

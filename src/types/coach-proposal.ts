@@ -54,6 +54,7 @@ export interface SessionSuggestion {
     availableMaximumSeconds: number | null;
     /** Trace transitoire de calcul, jamais copiée dans le planning ou les sauvegardes. */
     diagnostic?: {
+      freshnessLimitDays?: number | null;
       editorialMinimumApplied: boolean;
       coefficient: number | null;
       coefficientReasons: string[];
@@ -76,6 +77,16 @@ export interface SessionSuggestion {
 }
 /** Résultat transitoire, sans engagement, identifiant persisté ou modèle de planning. */
 export interface CoachProposal {
+  /** Trace éphémère, y compris sans suggestion ; jamais persistée. */
+  diagnostic?: {
+    availability?: import('./coach-profile').CoachProfileValues['availability'];
+    durationBasis?: Omit<SessionSuggestion['durationBasis'], 'availableMaximumSeconds' | 'diagnostic'> & {
+      diagnostic: Omit<NonNullable<SessionSuggestion['durationBasis']['diagnostic']>, 'afterCapsSeconds'>;
+    };
+    freshnessLimitDays?: number | null;
+    roundedBeforeAvailability?: number;
+    attempts: { date: string; availableMaximumSeconds: number | null; afterCapsSeconds: number; roundedSeconds: number }[];
+  };
   status: 'not-enabled' | 'possible' | 'cautious' | 'insufficient-data' | 'unavailable';
   goal: CoachGoal | null;
   horizon: { from: string; to: string };

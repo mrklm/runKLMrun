@@ -1,7 +1,7 @@
 import { CoachDiagnostic } from './CoachDiagnostic';
 import { coachExplanations, formatCoachDuration, formatCoachDurationText, originalPlanningWarnings } from './coach-planning-display';
 import { proposalCopy } from '../core/coach/proposal-presentation';
-import { COACH_CHANGED } from '../storage/coach-change';
+import { subscribeStorage } from '../storage/changes';
 import { useEffect, useRef, useState } from 'react';
 import { createCoachPlanningRepository, PlanningConflictError } from '../storage/coach-planning';
 import { createEvolvingCoachRepository } from '../storage/evolving-coach';
@@ -43,15 +43,12 @@ export function CoachPlanning({sessions,refreshToken=0}:{sessions:RunningSession
     return()=>{generation.current++;};
   },[sessions,refreshToken,attempt,today]);
   useEffect(()=>{
-    if(typeof BroadcastChannel==='undefined')return;
-    const channel=new BroadcastChannel(COACH_CHANGED);
-    channel.onmessage=()=>{
+    return subscribeStorage(['profile', 'configuration', 'planning'], ()=>{
       if(draft || writing.current){
         setConflict(true);setError('Vos choix ont changé dans un autre onglet. Vos saisies sont conservées ; rechargez le planning.');
         setLoaded(old=>old?{...old,proposal:{...old.proposal,suggestions:[]}}:old);
       } else setAttempt(a=>a+1);
-    };
-    return()=>channel.close();
+    });
   },[draft]);
   const suggestion=loaded?.proposal.suggestions[0];
   const copy=proposalCopy(loaded?.proposal.goal??null);

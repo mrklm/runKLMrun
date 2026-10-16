@@ -4,6 +4,8 @@ import type { RunningSession, SessionDetails } from '../types/session';
 
 /** Contrat indépendant d'IndexedDB et de React. */
 export interface SessionRepository {
+  /** Regroupe les invalidations, sans regrouper les transactions. */
+  beginImportBatch?(): () => void;
   addImported(session: RunningSession, details?: SessionDetails): Promise<boolean>;
   getDetails(id: string): Promise<SessionDetails | undefined>;
   list(): Promise<RunningSession[]>;

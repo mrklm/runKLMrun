@@ -6,7 +6,7 @@ import { IMPORT_REASONS, PolarImportError, type ImportReason } from './polar-err
 
 import { emptyReport, type ImportReport } from './import-report';
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
-export async function importPolarArchive(file: Blob, repository: SessionRepository, progress: (report: ImportReport) => void, reference = new Date(), onAdded?: (id: string) => void): Promise<ImportReport> {
+async function runImport(file: Blob, repository: SessionRepository, progress: (report: ImportReport) => void, reference = new Date(), onAdded?: (id: string) => void): Promise<ImportReport> {
   const report = emptyReport();
   // BlobReader performs random-access reads; the archive is never read as one ArrayBuffer.
   const reader = new ZipReader(new BlobReader(file), { useWebWorkers: false });
@@ -51,4 +51,9 @@ export async function importPolarArchive(file: Blob, repository: SessionReposito
   } finally { await reader.close(); }
   emit();
   return report;
+}
+
+export async function importPolarArchive(...args: Parameters<typeof runImport>): ReturnType<typeof runImport> {
+  const end = args[1].beginImportBatch?.();
+  try { return await runImport(...args); } finally { end?.(); }
 }

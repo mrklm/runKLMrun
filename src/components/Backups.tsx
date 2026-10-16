@@ -21,7 +21,7 @@ function errorMessage(error: unknown) {
   if (error instanceof DOMException && error.name === 'QuotaExceededError') return 'L’espace disponible est insuffisant. La restauration a été annulée ; vos données précédentes sont conservées.';
   return 'L’opération a échoué. Aucune restauration partielle n’a été conservée. Vérifiez le stockage de votre navigateur puis réessayez.';
 }
-export function Backups({ onRestored }: { onRestored: () => void }) {
+export function Backups() {
   const [phase, setPhase] = useState<'idle' | 'exporting' | 'reading' | 'restoring'>('idle');
   const [preview, setPreview] = useState<RestorePreview>();
   const [options, setOptions] = useState<RestoreOptions>({ mode: 'merge', profile: 'keep' });
@@ -77,7 +77,6 @@ export function Backups({ onRestored }: { onRestored: () => void }) {
       const result = await service.restore(preview, options);
       setReport(result); setPreview(undefined); setConfirmed(false);
       setMessage('La restauration est terminée. Les données de l’application ont été actualisées.');
-      onRestored();
     } catch (e) { setError(errorMessage(e)); setConfirmed(false); }
     finally { releaseOperation.current?.(); releaseOperation.current = undefined; locked.current = false; setPhase('idle'); }
   }

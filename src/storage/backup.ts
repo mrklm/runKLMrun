@@ -1,3 +1,4 @@
+import { storageChanges } from './changes';
 import { validateCoachPlanning } from '../core/coach/planning';
 import { validateEvolvingCoachRecord } from '../core/coach/configuration';
 import { withRestoreLock } from './operation-lock';
@@ -12,7 +13,6 @@ import { prepareRestore } from '../backup/merge';
 
 const stores = ['sessions', 'details', 'coachProfile', 'shoes', 'shoeAssignments', 'shoeSettings', 'evolvingCoach', 'coachPlanning'] as const;
 type SnapshotTx = IDBPTransaction<RunDatabase, typeof stores, 'readonly' | 'readwrite'>;
-export const RESTORED_CHANNEL = 'runklmrun-restored';
 async function readSnapshot(tx: SnapshotTx): Promise<BackupData> {
   const [sessions, details, profiles, shoes, shoeAssignments, shoeSettings, evolvingCoach, coachPlanning] = await Promise.all(stores.map(store => tx.objectStore(store).getAll()));
   if (profiles.length > 1 || (profiles.length === 1 && (!('id' in profiles[0]) || profiles[0].id !== 'local'))) throw new BackupError('Le stockage contient un profil non reconnu. Aucune donnée n’a été modifiée.');
@@ -95,10 +95,7 @@ export function createBackupService(processor: Processor, name = DATABASE_NAME):
         try { tx.abort(); } catch { /* Transaction déjà annulée. */ }
         await tx.done.catch(() => undefined); throw error;
       } finally { db.close(); }
-      // Notification sans contenu personnel ; pas de synchronisation réseau.
-      if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
-        try { const channel = new BroadcastChannel(RESTORED_CHANNEL); channel.postMessage('restored'); channel.close(); } catch { /* La notification ne remet pas en cause la transaction déjà validée. */ }
-      }
+      storageChanges.committed(name, ['sessions', 'profile', 'configuration', 'planning', 'shoes']);
       return prepared.report;
       });
     },

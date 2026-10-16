@@ -232,3 +232,17 @@ it('calcule le D+ après l’empreinte historique sans changer la déduplication
   const report = await importTcxFiles([file(xml), file(xml)], repository(), () => {}, readXml);
   expect(report.imported).toBe(1); expect(report.duplicates).toBe(1);
 });
+
+it('regroupe les notifications des fichiers et termine le lot après un échec partiel',async()=>{
+ const {storageChanges}=await import('../storage/changes');
+ const name=`tcx-changes-${crypto.randomUUID()}`;names.push(name);
+ const repo=createSessionRepository(name),received:unknown[]=[],off=storageChanges.subscribe(e=>{if(e.database===name)received.push(e);});
+ const result=await importTcxFiles([file(),file()],repo,()=>{},readXml);
+ expect(result.imported).toBe(1);expect(result.duplicates).toBe(1);
+ await new Promise(resolve=>setTimeout(resolve,10));expect(received).toHaveLength(1);
+ const add=repo.addImported.bind(repo);let calls=0;
+ repo.addImported=async(s,d)=>{if(++calls===2)throw new Error('échec synthétique');return add({...s,id:`partial-${calls}`,source:undefined},d?{...d,id:`partial-${calls}`}:undefined);};
+ const partial=await importTcxFiles([file(),file()],repo,()=>{},readXml);
+ expect(partial.imported).toBe(1);expect(partial.error).toBeDefined();
+ await new Promise(resolve=>setTimeout(resolve,10));expect(received).toHaveLength(2);off();
+});

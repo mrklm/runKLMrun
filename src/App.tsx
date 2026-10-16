@@ -1,6 +1,6 @@
 import { Shoes } from './components/Shoes';
 import { retentionService } from './storage/detail-retention';
-import { RESTORED_CHANNEL } from './storage/backup';
+import { subscribeStorage } from './storage/changes';
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Branding, SplashScreen } from './components/Branding';
 import { Home } from './pages/Home';
@@ -61,12 +61,7 @@ export function App() {
     const timer = window.setTimeout(() => { if (!controller.signal.aborted) void maintain(); }, 0);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, []);
-  useEffect(() => {
-    if (typeof BroadcastChannel === 'undefined') return;
-    const channel = new BroadcastChannel(RESTORED_CHANNEL);
-    channel.onmessage = () => setAttempt(value => value + 1);
-    return () => channel.close();
-  }, []);
+  useEffect(() => subscribeStorage(['sessions'], () => setAttempt(value => value + 1)), []);
   const mainRef = useRef<HTMLElement>(null);
   const previousPath = useRef(path);
 
@@ -109,7 +104,7 @@ export function App() {
         {isSession && data.status === 'ready' && <Suspense fallback={<p role="status">Chargement de la fiche…</p>}><Session key={path} session={data.sessions.find(s => s.id === sessionId)} /></Suspense>}
         {path === '/chaussures' && data.status === 'ready' && <Shoes sessions={data.sessions} />}
         {path === '/entrainement' && data.status === 'ready' && <Training sessions={data.sessions} />}
-        <div hidden={path !== '/parametres'}><Settings onImported={() => setAttempt(value => value + 1)} /></div>
+        <div hidden={path !== '/parametres'}><Settings /></div>
         {!currentPage && !isSession && <section className="panel status"><h1>Page introuvable</h1><p>Cette page n’existe pas.</p><a className="button" href="#/">Revenir à l’accueil</a></section>}
       </main>
       <footer><span>runKLMrun</span></footer>

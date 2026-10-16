@@ -138,7 +138,8 @@ programme complet, persistance, adaptation ou phase 4B.
 
 `product-policy.ts` centralise la politique éditoriale version 1. Les valeurs
 validées sont : découverte débutant de 30 minutes maximum, reprise de 20 minutes,
-ancienneté maximale de 180 jours, 4 références indicatives, fractions 80 % / 50 %,
+ancienneté maximale de 180 jours, 3 références pour endurance/vitesse/distance/course
+et 4 pour débuter/reprendre, fractions 80 % / 50 %,
 plafond prudent de 45 minutes. Sans référence récente, seuls débuter et reprendre disposent d’une durée de
 découverte. Les autres objectifs attendent des références exploitables.
 Plaisir/forme reste exclu par le consentement et la règle d'activation.
@@ -196,3 +197,9 @@ D+ n'est introduit ; D+, titres et catégorie trail ne prouvent pas le relief.
 Aucun itinéraire n'est inventé. Sans données de relief fiables, « vallonné » n'est
 pas recommandé. Ces explications rejoignent le texte initial déjà sauvegardé
 lors d'une nouvelle acceptation, sans nouveau champ persistant ni migration.
+
+Le résultat transitoire conserve le calcul de durée même sans suggestion, les
+disponibilités déclarées et les plafonds/arrondis de chaque jour effectivement
+examiné. Une durée insuffisante est signalée avant la recherche calendaire ;
+une disponibilité trop courte est distinguée de l’absence de jour compatible.
+Cette trace est réservée au diagnostic de développement et ne se persiste pas.

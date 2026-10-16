@@ -16,7 +16,7 @@ afterEach(()=>vi.unstubAllEnvs());
 it('trace le coefficient prudent et les étapes exactes sans modifier les entrées',()=>{
  const source=input('return'),before=structuredClone(source),p=proposeNextSession(source),s=p.suggestions[0];
  expect(source).toEqual(before);expect(s.durationSeconds).toBe(900);
- expect(s.durationBasis.diagnostic).toEqual({coefficient:0.5,coefficientReasons:['Objectif débuter ou reprendre : durée transitoire prudente.'],durationSpread:0,gapSpread:0,afterCoefficientSeconds:1110.5,prudentCapSeconds:2700,afterCapsSeconds:1110,editorialMinimumApplied:false});
+ expect(s.durationBasis.diagnostic).toEqual({freshnessLimitDays:4,coefficient:0.5,coefficientReasons:['Objectif débuter ou reprendre : durée transitoire prudente.'],durationSpread:0,gapSpread:0,afterCoefficientSeconds:1110.5,prudentCapSeconds:2700,afterCapsSeconds:1110,editorialMinimumApplied:false});
  expect(s.durationBasis.proposedMaximumSeconds).toBe(1110);
 });
 it('distingue le minimum éditorial du résultat après coefficient',()=>{
@@ -44,4 +44,17 @@ it('explique la durée en langage courant sans modifier le diagnostic',()=>{
  expect(s.durationBasis.diagnostic?.editorialMinimumApplied).toBe(true);
  expect(explanation).not.toContain('éditorial');
  expect(explanation).not.toContain('arrondi inférieur');
+});
+
+it('conserve les calculs et le plafond réel malgré un refus',()=>{
+ vi.stubEnv('DEV',true);const p=proposeNextSession(input('endurance',20));
+ const html=renderToStaticMarkup(createElement(CoachDiagnostic,{proposal:p}));
+ expect(p.suggestions).toEqual([]);expect(html).toContain('0,8');expect(html).toContain('20 min');
+ expect(html).toContain('après plafonds 20 min');expect(html).toContain('après arrondi 20 min');
+ expect(html).toContain('disponibilités');expect(html).not.toContain('aucun coefficient ni plafond');
+});
+it('disponibilités conservées sans calcul de durée et sans coefficient fabriqué',()=>{
+ vi.stubEnv('DEV',true);const source=input('endurance',25);source.sessions=[];
+ const p=proposeNextSession(source),html=renderToStaticMarkup(createElement(CoachDiagnostic,{proposal:p}));
+ expect(p.diagnostic?.durationBasis).toBeUndefined();expect(html).toContain('25 min');expect(html).toContain('Aucun / non disponible');
 });

@@ -89,13 +89,13 @@ test('fusionne, avertit des conflits et traite le profil indépendamment', async
   await expect(s.getByText(/1 conflit\(s\)/)).toBeVisible();
   await confirm(page);
   await page.getByRole('link', { name: 'Coach', exact: true }).click();
-  await expect(page.getByText('Lundi : 45 min', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Votre profil de coureur', exact: true }).getByText('Lundi : 45 min', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Paramètres', exact: true }).click();
   await upload(page, incoming, true);
   await s.getByRole('radio', { name: 'Remplacer mon profil par celui du fichier', exact: true }).check();
   await confirm(page);
   await page.getByRole('link', { name: 'Coach', exact: true }).click();
-  await expect(page.getByText('Lundi : 1 h 30', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Votre profil de coureur', exact: true }).getByText('Lundi : 1 h 30', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Accueil', exact: true }).click();
   await expect(page.getByText('Sortie synthétique', { exact: true })).toBeVisible();
   await expect(page.getByText('Nouvelle séance synthétique', { exact: true })).toBeVisible();
@@ -128,7 +128,7 @@ test('actualise les autres onglets après restauration et propose le profil abse
   await upload(page);
   await section(page).getByRole('radio', { name: 'Restaurer le profil du fichier', exact: true }).check();
   await confirm(page);
-  await expect(second.getByText('Lundi : 45 min', { exact: true })).toBeVisible();
+  await expect(second.getByRole('region', { name: 'Votre profil de coureur', exact: true }).getByText('Lundi : 45 min', { exact: true })).toBeVisible();
 });
 
 test('refuse un gzip tronqué et conserve les données après rechargement', async ({ page }) => {
@@ -142,7 +142,7 @@ test('refuse un gzip tronqué et conserve les données après rechargement', asy
   await expect(s.getByRole('button', { name: 'Confirmer la restauration' })).toHaveCount(0);
   await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
   await page.getByRole('link', { name: 'Coach', exact: true }).click();
-  await expect(page.getByText('Lundi : 45 min', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Votre profil de coureur', exact: true }).getByText('Lundi : 45 min', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Accueil', exact: true }).click();
   await expect(page.getByText('Sortie synthétique', { exact: true })).toBeVisible();
 });

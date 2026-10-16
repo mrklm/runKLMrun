@@ -220,7 +220,7 @@ it('arrondit après le plafond du jour et explique une proposition devenue trop 
   expect(r.suggestions[0].durationSeconds).toBe(900);
   expect(r.suggestions[0].durationBasis.proposedMaximumSeconds).toBe(1440);
   const none=proposeNextSession(input({historicalProfile:{...profile,availability:{days,minutesPerSession:4}},policy:{...policy,minimumSuggestionSeconds:1}}));
-  expect(none.suggestions).toEqual([]);expect(none.constraints.join(' ')).toContain('arrondi inférieur');
+  expect(none.suggestions).toEqual([]);expect(none.constraints.join(' ')).toContain('disponibilités');
 });
 it('terrain récent explicite : chemins conservés, aucun relief déduit et historique intact', () => {
   const sessions=regular.map(s=>({...s,sport:'TRAIL_RUNNING',ascentMeters:200})), copy=structuredClone(sessions);

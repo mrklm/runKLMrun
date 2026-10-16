@@ -1,6 +1,20 @@
 # Historique des versions
 
-## [Non publié]
+## v0.6.1 — 2026-10-16 — Amélioration du Coach et synchronisation des données
+
+### Améliorations
+- Le Coach peut proposer une séance d'endurance à partir de trois références récentes cohérentes.
+- Amélioration de la cohérence des propositions et des diagnostics du Coach.
+- Actualisation automatique des activités après importation TCX ou Polar.
+- Synchronisation des données entre plusieurs onglets du navigateur.
+- Actualisation du profil, de la configuration et du planning du Coach.
+- Protection contre les réponses asynchrones obsolètes.
+- Conservation des saisies lors des conflits entre onglets.
+
+### Fiabilité
+- Centralisation des notifications après validation des écritures.
+- Gestion des imports successifs et partiellement réussis.
+- Ajout de tests fonctionnels et de tests navigateur.
 
 ## v0.6.0 — 2026-10-15 — Premier Coach évolutif
 

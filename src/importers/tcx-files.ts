@@ -3,7 +3,7 @@ import type { SessionRepository } from '../storage/contracts';
 import { MAX_TCX_BYTES, parseTcx, TcxError, type XmlReader } from './tcx';
 export interface TcxReport { total: number; processed: number; imported: number; duplicates: number; invalid: number; unsupported: number; issues: string[]; error?: string }
 export const emptyTcxReport = (total: number): TcxReport => ({ total, processed: 0, imported: 0, duplicates: 0, invalid: 0, unsupported: 0, issues: [] });
-export async function importTcxFiles(files: readonly File[], repository: SessionRepository, progress: (report: TcxReport) => void, readXml?: XmlReader, reference = new Date(), onAdded?: (id: string) => void): Promise<TcxReport> {
+async function runImport(files: readonly File[], repository: SessionRepository, progress: (report: TcxReport) => void, readXml?: XmlReader, reference = new Date(), onAdded?: (id: string) => void): Promise<TcxReport> {
   const selected = [...files];
   const report = emptyTcxReport(selected.length);
   const emit = () => progress({ ...report, issues: [...report.issues] });
@@ -44,4 +44,9 @@ export async function importTcxFiles(files: readonly File[], repository: Session
     report.processed++; emit();
   }
   return { ...report, issues: [...report.issues] };
+}
+
+export async function importTcxFiles(...args: Parameters<typeof runImport>): ReturnType<typeof runImport> {
+  const end = args[1].beginImportBatch?.();
+  try { return await runImport(...args); } finally { end?.(); }
 }
