@@ -1,3 +1,4 @@
+import { notifyCoachChanged } from './coach-change';
 import type { CoachProfileRepository } from './contracts';
 import { DATABASE_NAME, openDatabase } from './database-connection';
 import { LOCAL_PROFILE_ID, type CoachProfile } from '../types/coach-profile';
@@ -29,7 +30,7 @@ export function createCoachProfileRepository(name = DATABASE_NAME, now: () => Da
         const errors = validateProfile(copy, localToday(time), previous);
         if (Object.keys(errors).length) throw new Error(Object.values(errors).join(' '));
         const profile: CoachProfile = { ...copy, id: LOCAL_PROFILE_ID, createdAt: previous?.createdAt ?? time.toISOString(), updatedAt: time.toISOString(), revision: (previous?.revision ?? 0) + 1 };
-        await tx.store.put(profile); await tx.done; return profile;
+        await tx.store.put(profile); await tx.done; notifyCoachChanged(); return profile;
       } catch (error) {
         try { tx.abort(); } catch { /* La transaction peut être déjà annulée. */ }
         await tx.done.catch(() => undefined); throw error;

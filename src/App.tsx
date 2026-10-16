@@ -20,7 +20,7 @@ const navigation = [
   { path: '/', label: 'Accueil', symbol: '⌂' },
   { path: '/historique', label: 'Historique', symbol: '≡' },
   { path: '/statistiques', label: 'Statistiques', symbol: '▥' },
-  { path: '/entrainement', label: 'Entraînement', symbol: '↗' },
+  { path: '/entrainement', label: 'Coach', symbol: '↗' },
   { path: '/chaussures', label: 'Mes chaussures', symbol: '◒' },
   { path: '/parametres', label: 'Paramètres', symbol: '⚙' },
 ];

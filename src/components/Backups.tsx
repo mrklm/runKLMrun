@@ -112,8 +112,11 @@ export function Backups({ onRestored }: { onRestored: () => void }) {
         <div><dt>Mode de suivi des chaussures du fichier</dt><dd>{preview.backup.data.shoeSettings?.mode === 'automatic' ? 'Une seule paire — Automatique' : 'Plusieurs paires — Par séance'}</dd></div>
         <div><dt>Chaussures</dt><dd>{preview.backup.data.shoes?.length ?? 0}</dd></div>
         <div><dt>Associations de chaussures</dt><dd>{preview.backup.data.shoeAssignments?.length ?? 0}</dd></div>
+        <div><dt>Séances du planning</dt><dd>{preview.backup.data.coachPlanning?.sessions.length ?? 0}</dd></div>
+        <div><dt>Propositions écartées</dt><dd>{preview.backup.data.coachPlanning?.dismissed.length ?? 0}</dd></div>
         <div><dt>Profil sauvegardé</dt><dd>{preview.backup.data.coachProfile ? 'Présent' : 'Absent'}</dd></div>
       </dl>
+      <p>En fusion, les séances planifiées locales restent prioritaires en cas de conflit, y compris les annulations. En remplacement, le planning est remplacé par celui du fichier ; une ancienne sauvegarde sans planning le vide. Les refus enregistrés sont également restaurés.</p>
       <p>Après vérification intégrale de l’empreinte SHA-256, les détails du fichier dépassant 30 jours seront ignorés dans les deux modes. Les résumés seront conservés selon le mode choisi. Les dates incertaines et les dates futures restent protégées ; une date absente sera représentée comme non renseignée.</p>
       {preview.mergeReport && <p>En fusion : {preview.mergeReport.added} séance(s) à ajouter, {preview.mergeReport.retained} déjà présente(s).</p>}
       {preview.mergeReport?.warnings.map(warning => <p className="notice" key={warning}>{warning}</p>)}

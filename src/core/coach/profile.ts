@@ -7,20 +7,37 @@ export const TERRAINS: Record<Terrain, string> = { none: 'Sans préférence', ro
 export type ProfileErrors = Partial<Record<'form' | 'goal' | 'distance' | 'targetDate' | 'sessionsPerWeek' | 'days' | 'minutesPerSession' | 'terrain' | 'durationMode' | 'maxMinutesByDay', string>>;
 const object = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
 const has = (options: object, key: unknown) => typeof key === 'string' && Object.hasOwn(options, key);
+/** Règles historiques inchangées ; les champs inconnus restent ignorés.
+ * La validation stricte du format de sauvegarde demeure indépendante.
+ */
+export function validateLegacyGoal(goal: unknown, today: string, previous?: CoachProfileValues['goal']): ProfileErrors {
+  const errors: ProfileErrors = {};
+  if (!validSessionDate(today) || !object(goal)) return { form: 'Le profil est invalide. Vérifiez les données renseignées.' };
+  if (goal.kind !== undefined && !has(GOALS, goal.kind)) errors.goal = 'Choisissez un objectif reconnu.';
+  if (goal.distance !== undefined) {
+    const d = goal.distance;
+    if (!object(d) || !has(DISTANCES, d.kind) || typeof d.meters !== 'number' || !Number.isFinite(d.meters) || d.meters <= 0 || d.meters > Number.MAX_SAFE_INTEGER
+      || (d.kind !== 'custom' && d.meters !== DISTANCES[d.kind as DistanceKind]?.meters)) errors.distance = 'Renseignez une distance strictement positive et valide.';
+  }
+  if (goal.targetDate !== undefined && (typeof goal.targetDate !== 'string' || !validSessionDate(goal.targetDate))) errors.targetDate = 'Renseignez une date calendaire valide.';
+  else if (goal.targetDate !== undefined && goal.targetDate < today && goal.targetDate !== previous?.targetDate) errors.targetDate = 'Choisissez une échéance aujourd’hui ou à venir.';
+  return errors;
+}
 /** Une échéance passée déjà enregistrée reste lisible/modifiable sans effacement forcé. */
 export function validateProfile(values: CoachProfileValues, today: string, previous?: CoachProfileValues): ProfileErrors {
   const errors: ProfileErrors = {};
   if (!validSessionDate(today) || !object(values) || !object(values.goal) || !object(values.availability) || !object(values.preferences)) return { form: 'Le profil est invalide. Vérifiez les données renseignées.' };
   if (values.accompanimentMode !== undefined && values.accompanimentMode !== 'advisor') errors.form = 'Le mode Entraîneur est en préparation. Choisissez Conseiller.';
   const { goal, availability: a, preferences } = values;
-  if (goal.kind !== undefined && !has(GOALS, goal.kind)) errors.goal = 'Choisissez un objectif reconnu.';
-  if (goal.distance !== undefined) {
-    const d = goal.distance;
-    if (!object(d) || !has(DISTANCES, d.kind) || typeof d.meters !== 'number' || !Number.isFinite(d.meters) || d.meters <= 0 || d.meters > Number.MAX_SAFE_INTEGER
-      || (d.kind !== 'custom' && d.meters !== DISTANCES[d.kind]?.meters)) errors.distance = 'Renseignez une distance strictement positive et valide.';
-  }
-  if (goal.targetDate !== undefined && (typeof goal.targetDate !== 'string' || !validSessionDate(goal.targetDate))) errors.targetDate = 'Renseignez une date calendaire valide.';
-  else if (goal.targetDate !== undefined && goal.targetDate < today && goal.targetDate !== previous?.goal?.targetDate) errors.targetDate = 'Choisissez une échéance aujourd’hui ou à venir.';
+  Object.assign(errors, validateLegacyGoal(goal, today, previous?.goal));
+  Object.assign(errors, validateAvailabilityAndPreferences(a, preferences));
+  return errors;
+}
+
+/** Validation ciblée, également utilisée par le profil historique. */
+export function validateAvailabilityAndPreferences(a: CoachProfileValues['availability'], preferences: CoachProfileValues['preferences']): ProfileErrors {
+  if (!object(a) || !object(preferences)) return { form: 'Le profil est invalide. Vérifiez les données renseignées.' };
+  const errors: ProfileErrors = {};
   if (a.sessionsPerWeek !== undefined && (!Number.isInteger(a.sessionsPerWeek) || a.sessionsPerWeek < 0 || a.sessionsPerWeek > 7)) errors.sessionsPerWeek = 'Indiquez un nombre entier de séances entre 0 et 7.';
   if (a.days !== undefined && (!Array.isArray(a.days) || a.days.some(day => !has(DAYS, day)) || new Set(a.days).size !== a.days.length)) errors.days = 'Choisissez des jours reconnus, sans doublon.';
   if (!errors.days && !errors.sessionsPerWeek && a.days !== undefined && a.sessionsPerWeek !== undefined && a.sessionsPerWeek > a.days.length) errors.days = `Vous souhaitez ${a.sessionsPerWeek} séances mais avez choisi ${a.days.length} jours. Ajustez vos choix ; cette étape prévoit au plus une séance par jour disponible.`;

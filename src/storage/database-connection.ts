@@ -1,8 +1,11 @@
+import type { EvolvingCoachRecord } from '../types/evolving-coach';
 import type { Shoe, ShoeAssignment, ShoeSettings } from '../types/shoe';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { RunningSession, SessionDetails } from '../types/session';
 import type { CoachProfile } from '../types/coach-profile';
 export interface RunDatabase extends DBSchema {
+  coachPlanning: { key: string; value: import('../types/coach-planning').CoachPlanning };
+  evolvingCoach: { key: string; value: EvolvingCoachRecord };
   shoeSettings: { key: string; value: ShoeSettings };
   shoes: { key: string; value: Shoe };
   shoeAssignments: { key: string; value: ShoeAssignment };
@@ -11,7 +14,7 @@ export interface RunDatabase extends DBSchema {
   coachProfile: { key: string; value: CoachProfile };
 }
 export const DATABASE_NAME = 'runklmrun';
-export const DATABASE_VERSION = 5;
+export const DATABASE_VERSION = 7;
 export class StorageBlockedError extends Error {
   constructor() { super('La mise à jour du stockage est bloquée. Fermez les autres onglets de runKLMrun, puis réessayez.'); }
 }
@@ -21,6 +24,8 @@ export function openDatabase(name = DATABASE_NAME): Promise<IDBPDatabase<RunData
     let blocked = false;
     openDB<RunDatabase>(name, DATABASE_VERSION, {
       upgrade(database) {
+        if (!database.objectStoreNames.contains('coachPlanning')) database.createObjectStore('coachPlanning', { keyPath: 'id' });
+        if (!database.objectStoreNames.contains('evolvingCoach')) database.createObjectStore('evolvingCoach', { keyPath: 'id' });
         if (!database.objectStoreNames.contains('shoeSettings')) database.createObjectStore('shoeSettings', { keyPath: 'id' });
         if (!database.objectStoreNames.contains('shoes')) database.createObjectStore('shoes', { keyPath: 'id' });
         if (!database.objectStoreNames.contains('shoeAssignments')) database.createObjectStore('shoeAssignments', { keyPath: 'sessionId' });

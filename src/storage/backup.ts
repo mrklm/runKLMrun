@@ -1,3 +1,5 @@
+import { validateCoachPlanning } from '../core/coach/planning';
+import { validateEvolvingCoachRecord } from '../core/coach/configuration';
 import { withRestoreLock } from './operation-lock';
 import { checkBackupFile } from '../backup/compression';
 import type { IDBPTransaction } from 'idb';
@@ -8,14 +10,18 @@ import { BackupError, validateBackupData } from '../backup/validation';
 import { canonicalJson, verifyBackup } from '../backup/format';
 import { prepareRestore } from '../backup/merge';
 
-const stores = ['sessions', 'details', 'coachProfile', 'shoes', 'shoeAssignments', 'shoeSettings'] as const;
+const stores = ['sessions', 'details', 'coachProfile', 'shoes', 'shoeAssignments', 'shoeSettings', 'evolvingCoach', 'coachPlanning'] as const;
 type SnapshotTx = IDBPTransaction<RunDatabase, typeof stores, 'readonly' | 'readwrite'>;
 export const RESTORED_CHANNEL = 'runklmrun-restored';
 async function readSnapshot(tx: SnapshotTx): Promise<BackupData> {
-  const [sessions, details, profiles, shoes, shoeAssignments, shoeSettings] = await Promise.all(stores.map(store => tx.objectStore(store).getAll()));
+  const [sessions, details, profiles, shoes, shoeAssignments, shoeSettings, evolvingCoach, coachPlanning] = await Promise.all(stores.map(store => tx.objectStore(store).getAll()));
   if (profiles.length > 1 || (profiles.length === 1 && (!('id' in profiles[0]) || profiles[0].id !== 'local'))) throw new BackupError('Le stockage contient un profil non reconnu. Aucune donnée n’a été modifiée.');
   if (shoeSettings.length > 1 || (shoeSettings[0] && (!('id' in shoeSettings[0]) || shoeSettings[0].id !== 'local'))) throw new BackupError('Réglage de chaussures invalide.');
-  return { sessions, details, coachProfile: profiles[0] ?? null, ...(shoes.length || shoeAssignments.length || shoeSettings.length ? { shoes, shoeAssignments, ...(shoeSettings[0] ? { shoeSettings: shoeSettings[0] } : {}) } : {}) } as BackupData;
+  if (evolvingCoach.length > 1) throw new BackupError('Plusieurs configurations du Coach évolutif dans le stockage.');
+  if (coachPlanning.length > 1) throw new BackupError('Plusieurs plannings dans le stockage.');
+  if (coachPlanning[0]) validateCoachPlanning(coachPlanning[0]);
+  if (evolvingCoach[0]) validateEvolvingCoachRecord(evolvingCoach[0]);
+  return { ...(coachPlanning[0] ? { coachPlanning: coachPlanning[0] } : {}), ...(evolvingCoach[0] ? { evolvingCoach: evolvingCoach[0] } : {}), sessions, details, coachProfile: profiles[0] ?? null, ...(shoes.length || shoeAssignments.length || shoeSettings.length ? { shoes, shoeAssignments, ...(shoeSettings[0] ? { shoeSettings: shoeSettings[0] } : {}) } : {}) } as BackupData;
 }
 export async function readBackupSnapshot(name = DATABASE_NAME): Promise<BackupData> {
   const db = await openDatabase(name);
@@ -78,6 +84,8 @@ export function createBackupService(processor: Processor, name = DATABASE_NAME):
         for (const shoe of prepared.data.shoes ?? []) if (!shoeIds.has(shoe.id)) await tx.objectStore('shoes').add(shoe);
         for (const association of prepared.data.shoeAssignments ?? []) if (!assignmentIds.has(association.sessionId)) await tx.objectStore('shoeAssignments').add(association);
         if (prepared.data.shoeSettings && (options.mode === 'replace' || !current.shoeSettings)) await tx.objectStore('shoeSettings').put(prepared.data.shoeSettings);
+        if (prepared.data.coachPlanning) await tx.objectStore('coachPlanning').put(prepared.data.coachPlanning);
+        if (prepared.data.evolvingCoach && (options.mode === 'replace' || !current.evolvingCoach)) await tx.objectStore('evolvingCoach').put(prepared.data.evolvingCoach);
         if (options.mode === 'replace' || options.profile === 'restore') {
           if (prepared.data.coachProfile) await tx.objectStore('coachProfile').put(prepared.data.coachProfile);
           else await tx.objectStore('coachProfile').delete('local');

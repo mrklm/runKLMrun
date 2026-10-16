@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:performance": "vitest run --config vitest.performance.config.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

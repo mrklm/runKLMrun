@@ -1,0 +1,7 @@
+<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diagnostic expérimental local</title>
+<body><h1>Diagnostic local — développement</h1><p>Lecture seule des résumés, sans GPS, sans nettoyage et sans envoi. Fermez les autres onglets runKLMrun pour éviter leurs opérations automatiques indépendantes. La base appartient à l’origine de cette page (hôte et port).</p>
+<label><input id="prototype" type="checkbox"> Inclure les comparaisons expérimentales</label>
+<p><label>Paramètres expérimentaux (fractions pour les pourcentages)<br><textarea id="diagnostic-parameters" rows="12" cols="65" style="max-width:95%"></textarea></label></p>
+<button id="diagnostic-run">Lire les résumés et produire le rapport</button>
+<p><label>Rapport copiable — sélectionnez le texte pour le copier<br><textarea id="diagnostic-output" readonly rows="24" cols="100" style="max-width:95%"></textarea></label></p>
+<script type="module" src="./src/experimental/comparable/browser.ts"></script></body></html>

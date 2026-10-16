@@ -29,7 +29,7 @@ describe('format de sauvegarde', () => {
     const other = await createBackup(empty(), '0.4.0'); other.exportedAt = '2026-10-01T10:00:00Z';
     await expect(verifyBackup(other)).rejects.toThrow('intégrité');
   });
-  it.each([['format', 'unknown', 'pas une sauvegarde'], ['formatVersion', 3, 'version'], ['integrity', null, 'invalides']])('refuse %s non reconnu', async (key, value, error) => {
+  it.each([['format', 'unknown', 'pas une sauvegarde'], ['formatVersion', 42, 'version'], ['integrity', null, 'invalides']])('refuse %s non reconnu', async (key, value, error) => {
     const b = { ...await createBackup(empty(), '0.4.0'), [key]: value };
     await expect(verifyBackup(b)).rejects.toThrow(String(error));
   });

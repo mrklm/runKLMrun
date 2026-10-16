@@ -37,7 +37,18 @@ for (const width of [1280, 768, 390]) test(`fiche compacte sans débordement à 
   await expect(page.locator('.recharts-surface')).toHaveCount(4);
   await expect(page.locator('.session-secondary')).not.toHaveAttribute('open');
   await expect(page.getByText('Charge cardio Polar', { exact: true })).not.toBeVisible();
-  const top = await page.locator('.chart-panel').first().evaluate(el => el.getBoundingClientRect().top);
+  const charts = page.locator('.chart-panel');
+  const top = await page.getByRole('region', { name: 'Fréquence cardiaque', exact: true }).evaluate(el => el.getBoundingClientRect().top);
+  const shoeHeading = page.getByRole('heading', { name: 'Chaussures de cette séance', exact: true });
+  await expect(shoeHeading).toHaveCount(1);
+  const shoeTop = await shoeHeading.evaluate(el => el.getBoundingClientRect().top);
+  const notes = page.locator('details').filter({ has: page.getByText('À propos des mesures', { exact: true }) });
+  const notesTop = await notes.evaluate(el => el.getBoundingClientRect().top);
+  expect(notesTop).toBeLessThan(shoeTop);
+  for (const chart of await charts.all()) {
+    expect(await chart.evaluate(el => el.getBoundingClientRect().bottom)).toBeLessThan(notesTop);
+  }
+  test.info().annotations.push({ type: 'position-premier-graphique', description: `${width}px : ${top}px` });
   expect(top).toBeLessThan(width >= 768 ? 850 : 1100);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByText('Détails complémentaires', { exact: true }).click();

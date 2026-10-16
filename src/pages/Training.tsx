@@ -1,3 +1,5 @@
+import { CoachPlanning } from '../components/CoachPlanning';
+import { CoachConfiguration } from '../components/CoachConfiguration';
 import { useEffect, useMemo, useState } from 'react';
 import { compareTraining } from '../core/coach/comparison';
 import { CoachProfile } from '../components/CoachProfile';
@@ -18,6 +20,7 @@ function Coverage({ measure, name }: { measure: CoveredMeasure; name: string }) 
   </span>;
 }
 export function Training({ sessions }: { sessions: RunningSession[] }) {
+  const [coachRefresh, setCoachRefresh] = useState(0);
   const [weeks, setWeeks] = useState<TrainingWeeks>(8);
   const [today, setToday] = useState(localToday);
   useEffect(() => {
@@ -29,8 +32,10 @@ export function Training({ sessions }: { sessions: RunningSession[] }) {
   const comparison = useMemo(() => compareTraining(sessions, weeks, today), [sessions, weeks, today]);
   const data = comparison.current;
   return <>
-    <header className="page-heading"><h1>Entraînement</h1></header>
-    <section className="panel settings-panel training-history" aria-labelledby="training-history-title">
+    <header className="page-heading"><h1>Coach</h1></header>
+    <CoachPlanning sessions={sessions} refreshToken={coachRefresh} />
+    <CoachProfile comparison={comparison} onChange={() => setCoachRefresh(n => n + 1)}>
+<section className="panel settings-panel training-history" aria-labelledby="training-history-title">
       <h2 id="training-history-title">Votre activité récente</h2>
       <label className="theme-picker" htmlFor="training-weeks">Période du bilan</label>
       <select id="training-weeks" value={weeks} onChange={event => setWeeks(Number(event.target.value) as TrainingWeeks)}>
@@ -60,6 +65,7 @@ export function Training({ sessions }: { sessions: RunningSession[] }) {
       </div>
       <p className="training-coverage">Ce bilan décrit les séances enregistrées. Il ne constitue pas une évaluation de votre condition physique.</p>
     </section>
-    <CoachProfile comparison={comparison} />
+      <CoachConfiguration onChange={() => setCoachRefresh(n => n + 1)} />
+    </CoachProfile>
   </>;
 }

@@ -10,11 +10,11 @@ it('présente un état vide explicite et les cinq mesures comparées', () => {
   expect(html).toContain('Distance par semaine'); expect(html).toContain('Comparaison insuffisante');
   expect(html).not.toContain('<li>');
 });
-it('désactive Entraîneur et affiche Conseiller sans charger la base au rendu serveur', () => {
+it('ne présente plus deux modes et conserve le chargement du profil', () => {
   const html = renderToStaticMarkup(createElement(CoachProfile));
-  expect(html).toContain('En préparation');
-  expect(html).toMatch(/type="radio"[^>]*disabled=""/);
-  expect(html).toContain('Enregistrer le mode Conseiller');
+  expect(html).not.toContain('Entraîneur');
+  expect(html).not.toContain('Conseiller');
+  expect(html).toContain('Chargement de votre profil');
 });
 it('rend les explications consultables dans des détails natifs fermés', () => {
   const comparison = compareTraining([

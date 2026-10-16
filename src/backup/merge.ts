@@ -1,3 +1,4 @@
+import { nextCoachRevision } from '../core/coach/configuration';
 import { classifyDetails } from '../core/analysis/detail-retention';
 import type { BackupData, BackupSourceData, RestoreOptions, RestoreReport } from '../types/backup';
 import { canonicalJson } from './format';
@@ -89,9 +90,44 @@ export function prepareRestore(local: BackupData, incoming: BackupSourceData, op
       coachProfile.updatedAt = now;
     }
   }
+  // La fusion conserve tout état local, y compris une suppression explicite.
+  let evolvingCoach = options.mode === 'merge' && local.evolvingCoach ? structuredClone(local.evolvingCoach)
+    : incoming.evolvingCoach ? structuredClone(incoming.evolvingCoach) : undefined;
+  if (options.mode === 'merge' && local.evolvingCoach && incoming.evolvingCoach
+    && canonicalJson(local.evolvingCoach.configuration) !== canonicalJson(incoming.evolvingCoach.configuration)) {
+    report.conflicts++;
+    report.warnings.push('La configuration locale du Coach évolutif est conservée, sans écrasement.');
+  }
+  if (options.mode === 'replace' && local.evolvingCoach) {
+    // Même après disparition de la configuration, invalider les brouillons des autres onglets.
+    evolvingCoach = {
+      ...(evolvingCoach ?? { id: 'local' as const, configuration: null, createdAt: local.evolvingCoach.createdAt }),
+      revision: nextCoachRevision(Math.max(local.evolvingCoach.revision, evolvingCoach?.revision ?? 0)),
+      updatedAt: now,
+    };
+  }
+  let coachPlanning = options.mode === 'merge' && local.coachPlanning ? structuredClone(local.coachPlanning)
+    : incoming.coachPlanning ? structuredClone(incoming.coachPlanning) : undefined;
+  if (options.mode === 'merge' && local.coachPlanning && incoming.coachPlanning) {
+    for (const session of incoming.coachPlanning.sessions) {
+      const existing = coachPlanning!.sessions.find(s => s.id === session.id || s.proposalKey === session.proposalKey);
+      if (existing) {
+        if (canonicalJson(existing) !== canonicalJson(session)) {
+          report.conflicts++; report.warnings.push('Une séance du planning local est conservée, y compris ses modifications ou son annulation.');
+        }
+      } else coachPlanning!.sessions.push(structuredClone(session));
+    }
+    coachPlanning!.dismissed = [...new Set([...coachPlanning!.dismissed,...incoming.coachPlanning.dismissed])];
+  }
+  if (local.coachPlanning && (options.mode === 'replace' || incoming.coachPlanning)) {
+    coachPlanning = {
+      ...(coachPlanning ?? { id: 'local' as const, sessions: [], dismissed: [], createdAt: local.coachPlanning.createdAt }),
+      revision: nextCoachRevision(Math.max(local.coachPlanning.revision, coachPlanning?.revision ?? 0)), updatedAt: now,
+    };
+  }
   if (report.conflicts) report.warnings.push(`${report.conflicts} conflit(s) : les résumés, détails, chaussures et associations locaux concernés sont conservés, sans écrasement. Gardez le fichier pour consulter les variantes.`);
   const allSessions = [...sessions.values()];
   const ambiguous = ambiguousSessions(allSessions);
   if (ambiguous) report.warnings.push(`${ambiguous} ressemblance(s) Polar/TCX entre identifiants différents : les séances sont conservées séparément.`);
-  return { data: { sessions: allSessions, details: [...details.values()], coachProfile, ...(shoes.size || assignments.size || shoeSettings ? { ...(shoeSettings ? { shoeSettings } : {}), shoes: [...shoes.values()], shoeAssignments: [...assignments.values()] } : {}) }, report };
+  return { data: { ...(coachPlanning ? { coachPlanning } : {}), ...(evolvingCoach ? { evolvingCoach } : {}), sessions: allSessions, details: [...details.values()], coachProfile, ...(shoes.size || assignments.size || shoeSettings ? { ...(shoeSettings ? { shoeSettings } : {}), shoes: [...shoes.values()], shoeAssignments: [...assignments.values()] } : {}) }, report };
 }

@@ -10,11 +10,7 @@ for (const width of [390, 1280]) test(`créer, modifier et conserver le profil �
   await page.setViewportSize({ width, height: 900 }); await openTraining(page);
   await expect(page.getByRole('heading', { name: 'Votre activité récente' })).toBeVisible();
   const profile = panel(page);
-  await expect(profile.getByRole('combobox', { name: 'Objectif principal', exact: true })).toHaveValue('');
-  await profile.getByRole('combobox', { name: 'Objectif principal', exact: true }).selectOption('race');
-  await profile.getByRole('combobox', { name: 'Distance cible', exact: true }).selectOption('custom');
-  await profile.getByRole('textbox', { name: 'Distance personnalisée (km)', exact: true }).fill('12,5');
-  await profile.getByLabel('Échéance (facultative)', { exact: true }).fill('2027-03-20');
+  await expect(profile.getByRole('combobox', { name: 'Objectif principal', exact: true })).toHaveCount(0);
   await profile.getByRole('textbox', { name: /Séances souhaitées par semaine/ }).fill('2');
   await profile.getByRole('checkbox', { name: 'Lundi', exact: true }).check();
   const friday = profile.getByRole('checkbox', { name: 'Vendredi', exact: true }); await friday.focus(); await friday.press('Space'); await expect(friday).toBeChecked();
@@ -22,18 +18,14 @@ for (const width of [390, 1280]) test(`créer, modifier et conserver le profil �
   await profile.getByRole('combobox', { name: 'Terrain préféré', exact: true }).selectOption('trail');
   await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
   await expect(profile.getByRole('status')).toHaveText('Votre profil a été enregistré.');
-  await expect(profile.getByText('12.5 km', { exact: true })).toBeVisible();
   await expect(profile.getByText('Lundi, Vendredi')).toBeVisible();
   await profile.getByRole('button', { name: 'Modifier mon profil' }).click();
-  await profile.getByRole('combobox', { name: 'Objectif principal', exact: true }).selectOption('return');
+  await profile.getByRole('combobox', { name: 'Terrain préféré', exact: true }).selectOption('road');
   await expect(profile.getByRole('textbox', { name: /Durée disponible par séance/ })).toHaveValue('45');
-  await expect(profile.getByRole('combobox', { name: 'Distance cible', exact: true })).toHaveValue('custom');
   await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
   await expect(profile.getByRole('button', { name: 'Modifier mon profil' })).toBeVisible();
   await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
-  await expect(profile.getByText('Reprendre la course', { exact: true })).toBeVisible();
-  await expect(profile.getByText('Chemins / sentiers', { exact: true })).toBeVisible();
-  await expect(profile.getByText('12.5 km', { exact: true })).toBeVisible();
+  await expect(profile.getByText('Route', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 test('signale les disponibilités incohérentes sans perdre la saisie', async ({ page }) => {
@@ -57,14 +49,14 @@ test('conserve les saisies après erreur d’écriture et permet de réessayer',
     (window as unknown as { restoreWrite: () => void }).restoreWrite = () => { IDBObjectStore.prototype.put = put; };
     IDBObjectStore.prototype.put = function (...args) { if (this.name === 'coachProfile') throw new DOMException('Quota synthétique', 'QuotaExceededError'); return put.apply(this, args); };
   });
-  await profile.getByRole('combobox', { name: 'Objectif principal', exact: true }).selectOption('endurance');
+  await profile.getByRole('combobox', { name: 'Terrain préféré', exact: true }).selectOption('trail');
   await profile.getByRole('textbox', { name: /Durée disponible par séance/ }).fill('40');
   await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
   await expect(profile.getByRole('alert')).toContainText('Vos saisies sont conservées');
   await expect(profile.getByRole('textbox', { name: /Durée disponible par séance/ })).toHaveValue('40');
   await page.evaluate(() => (window as unknown as { restoreWrite: () => void }).restoreWrite());
   await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();
-  await expect(profile.getByText('Améliorer son endurance', { exact: true })).toBeVisible();
+  await expect(profile.getByText('Chemins / sentiers', { exact: true })).toBeVisible();
 });
 test('distingue l’erreur de lecture d’un profil absent et conserve le bilan', async ({ page }) => {
   await page.addInitScript(() => {
@@ -83,17 +75,17 @@ test('distingue l’erreur de lecture d’un profil absent et conserve le bilan'
 test('empêche un onglet ancien d’écraser le profil modifié', async ({ page, context }) => {
   await openTraining(page); await panel(page).getByRole('button', { name: 'Enregistrer mon profil' }).click();
   await panel(page).getByRole('button', { name: 'Modifier mon profil' }).click();
-  await panel(page).getByRole('combobox', { name: 'Objectif principal', exact: true }).selectOption('regular');
+  await panel(page).getByRole('combobox', { name: 'Terrain préféré', exact: true }).selectOption('road');
   const second = await context.newPage(); await openTraining(second);
   await panel(second).getByRole('button', { name: 'Modifier mon profil' }).click();
-  await panel(second).getByRole('combobox', { name: 'Objectif principal', exact: true }).selectOption('return');
+  await panel(second).getByRole('combobox', { name: 'Terrain préféré', exact: true }).selectOption('trail');
   await panel(second).getByRole('button', { name: 'Enregistrer mon profil' }).click();
   await expect(panel(second).getByRole('button', { name: 'Modifier mon profil' })).toBeVisible();
   await panel(page).getByRole('button', { name: 'Enregistrer mon profil' }).click();
   await expect(panel(page).getByRole('alert')).toContainText('autre onglet');
-  await expect(panel(page).getByRole('combobox', { name: 'Objectif principal', exact: true })).toHaveValue('regular');
+  await expect(panel(page).getByRole('combobox', { name: 'Terrain préféré', exact: true })).toHaveValue('road');
   await panel(page).getByRole('button', { name: 'Recharger le profil enregistré' }).click();
-  await expect(panel(page).getByText('Reprendre la course', { exact: true })).toBeVisible();
+  await expect(panel(page).getByText('Chemins / sentiers', { exact: true })).toBeVisible();
 });
 
 for (const width of [390, 1280]) test(`personnaliser les durées sans perte de saisie à ${width}px`, async ({ page }) => {

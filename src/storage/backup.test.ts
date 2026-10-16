@@ -40,7 +40,7 @@ describe('transactions de sauvegarde', () => {
     expect(await readBackupSnapshot(name)).toEqual(before);
     const result = await s.restore(p, { mode: 'replace', profile: 'restore' });
     expect(result.added).toBe(1); expect(await readBackupSnapshot(name)).toEqual(incoming);
-    const db = await openDatabase(name); expect(db.version).toBe(5); db.close();
+    const db = await openDatabase(name); expect(db.version).toBe(7); db.close();
   });
   it('fusionne sans doublons et garde le profil local', async () => {
     const { name, service: s } = service(); await seed(name);

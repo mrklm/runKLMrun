@@ -31,7 +31,7 @@ export function SessionCurves({ details }: { details?: SessionDetails }) {
     { metric: 'altitude' as const, title: 'Altitude', unit: 'm', samples: prepareSeries(details?.altitude) },
     { metric: 'cadence' as const, title: 'Cadence', unit: details?.cadenceUnit === 'source' ? 'unité source' : 'rpm', samples: prepareSeries(details?.cadence) },
   ], [details]);
-  return charts.some(c => c.samples.some(p => p.value !== null)) ? <div className="session-curves"><details className="curve-notes"><summary>À propos des mesures</summary><p>{details?.cadenceUnit === 'source' ? 'La cadence TCX conserve les valeurs source, sans conversion en pas/minute.' : 'La cadence conserve l’unité source Polar (tours/minute, rpm), sans doublement.'} L’allure est affichée en minutes et secondes par kilomètre.</p></details><SynchronizedSessionCharts key={details?.id} charts={charts} /></div> : <section className="panel settings-panel"><EmptyState title={details ? 'Aucune courbe disponible' : 'Détails indisponibles'}><p>Vous pouvez consulter les informations générales de cette sortie. Aucune série exploitable n’est enregistrée pour les graphiques.</p></EmptyState></section>;
+  return charts.some(c => c.samples.some(p => p.value !== null)) ? <div className="session-curves"><SynchronizedSessionCharts key={details?.id} charts={charts} /><details className="curve-notes"><summary>À propos des mesures</summary><p>{details?.cadenceUnit === 'source' ? 'La cadence TCX conserve les valeurs source, sans conversion en pas/minute.' : 'La cadence conserve l’unité source Polar (tours/minute, rpm), sans doublement.'} L’allure est affichée en minutes et secondes par kilomètre.</p></details></div> : <section className="panel settings-panel"><EmptyState title={details ? 'Aucune courbe disponible' : 'Détails indisponibles'}><p>Vous pouvez consulter les informations générales de cette sortie. Aucune série exploitable n’est enregistrée pour les graphiques.</p></EmptyState></section>;
 }
 export function Session({ session }: { session?: RunningSession }) {
   const [state, setState] = useState<DetailsState>({ status: 'loading' });
@@ -42,10 +42,10 @@ export function Session({ session }: { session?: RunningSession }) {
     <header className="session-heading"><h1>{session?.title ?? 'Séance introuvable'}</h1></header>
     {!session ? <section className="panel settings-panel"><p>Cette séance n’est pas disponible sur cet appareil.</p></section> : <>
       <SessionInformation session={session} />
-      <SessionShoes sessionId={session.id} session={session} />
       {state.status === 'loading' && <p role="status">Chargement des détails de votre séance…</p>}
       {state.status === 'error' && <section className="panel settings-panel" role="alert"><h2>Stockage local indisponible</h2><p>Les détails n’ont pas pu être chargés. Vous pouvez réessayer.</p><button className="button" onClick={() => setAttempt(v => v + 1)}>Réessayer</button></section>}
       {state.status === 'ready' && <SessionCurves details={state.details} />}
+      <SessionShoes sessionId={session.id} session={session} />
     </>}
   </>;
 }

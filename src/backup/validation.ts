@@ -1,3 +1,5 @@
+import { validateCoachPlanning } from '../core/coach/planning';
+import { validateEvolvingCoachRecord } from '../core/coach/configuration';
 import { validateShoe } from '../core/shoes/shoes';
 import type { CoachProfile } from '../types/coach-profile';
 import type { BackupData, BackupDocument, BackupSourceData } from '../types/backup';
@@ -27,7 +29,13 @@ function array(value: unknown): asserts value is unknown[] { if (!Array.isArray(
 export function validateBackupData(value: unknown, source: true): asserts value is BackupSourceData;
 export function validateBackupData(value: unknown, source?: false): asserts value is BackupData;
 export function validateBackupData(value: unknown, source = false): asserts value is BackupSourceData {
-  fields(value, 'sessions details coachProfile shoes shoeAssignments shoeSettings');
+  fields(value, 'sessions details coachProfile shoes shoeAssignments shoeSettings evolvingCoach coachPlanning');
+  if (value.coachPlanning !== undefined) {
+    try { validateCoachPlanning(value.coachPlanning); } catch { fail('Planning invalide dans la sauvegarde.'); }
+  }
+  if (value.evolvingCoach !== undefined) {
+    try { validateEvolvingCoachRecord(value.evolvingCoach); } catch { fail('Configuration du Coach évolutif invalide dans la sauvegarde.'); }
+  }
   array(value.sessions); array(value.details);
   const sessions = new Set<string>(), details = new Set<string>();
   for (const s of value.sessions) {
@@ -123,12 +131,16 @@ export function validateBackupData(value: unknown, source = false): asserts valu
 
 export function validateBackup(value: unknown): asserts value is BackupDocument {
   if (!object(value) || value.format !== 'runKLMrun-backup') fail('Ce fichier n’est pas une sauvegarde runKLMrun.');
-  if (value.formatVersion !== 1 && value.formatVersion !== 2) fail('Cette version de sauvegarde n’est pas prise en charge. Utilisez une version compatible de runKLMrun.');
+  if (value.formatVersion !== 1 && value.formatVersion !== 2 && value.formatVersion !== 3 && value.formatVersion !== 4) fail('Cette version de sauvegarde n’est pas prise en charge. Utilisez une version compatible de runKLMrun.');
   fields(value, 'format formatVersion exportedAt appVersion data integrity');
   if (!timestamp(value.exportedAt) || !text(value.appVersion) || !value.appVersion.length) fail();
   fields(value.integrity, 'algorithm digest');
   if (value.integrity.algorithm !== 'SHA-256' || !text(value.integrity.digest) || !/^[a-f0-9]{64}$/.test(value.integrity.digest)) fail('L’empreinte de la sauvegarde est absente ou invalide.');
   validateBackupData(value.data, true);
+  if (value.formatVersion < 3 && value.data.evolvingCoach !== undefined) fail('Le Coach évolutif nécessite le format de sauvegarde 3.');
+  if (value.formatVersion !== 4 && value.data.coachPlanning !== undefined) fail('Le planning nécessite le format 4.');
+  if (value.formatVersion === 4 && value.data.coachPlanning === undefined) fail('Planning absent du format 4.');
+  if (value.formatVersion === 3 && value.data.evolvingCoach === undefined) fail('Configuration absente du format de sauvegarde 3.');
   if (value.formatVersion === 1 && (value.data.shoes !== undefined || value.data.shoeAssignments !== undefined || value.data.shoeSettings !== undefined)) fail('Les chaussures nécessitent le format de sauvegarde 2.');
   if (value.formatVersion === 2 && (value.data.shoes === undefined || value.data.shoeAssignments === undefined)) fail('Les chaussures et associations sont absentes du format 2.');
 }

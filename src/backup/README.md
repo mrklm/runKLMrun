@@ -299,3 +299,46 @@ paires et le mode déjà présents, afin d’invalider les formulaires obsolète
 Les six magasins sont couverts par le snapshot, la détection des modifications
 concurrentes et la transaction atomique. Le filtrage des mesures de plus de 30 jours
 n’affecte ni les résumés ni leurs associations de chaussures.
+
+### Coach évolutif : format 3
+
+Lorsqu'un état `data.evolvingCoach` existe (configuration ou suppression explicite),
+JSON et gzip utilisent `formatVersion: 3`. Sinon, les formats 1/2 sont conservés.
+Ce numéro appartient au format de fichier, pas à la version de l'application.
+Les anciennes sauvegardes restent lisibles ; les anciens lecteurs refusent le
+format 3 plutôt que d'ignorer les nouveaux choix.
+
+Le nouvel état est validé et couvert par SHA-256 comme le reste du document.
+La vérification précède toute transformation. L'aperçu et le contrôle de
+concurrence incluent le magasin, ainsi que la transaction de restauration.
+
+- Fusion : un état local prime toujours, y compris une suppression explicite.
+  Une absence dans une ancienne sauvegarde n'efface rien. Sans état local,
+  l'état entrant est repris exactement. Les choix divergents sont signalés
+  dans le compte rendu ; l'option du profil historique reste indépendante.
+- Remplacement : les choix correspondent au fichier. Une sauvegarde ancienne
+  retire donc la configuration. Une révision technique est conservée/incrémentée
+  si un état local existait, afin de bloquer les brouillons obsolètes.
+- Les révisions et dates de mise à jour peuvent changer lors du remplacement,
+  comme pour les profils existants ; les choix déclarés ne sont pas réinterprétés.
+
+Aucune configuration ni aucun consentement n'est inventé à partir du profil
+historique. Aucun programme n'est activé par la restauration.
+
+### Planning personnel : format 4
+
+La présence de `data.coachPlanning` déclenche le format 4, en JSON comme en gzip.
+Les formats 1, 2 et 3 restent lisibles ; les anciennes applications refusent le
+format 4 plutôt que d'ignorer le planning. Aucun ancien fichier n'est modifié.
+La validation stricte du planning et le SHA-256 précèdent la préparation.
+Les séances acceptées, leurs modifications/annulations et les empreintes de
+refus sont sauvegardées. L'aperçu affiche leurs nombres, sans écriture.
+
+En fusion, les séances locales restent prioritaires pour tout conflit d'identifiant
+ou d'empreinte de proposition, quel que soit l'horodatage du fichier. Un conflit
+est signalé. Les séances absentes sont ajoutées ; les refus sont réunis sans doublons.
+En remplacement, le planning du fichier remplace le planning local. Une sauvegarde
+ancienne sans planning le vide. Une révision avancée protège les brouillons ouverts.
+Toutes ces écritures appartiennent à la transaction atomique de restauration et
+au contrôle existant de modification depuis l'aperçu. Aucun consentement n'est
+créé à partir de la présence d'une séance planifiée.

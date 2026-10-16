@@ -1,8 +1,11 @@
+import type { EvolvingCoachRecord } from './evolving-coach';
 import type { Shoe, ShoeAssignment, ShoeSettings } from './shoe';
 import type { CoachProfile } from './coach-profile';
 import type { RunningSession, SessionDetails } from './session';
 
 export interface BackupData {
+  coachPlanning?: import('./coach-planning').CoachPlanning;
+  evolvingCoach?: EvolvingCoachRecord;
   shoes?: Shoe[];
   shoeSettings?: ShoeSettings;
   shoeAssignments?: ShoeAssignment[];
@@ -24,7 +27,7 @@ export interface RestoreRetention {
 }
 export interface BackupPayload {
   format: 'runKLMrun-backup';
-  formatVersion: 1 | 2;
+  formatVersion: 1 | 2 | 3 | 4;
   exportedAt: string;
   appVersion: string;
   data: BackupSourceData;

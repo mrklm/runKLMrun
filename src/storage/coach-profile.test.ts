@@ -33,7 +33,7 @@ describe('dépôt et migration du profil', () => {
     await repository.save({ ...p, goal: { ...p.goal, kind: 'regular' }, availability: { ...p.availability, durationMode: 'custom', maxMinutesByDay: { monday: 90 } } }, p.revision);
     const sessions = createSessionRepository(n);
     expect(await sessions.list()).toEqual([session]); expect(await sessions.getDetails(session.id)).toEqual(details);
-    const db = await openDatabase(n); expect(db.version).toBe(5); expect([...db.objectStoreNames]).toEqual(['coachProfile', 'details', 'sessions', 'shoeAssignments', 'shoeSettings', 'shoes']); db.close();
+    const db = await openDatabase(n); expect(db.version).toBe(7); expect([...db.objectStoreNames]).toEqual(['coachPlanning', 'coachProfile', 'details', 'evolvingCoach', 'sessions', 'shoeAssignments', 'shoeSettings', 'shoes']); db.close();
   });
   it('refuse les données invalides sans modifier le profil existant', async () => {
     const repo = createCoachProfileRepository(name(), now), p = await repo.save(emptyProfileValues(), undefined);
@@ -66,7 +66,7 @@ describe('dépôt et migration du profil', () => {
   });
   it('ferme les connexions à la demande d’une autre version', async () => {
     const n = name(), db = await openDatabase(n);
-    const next = await openDB(n, 6); next.close();
+    const next = await openDB(n, db.version + 1); next.close();
     expect(() => db.transaction('sessions')).toThrow();
   });
   it('ne transforme pas un profil corrompu en profil vide', async () => {

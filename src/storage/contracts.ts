@@ -22,3 +22,15 @@ export interface CoachProfileRepository {
   get(): Promise<CoachProfile | undefined>;
   save(values: CoachProfileValues, expectedRevision: number | undefined): Promise<CoachProfile>;
 }
+
+/** Absence initiale : undefined ; suppression : configuration null avec révision conservée. */
+export interface EvolvingCoachRepository {
+  get(): Promise<import('../types/evolving-coach').EvolvingCoachRecord | undefined>;
+  save(values: import('../types/evolving-coach').EvolvingCoachValues, expectedRevision: number | undefined): Promise<import('../types/evolving-coach').EvolvingCoachRecord>;
+  remove(expectedRevision: number | undefined): Promise<import('../types/evolving-coach').EvolvingCoachRecord>;
+}
+
+export interface CoachPlanningRepository {
+  get(): Promise<import('../types/coach-planning').CoachPlanning | undefined>;
+  apply(action: import('../types/coach-planning').PlanningAction, expectedRevision: number | undefined): Promise<import('../types/coach-planning').CoachPlanning>;
+}

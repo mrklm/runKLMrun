@@ -110,3 +110,34 @@ transactions et contrôles de concurrence IndexedDB existants.
 L’action manuelle des Paramètres est remplacée par une explication. Ce changement
 rend automatique la suppression des détails anciens existants, y compris sur les
 appareils où la politique n’avait pas été activée. Il n’étend pas la règle des 30 jours.
+
+### Coach évolutif (fondations, sans interface)
+
+IndexedDB v6 ajoute uniquement `evolvingCoach`, clé `id: "local"`.
+Aucun profil historique ni aucune activité n'est converti. La configuration
+initiale est absente. `createEvolvingCoachRepository()` expose `get`, `save` et
+`remove`, avec révision attendue obligatoire à chaque modification.
+
+L'enregistrement contient `configuration` (objectif `evolving`, expérience et
+préférence de planification facultatives), `revision`, `createdAt`, `updatedAt`.
+Aucune disponibilité n'est dupliquée. Les champs inconnus sont refusés.
+Une suppression conserve `configuration: null` et une révision technique,
+sans conserver les anciens choix : un ancien onglet ne peut pas les ressusciter.
+Une recréation doit fournir cette dernière révision. Les conflits utilisent
+`ProfileConflictError`, comme le profil historique.
+
+Aucun appel de l'interface ne crée cette configuration. Un consentement stocké
+n'active aucun moteur ; il reste soumis à la politique métier de l'objectif.
+
+### Planning du Coach : IndexedDB v7
+
+Migration additive : magasin `coachPlanning`, clé `id: "local"`. Aucun magasin
+historique n'est réécrit. Le document contient les séances acceptées et les
+empreintes de propositions refusées ; les activités importées restent séparées.
+Une révision partagée protège toutes les décisions concurrentes. Les écritures
+contrôlent et incrémentent la révision dans une transaction ; acceptation/refus
+contrôlent aussi le consentement et les révisions du profil et du Coach.
+Un conflit demande un rechargement, sans écrasement silencieux du brouillon.
+Aucune annulation ou date passée ne supprime une séance acceptée.
+Le remplacement par une ancienne sauvegarde vide le planning mais garde une
+révision avancée pour invalider les anciennes saisies des autres onglets.

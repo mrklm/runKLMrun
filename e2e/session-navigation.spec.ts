@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 let errors: string[];
 test.beforeEach(async ({ page }) => {
+  // Les fixtures de janvier doivent rester récentes face à la conservation des 30 jours.
+  await page.clock.setFixedTime(new Date('2026-01-04T12:00:00Z'));
   errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('./');

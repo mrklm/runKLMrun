@@ -32,6 +32,8 @@ Ouvrez l’URL indiquée par Vite, généralement
 ```bash
 npm test
 npm run test:watch
+# Mesure expérimentale séparée, sur 3 000 résumés synthétiques :
+npm run test:performance
 ```
 
 Vitest exécute les tests unitaires. Les tests du stockage utilisent
@@ -86,14 +88,15 @@ Les Paramètres restent accessibles en cas d’erreur de stockage. Entraînement
 utilise les mêmes états de chargement et d’erreur que les pages fondées sur les résumés.
 
 Les agrégations de résumés restent indépendantes de React, du DOM et d’IndexedDB.
-Aucun calcul de charge sportive ni planificateur n’est implémenté. Recharts affiche
+Le Coach propose une prochaine séance et un planning personnel ; aucun programme automatique sur plusieurs semaines ni calcul de charge sportive n’est implémenté. Recharts affiche
 les statistiques ; son code est chargé à l’ouverture de la page Statistiques.
 L’importateur Polar est disponible dans Paramètres ; son périmètre exact est décrit ci-dessous.
 
 ## Données et prochaines étapes
 
-La base `runklmrun`, version 3, contient les magasins `sessions` (résumés),
-`details` (séries) et `coachProfile` (profil déclaré). Il n’y a ni
+La base `runklmrun`, version 7, contient les résumés, les détails, le profil,
+les chaussures et leurs associations, la configuration du Coach et le planning
+personnel. Les migrations sont additives. Il n’y a ni
 synchronisation ni envoi des activités à un service distant. Effacer le stockage
 du site supprime les données ; le mode privé peut limiter ou supprimer la
 persistance. Le stockage dépend de l’origine du site et n’est pas partagé entre
@@ -102,7 +105,8 @@ service worker n’est installé. Les sauvegardes peuvent être traitées hors l
 par l’application de production déjà chargée.
 
 Les sauvegardes locales sont disponibles dans **Paramètres → Données et sauvegardes**.
-Le format JSON versionné, exporté en gzip, inclut les séances, leurs détails et le profil. Consultez
+Le format JSON versionné, exporté en gzip, inclut les séances, leurs détails
+encore présents, le profil, les chaussures, la configuration du Coach et le planning. Consultez
 la [documentation du format et de la restauration](src/backup/README.md).
 
 ## Tester l'import Polar
@@ -644,3 +648,38 @@ Les imports et les opérations de sauvegarde/restauration partagent un indicateu
 local à leur section, affiché après 400 ms et retiré dès la fin ou l’erreur.
 Les opérations plus courtes n’affichent pas d’indicateur. Les actions incompatibles
 sont temporairement désactivées sans bloquer la navigation.
+
+### Premier Coach évolutif — v0.6.0
+
+Le Coach unique remplace la présentation Conseiller / Entraîneur. Sept objectifs
+sont disponibles : débuter, reprendre, endurance, vitesse, distance, course,
+plaisir et forme. L’expérience déclarée reste distincte des habitudes observées.
+Les références récentes et historiques sont analysées localement ; la durée,
+les disponibilités et les préférences de terrain guident la proposition.
+Les explications sont accessibles dans « Pourquoi cette séance ? ».
+
+Avec votre accord explicite à la planification, le Coach propose au plus une
+prochaine sortie facultative. Vous pouvez l’accepter, adapter sa durée ou sa date,
+ou la refuser sans remplacement automatique. Les séances acceptées restent
+consultables et modifiables après un changement d’objectif ou un retrait de
+consentement. Une annulation n’est pas un échec ; une date passée ne prouve pas
+qu’une séance a été réalisée ou manquée.
+
+Le planning et les refus restent sur cet appareil dans IndexedDB. Ils sont inclus
+dans les sauvegardes JSON/gzip au format 4. En fusion, les modifications et
+annulations locales restent prioritaires ; en remplacement, une ancienne
+sauvegarde sans planning le vide. Les versions précédentes de l’application ne
+peuvent pas lire le format 4. La politique éditoriale et ses paramètres provisoires
+sont détaillés dans [PROPOSALS.md](src/core/coach/PROPOSALS.md).
+
+Les propositions sont arrondies vers le bas par pas de cinq minutes après
+application de la politique de durée. Pour endurance, vitesse, distance et course,
+une séance simple dure au moins 30 minutes, uniquement avec des références et un
+créneau compatibles. Débuter et reprendre peuvent conserver des séances plus
+courtes ; une modification manuelle reste libre. Le mode plaisir et forme ne
+propose pas de planning structuré.
+
+Le Coach ne rapproche pas automatiquement prévu et réalisé et n’adapte pas le
+planning après une séance manquée. Il n’analyse ni fatigue subjective ni météo réelle.
+Le panneau « Diagnostic Coach », fermé par défaut, est réservé à `npm run dev` ;
+il expose les calculs exacts sans écriture et disparaît du build de production.

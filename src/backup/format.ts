@@ -21,7 +21,7 @@ export const sha256 = (text: string) => sha256Bytes(new TextEncoder().encode(tex
 export async function createBackup(data: BackupData, appVersion: string, exportedAt = new Date().toISOString()): Promise<BackupDocument> {
   validateBackupData(data);
   // Le résultat n’est pas lié aux objets d’entrée ; les champs facultatifs undefined sont omis.
-  const serialized = canonicalJson({ format: 'runKLMrun-backup', formatVersion: data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1, exportedAt, appVersion, data });
+  const serialized = canonicalJson({ format: 'runKLMrun-backup', formatVersion: data.coachPlanning !== undefined ? 4 : data.evolvingCoach !== undefined ? 3 : data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1, exportedAt, appVersion, data });
   inspectJson(serialized);
   const payload: BackupPayload = JSON.parse(serialized);
   return { ...payload, integrity: { algorithm: 'SHA-256', digest: await sha256(serialized) } };

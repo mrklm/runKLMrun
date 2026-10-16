@@ -2,16 +2,25 @@
 
 ## [Non publié]
 
-## v0.6.0 — 2026-10-14
+## v0.6.0 — 2026-10-15 — Premier Coach évolutif
 
 ### Coach
 
-- feat(coach): comparer deux périodes d’entraînement et proposer des observations
-  personnalisées selon l’historique, les objectifs et les disponibilités.
-- feat(coach): expliquer les observations, exploiter indépendamment les mesures
-  disponibles et sélectionner jusqu’à quatre constats selon des priorités explicites.
-- feat(coach): rendre le mode Conseiller opérationnel et sauvegarder sa préférence ;
-  conserver le mode Entraîneur désactivé, en préparation.
+- feat(coach): réunir l’accompagnement dans un Coach unique, avec sept objectifs
+  de course et déclaration facultative de l’expérience du coureur.
+- feat(coach): analyser les habitudes récentes et historiques, comparer les périodes
+  et expliquer les observations personnalisées, y compris avec des données partielles.
+- feat(coach): proposer une prochaine séance selon les références disponibles,
+  les disponibilités et les préférences de terrain, avec durées par pas de cinq minutes.
+- feat(planning): demander un consentement explicite et permettre d’accepter,
+  modifier, déplacer ou annuler les séances dans le planning personnel.
+- style(coach): simplifier les explications des propositions, accessibles à la demande.
+- feat(sauvegarde): conserver la configuration et les séances planifiées dans les
+  sauvegardes JSON/gzip, avec lecture des anciennes sauvegardes.
+
+Le Coach ne génère pas de programme automatique sur plusieurs semaines et ne
+rapproche pas automatiquement les séances prévues et réalisées. Aucune adaptation
+après une séance manquée, analyse de fatigue subjective ou météo réelle n’est annoncée.
 
 ### Importation TCX
 

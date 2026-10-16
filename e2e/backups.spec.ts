@@ -70,7 +70,7 @@ for (const width of [390, 1280]) test(`sauvegarde, prévisualisation et remplace
   await page.getByRole('link', { name: 'Accueil', exact: true }).click();
   await expect(page.getByText('Séance remplacée', { exact: true })).toBeVisible();
   await expect(page.getByText('Sortie synthétique', { exact: true })).toHaveCount(0);
-  await page.getByRole('link', { name: 'Entraînement', exact: true }).click();
+  await page.getByRole('link', { name: 'Coach', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Enregistrer mon profil', exact: true })).toBeVisible();
   await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Enregistrer mon profil', exact: true })).toBeVisible();
@@ -88,13 +88,13 @@ test('fusionne, avertit des conflits et traite le profil indépendamment', async
   await expect(s.getByRole('radio', { name: /Conserver le profil local/ })).toBeChecked();
   await expect(s.getByText(/1 conflit\(s\)/)).toBeVisible();
   await confirm(page);
-  await page.getByRole('link', { name: 'Entraînement', exact: true }).click();
+  await page.getByRole('link', { name: 'Coach', exact: true }).click();
   await expect(page.getByText('Lundi : 45 min', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Paramètres', exact: true }).click();
   await upload(page, incoming, true);
   await s.getByRole('radio', { name: 'Remplacer mon profil par celui du fichier', exact: true }).check();
   await confirm(page);
-  await page.getByRole('link', { name: 'Entraînement', exact: true }).click();
+  await page.getByRole('link', { name: 'Coach', exact: true }).click();
   await expect(page.getByText('Lundi : 1 h 30', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Accueil', exact: true }).click();
   await expect(page.getByText('Sortie synthétique', { exact: true })).toBeVisible();
@@ -141,7 +141,7 @@ test('refuse un gzip tronqué et conserve les données après rechargement', asy
   await expect(s.getByRole('alert')).toContainText('gzip');
   await expect(s.getByRole('button', { name: 'Confirmer la restauration' })).toHaveCount(0);
   await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
-  await page.getByRole('link', { name: 'Entraînement', exact: true }).click();
+  await page.getByRole('link', { name: 'Coach', exact: true }).click();
   await expect(page.getByText('Lundi : 45 min', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Accueil', exact: true }).click();
   await expect(page.getByText('Sortie synthétique', { exact: true })).toBeVisible();
