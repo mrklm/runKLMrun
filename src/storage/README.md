@@ -141,3 +141,209 @@ Un conflit demande un rechargement, sans écrasement silencieux du brouillon.
 Aucune annulation ou date passée ne supprime une séance acceptée.
 Le remplacement par une ancienne sauvegarde vide le planning mais garde une
 révision avancée pour invalider les anciennes saisies des autres onglets.
+
+### Suggestions présentées — phase 5B.1 (schéma IndexedDB v8)
+
+Migration additive : `coachSuggestions`, clé `id`, index civil `expiresOn`.
+Les autres magasins, notamment le planning (notes, refus, révisions et états),
+ne sont ni convertis ni réécrits lors de la migration.
+
+`createSuggestionRepository` dans `coach-suggestions.ts` expose une API explicite :
+
+- `recordPresented` : projection minimale d'une suggestion **effectivement présentée**.
+  Identité déterministe v1 : date civile, type, durée et terrain. Les dates de création,
+  diagnostics et motifs ne participent pas à cette identité. Une répétition renvoie
+  le même enregistrement sans écriture, notification ni réactivation d'un état obsolète.
+- `list` : lecture triée par date et identifiant, sans nettoyage implicite.
+- `markObsolete(id, revision)` et `associateActivity(id, activityId, revision)` :
+  contrôle transactionnel de la révision. L'activité doit exister dans `sessions`.
+  Aucun rapprochement automatique, aucune conversion en séance acceptée.
+- `deleteExpired(today, limit)` : nettoyage explicite par lot de 1 à 100 suggestions,
+  via l'index d'expiration. Aucun résumé, détail, planning ou profil n'est supprimé.
+
+Le modèle contient date de création/mise à jour, date civile suggérée, type, durée
+exacte, terrain optionnel, expiration, révision, état `current`/`superseded` et lien
+optionnel vers une activité. `suggestionFollowUp` déduit les états datés :
+`past-unmatched` signifie uniquement « aucune activité associée enregistrée », jamais
+« séance non réalisée ». L'expiration prime, puis l'association, puis l'obsolescence.
+
+Politique initiale : conserver la date suggérée et les **sept jours civils suivants**,
+expiration au début du huitième jour (exemple : 18 octobre → 26 octobre).
+Ce délai court laisse une semaine pour un import différé, sans créer un historique
+permanent de propositions. Il est indépendant des 30 jours des mesures détaillées.
+Les dates civiles sont calculées sans dérive aux changements d'heure ; le jour courant
+est local et injectable. Une nouvelle présentation déjà expirée est refusée.
+Les enregistrements expirés restent lisibles/exportables jusqu'à un nettoyage explicite.
+
+Les transactions sérialisent deux présentations simultanées et les révisions empêchent
+l'écrasement d'une décision concurrente. Les notifications `suggestions` utilisent le bus
+5A et BroadcastChannel après validation effective uniquement ; pas de message pour un
+échec ou une opération identique. Le mécanisme existant évite les boucles inter-onglets.
+
+**Aucun raccordement au moteur, à React ou à un entretien automatique en phase 5B.1.**
+Le futur appelant devra garantir la présentation effective et déclencher le nettoyage.
+Calculer une proposition ne produit aucune écriture. L'API accepte une projection
+explicite, pas le résultat moteur complet avec ses diagnostics.
+
+### Raccordement à la présentation — phase 5B.2
+
+`CoachPlanning.tsx` calcule toujours une proposition transitoire après lecture du
+profil, de la configuration et du planning. Les changements de ces données, des
+résumés ou du jour courant déclenchent son actualisation. Le moteur n'écrit rien.
+Les propositions déjà acceptées ou refusées ne montent pas de carte à observer.
+
+L'effet React attaché à la carte utilise `suggestion-presentation.ts` : intersection
+avec le viewport, document visible, titre et ligne durée/terrain entièrement dans
+la fenêtre, styles visibles et absence de recouvrement aux points contrôlés.
+Deux frames successives confirment cette visibilité, ce qui exclut un montage
+exploratoire StrictMode ou une proposition remplacée avant affichage. Le splash
+est également exclu par le contrôle de recouvrement. Un démontage annule
+l'observation ; il ne rend rien obsolète. Cela constate une possibilité de lecture,
+**pas une preuve que le coureur a effectivement lu la suggestion**.
+
+`recordPresented(input, presentation)` reçoit le contexte exact ayant produit la
+carte et une garde de visibilité. Avant une nouvelle insertion, une transaction
+vérifie les résumés (sans détails), le profil, la configuration et le planning contre
+cet instantané. Une modification concurrente ou une présentation annulée empêche
+l'écriture. Une identité déjà enregistrée est un no-op, y compris après remontage,
+recalcul, retour d'onglet ou restauration. Aucune réactivation implicite d'une
+ancienne identité obsolète. Pas de cache permanent susceptible d'ignorer une restauration.
+
+Règle de remplacement du créneau unique : **uniquement lors de l'insertion d'une
+nouvelle identité effectivement affichée**, rendre obsolètes les autres suggestions
+`current` datées d'aujourd'hui ou du futur, non expirées et non associées à une
+activité. Exclure celles dont type/date/durée correspondent à la proposition
+initiale d'une séance du planning (même modifiée ou annulée). Cette correspondance
+prudente peut préserver plusieurs suggestions de terrain différent ; aucune séance
+acceptée, note ou révision du planning n'est modifiée. Les suggestions passées
+restent « sans activité associée enregistrée », sans jugement sur leur réalisation.
+Un refus continue d'être géré exclusivement par les règles actuelles du planning.
+
+Insertion et obsolescence sont atomiques ; un échec annule l'ensemble. Une seule
+notification `suggestions` est émise après commit. `CoachPlanning` ne s'abonne pas
+à ce scope : aucune boucle de recalcul/écriture. Les autres onglets peuvent observer
+l'invalidation avec le bus 5A ; les transactions sérialisent leurs insertions.
+
+Une erreur de stockage affiche un message et permet le rechargement du planning,
+sans bloquer ses actions. Pas de retry automatique infini, pas de nettoyage ajouté,
+pas de rapprochement avec des activités ni de modification du format de sauvegarde.
+Sans IntersectionObserver, l'enregistrement est omis plutôt que présumé. Une carte
+hors écran ou partiellement lisible attend un défilement permettant de voir son titre
+et sa durée ensemble.
+
+### Suggestions libres affichées — phase 5C.2
+
+`CoachPlanning` lit les données et appelle désormais `proposeSuggestions(input,
+planning)`. `CoachSuggestions` affiche les cartes sans validation et observe chaque
+carte avec le mécanisme 5B.2 (onglet visible, absence de recouvrement, deux frames).
+Aucun calcul ne se produit pendant le rendu des cartes. Les actions de modification
+et d'annulation sont exclusivement réservées à l'ancien planning, conservé intégralement.
+Les refus historiques restent stockés sans devenir des réponses aux suggestions libres.
+
+`recordPresentedSetMember(carte, ensemble, présentation)` utilise une transaction
+commune aux suggestions et aux données du contexte. Elle vérifie le contexte actuel,
+la visibilité et les identifiants, puis insère **uniquement** la carte présentée.
+Les autres membres calculés ne sont jamais insérés par anticipation.
+
+Obsolescence conservatrice : attendre que tous les membres de l'ensemble soient déjà
+mémorisés après présentation (éventuellement dans un autre onglet ou lors d'un affichage
+antérieur du même contenu). Alors seulement, `replacementCandidates` exclut les membres
+de l'ensemble et sélectionne les suggestions futures encore actives à remplacer.
+Les suggestions passées, expirées, associées à une activité ou correspondant à une
+proposition initiale du planning restent intactes. Une carte manquante reporte toute
+obsolescence : d'anciennes suggestions peuvent donc rester actives jusqu'à une présentation
+complète ou au nettoyage explicite existant. Un ensemble vide ne modifie rien.
+
+Insertion et obsolescence sont atomiques ; erreur ou contexte périmé = rollback.
+Une transaction sans modification ne notifie rien. Le scope `suggestions` n'est pas
+écouté par le calcul du Coach, ce qui évite les boucles entre onglets. Les identités
+existantes ne sont pas réactivées ni leurs horodatages renouvelés. StrictMode et les
+retours de navigation peuvent relire le stockage mais ne réécrivent pas les cartes.
+Aucun format, magasin, schéma ni règle de sauvegarde ne change.
+
+La méthode 5B.2 de remplacement unique reste disponible pour compatibilité technique,
+mais n'est plus appelée par les composants. La liste n'est jamais transmise à cette méthode
+carte par carte. Aucun rapprochement automatique ni entretien nouveau n'est ajouté.
+
+### Rapprochement factuel — phase 5D.1
+
+`startSuggestionReconciliation` est démarré une fois dans `main.tsx`, hors React.
+Il écoute les commits `sessions` et `suggestions`, localement et via le bus
+inter-onglets : imports Polar/TCX groupés, `save`, restauration/fusion et futures
+suppressions notifiées. Il vérifie aussi le stockage au démarrage. Il ne crée ni
+suggestion ni séance et ne recalcule pas le moteur. Aucun nouvel écran.
+
+`reconcileActivities` lit uniquement les résumés et les suggestions dans une même
+transaction IndexedDB en écriture. Les transactions des autres onglets sont
+sérialisées ; les révisions sont calculées sur l’état courant. Seuls les liens
+modifiés sont écrits, avec révision et horodatage mis à jour. Les autres champs,
+le planning, le profil, les détails et les associations de chaussures restent intacts.
+
+Règle pure (`suggestion-matching.ts`) : une seule suggestion mémorisée et une seule
+course pertinente à la même **date civile source**, sans conversion de fuseau du
+navigateur. Les TCX conservent le jour écrit dans leur horodatage (y compris UTC) ;
+aucun fuseau local absent du fichier n’est inventé. Une date invalide, un horodatage
+inexploitable ou contradictoire et un sport explicitement inconnu/non course sont
+exclus. Les résumés historiques sans sport restent des courses selon le contrat
+historique du magasin `sessions`. Aucun titre ne sert à deviner un sport.
+
+Les durées, distances, allures, terrains et intensités ne sont pas comparés.
+Plusieurs courses ou plusieurs suggestions le même jour empêchent le lien ; même
+une suggestion remplacée compte dans cette ambiguïté. Une suggestion remplacée
+ne reçoit pas de nouveau lien. Un lien existant valide peut être conservé ; un lien
+orphelin, contradictoire ou devenu ambigu est retiré. Une activité remplacée par
+un nouvel identifiant est réévaluée avec les mêmes critères d’unicité. Une ancienne
+revendication contradictoire est d’abord retirée ; un passage suivant peut associer
+l’activité si le conflit a disparu. Jamais deux suggestions pour la même activité.
+L’API explicite `associateActivity` contrôle également date, sport et unicité dans
+sa transaction, en plus de la révision attendue.
+
+Les imports tardifs peuvent correspondre tant que la suggestion est encore dans
+le magasin, même après sa date d’expiration. Aucun nettoyage supplémentaire n’est
+introduit ; une suggestion déjà supprimée ne peut être reconstruite. Une suggestion
+calculée mais jamais présentée n’est jamais insérée par ce rapprochement.
+
+Les notifications rapprochées sont regroupées ; une seule exécution locale à la
+fois et un passage supplémentaire si les données changent pendant celle-ci. La
+notification d’un lien déclenche au plus une vérification sans écriture lorsque
+l’état est stabilisé : aucun renvoi de notification sans modification, donc aucune
+boucle inter-onglets. Le regroupement des imports existant évite un parcours par
+fichier. Les mesures détaillées ne sont jamais lues.
+
+Un échec transactionnel laisse les liens inchangés et produit uniquement un message
+technique générique sans données personnelles. Reprise au prochain événement ou
+démarrage, sans retry permanent. La convergence est asynchrone après le commit de
+l’activité ; les écritures directes hors dépôts doivent émettre `sessions` après
+validation. Il n’existe actuellement ni écran de création manuelle ni API de
+suppression de séance : le chemin `save` et les suppressions notifiées sont couverts.
+Le format 5 et les règles de sauvegarde restent inchangés : le lien `activityId`
+existant est exporté/restauré, puis réévalué après restauration ou fusion. Un lien
+n’affirme jamais que le coureur a suivi exactement la suggestion.
+
+### Informations temporaires sur l’accueil — phase 5D.2
+
+`PastSuggestions` affiche seulement les suggestions mémorisées, passées, actuelles,
+non associées, de J+1 à J+7 inclus (`expiresOn` à J+8). Aucun message n’est persisté.
+Le service de rapprochement expose un état local de préparation : l’information
+est masquée au démarrage, pendant une actualisation ou après une erreur. Une
+lecture transactionnelle commune aux résumés et suggestions vérifie également que
+les liens stockés correspondent au résultat du rapprochement. Aucune écriture
+n’est effectuée par l’affichage.
+
+Plusieurs suggestions à la même date (même remplacées) ou la présence d’une activité
+ce jour-là masquent l’information. Cela inclut une activité non exploitable pour le
+rapprochement : absence de lien ne signifie pas absence de course. Les dates civiles
+source sont conservées, sans conversion de fuseau. Le jour courant est local au
+navigateur, comme dans le reste du Coach.
+
+Notifications `sessions`/`suggestions`, fin du rapprochement, retour au premier plan
+et changement de jour actualisent la lecture ; un compteur ignore les réponses
+asynchrones anciennes. Le contrôle d’horloge chaque seconde ne lit pas IndexedDB
+si le jour n’a pas changé. Les messages sont absents dans un onglet masqué.
+
+Les restaurations/remplacements notifient déjà après transaction validée. Aucun
+chemin existant de suppression individuelle n’a été trouvé ; une suppression future
+doit émettre `sessions` après commit, comme le vérifient les tests synthétiques.
+Les écritures directes sans notification ne sont pas observées en temps réel.
+Aucun questionnaire, aucune qualification de l’effort du coureur, aucune action
+obligatoire. Les styles `notice` existants utilisent les couleurs du thème.

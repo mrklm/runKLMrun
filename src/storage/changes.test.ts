@@ -21,12 +21,12 @@ it('regroupe les lots imbriqués et concurrents, sans notification pour un lot v
  bus.committed('db',['sessions']);b();await pause();expect(seen).toHaveBeenCalledTimes(1);expect(seen.mock.calls[0][0].scopes).toEqual(['sessions']);
  bus.batch('db')();await pause();expect(seen).toHaveBeenCalledTimes(1);off();
 });
-it('invalide les autres contextes sans reboucler ni doubler la notification locale',async()=>{
+it.each(['sessions', 'suggestions', 'feelings'] as const)('invalide les autres contextes pour %s sans boucle ni doublon',async scope=>{
  const channels=new Set<FakeChannel>();let messages=0;
  class FakeChannel { onmessage?: (event:{data:unknown})=>void;constructor(public name:string){channels.add(this);}close(){channels.delete(this);}postMessage(data:unknown){messages++;for(const c of channels)if(c!==this&&c.name===this.name)c.onmessage?.({data});} }
  vi.stubGlobal('BroadcastChannel',FakeChannel);
  const a=createChangeBus(true),b=createChangeBus(true),local=vi.fn(),remote=vi.fn(),offA=a.subscribe(local),offB=b.subscribe(remote);
- a.committed('db',['sessions']);await pause();expect(local).toHaveBeenCalledTimes(1);expect(remote).toHaveBeenCalledTimes(1);expect(messages).toBe(1);
+ a.committed('db',[scope]);await pause();expect(local).toHaveBeenCalledTimes(1);expect(remote).toHaveBeenCalledTimes(1);expect(messages).toBe(1);
  b.committed('db',['planning']);await pause();expect(local).toHaveBeenCalledTimes(2);expect(remote).toHaveBeenCalledTimes(2);expect(messages).toBe(2);
  offA();offB();expect(channels.size).toBe(0);
 });
@@ -59,7 +59,7 @@ it.each(['merge','replace'] as const)('restauration %s : aperçu silencieux, év
  const n=name(),service=createBackupService({export:d=>exportGzip(d,'0.6.0'),parse:file=>readBackupFile(file),prepare:(p,o)=>prepareNative(p,o)},n),spy=vi.spyOn(storageChanges,'committed');
  const preview=await service.preview(new Blob([JSON.stringify(await createBackup({sessions:[session],details:[],coachProfile:null},'0.6.0'))]));
  expect(spy).not.toHaveBeenCalled();await service.restore(preview,{mode,profile:mode==='merge'?'keep':'restore'});
- expect(spy).toHaveBeenCalledTimes(1);expect(spy).toHaveBeenCalledWith(n,['sessions','profile','configuration','planning','shoes']);
+ expect(spy).toHaveBeenCalledTimes(1);expect(spy).toHaveBeenCalledWith(n,['sessions','profile','configuration','planning','shoes','suggestions']);
  spy.mockClear();await expect(service.restore(preview,{mode,profile:mode==='merge'?'keep':'restore'})).rejects.toThrow();expect(spy).not.toHaveBeenCalled();
 });
 

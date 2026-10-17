@@ -20,6 +20,6 @@ describe('rendu initial de l’historique', () => {
   });
   it('affiche un état vide sans séance de démonstration', () => {
     const html = renderToStaticMarkup(createElement(History, { sessions: [] }));
-    expect(html).toContain('Aucune sortie enregistrée'); expect(html).not.toContain('<details');
+    expect(html).toContain('Aucune sortie enregistrée'); expect(html).toContain('Importer des activités');
   });
 });

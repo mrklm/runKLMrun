@@ -23,7 +23,7 @@ afterEach(async()=>{vi.restoreAllMocks();await Promise.all(names.splice(0).map(n
 it('migration additive depuis v6 sans réécriture des résumés',async()=>{
  const n=name(),db=await openDB(n,6,{upgrade(d){d.createObjectStore('sessions',{keyPath:'id'});}});
  await db.put('sessions',{id:'old',date:'2020-01-01',durationSeconds:10,title:'Fictif'});db.close();
- const upgraded=await openDatabase(n);expect(upgraded.version).toBe(7);expect((await upgraded.get('sessions','old'))?.title).toBe('Fictif');upgraded.close();
+ const upgraded=await openDatabase(n);expect(upgraded.version).toBe(8);expect((await upgraded.get('sessions','old'))?.title).toBe('Fictif');upgraded.close();
 });
 it('acceptation, modification, déplacement, annulation et persistance sans statut déduit de la date',async()=>{
  const {n,repo}=await setup();let r=await repo.apply(accept(),undefined);

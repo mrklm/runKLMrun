@@ -1,3 +1,4 @@
+import { SessionFeeling } from '../components/SessionFeeling';
 import { ascentLabel } from '../core/analysis/ascent';
 import { SessionShoes } from '../components/Shoes';
 import { useEffect, useMemo, useState } from 'react';
@@ -38,13 +39,14 @@ export function Session({ session }: { session?: RunningSession }) {
   const [attempt, setAttempt] = useState(0);
   useEffect(() => session ? loadSessionDetails(sessionRepository, session.id, setState) : undefined, [session?.id, attempt]);
   return <>
-    <a className="session-back" href="#/historique">Revenir à l’historique</a>
+    <a className="session-back" href="#/courses/historique">Revenir à l’historique</a>
     <header className="session-heading"><h1>{session?.title ?? 'Séance introuvable'}</h1></header>
     {!session ? <section className="panel settings-panel"><p>Cette séance n’est pas disponible sur cet appareil.</p></section> : <>
       <SessionInformation session={session} />
       {state.status === 'loading' && <p role="status">Chargement des détails de votre séance…</p>}
       {state.status === 'error' && <section className="panel settings-panel" role="alert"><h2>Stockage local indisponible</h2><p>Les détails n’ont pas pu être chargés. Vous pouvez réessayer.</p><button className="button" onClick={() => setAttempt(v => v + 1)}>Réessayer</button></section>}
       {state.status === 'ready' && <SessionCurves details={state.details} />}
+      <SessionFeeling key={session.id} id={session.id} />
       <SessionShoes sessionId={session.id} session={session} />
     </>}
   </>;

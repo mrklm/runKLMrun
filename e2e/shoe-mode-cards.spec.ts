@@ -15,7 +15,8 @@ test('cartes accessibles, thèmes immédiats et disposition mobile', async ({ pa
   for (const theme of ['AIR-KLM Day flight', 'Midnight Garage', 'Citron qui pique']) {
     await page.getByRole('link', { name: 'Paramètres', exact: true }).click();
     await page.locator('#theme-select').selectOption({ label: theme });
-    await page.getByRole('link', { name: 'Mes chaussures', exact: true }).click();
+    await page.getByRole('navigation').getByRole('link', { name: 'Paramètres', exact: true }).click();
+  await page.getByRole('link', { name: 'Mes chaussures', exact: true }).click();
     const colors = await manual.evaluate(input => {
       const card = input.nextElementSibling!;
       const probe = document.createElement('span'); probe.style.color = 'var(--accent)'; document.body.append(probe);

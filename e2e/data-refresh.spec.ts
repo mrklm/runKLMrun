@@ -1,3 +1,4 @@
+import { seedLegacyPlanning } from './helpers/coach';
 import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js';
 import { test, expect, type Page } from '@playwright/test';
 const open=async(p:Page,path='/')=>{await p.goto(`./#${path}`);await expect(p.locator('.splash-screen')).toHaveCount(0);};
@@ -15,20 +16,20 @@ async function seed(page:Page){
 }
 test.beforeEach(async({page})=>{await page.clock.setFixedTime(new Date('2026-10-16T12:00:00Z'));});
 test('imports TCX successifs et écriture directe : actualisation locale et autre onglet',async({page,context})=>{
- await open(page,'/parametres');const other=await context.newPage();await open(other);
+ await open(page,'/historique');await page.getByText('Importer des activités',{exact:true}).click();const other=await context.newPage();await open(other);
  for(const [i,day] of [14,15].entries()){
   await page.getByLabel('Sélectionner les fichiers').setInputFiles({name:`synthetic-${day}.TCX`,mimeType:'application/xml',buffer:Buffer.from(tcx(day))});
   await page.getByRole('button',{name:'Importer les séances',exact:true}).click();
   await expect(other.locator('.session-link')).toHaveCount(i+1);
   await page.getByRole('link',{name:'Accueil',exact:true}).click();await expect(page.locator('.session-link')).toHaveCount(i+1);
-  await page.getByRole('link',{name:'Paramètres',exact:true}).click();
+  await page.getByRole('link',{name:'Courses',exact:true}).click();
  }
  await page.getByRole('link',{name:'Accueil',exact:true}).click();
  await page.evaluate(async()=>{const path='/runKLMrun/src/storage/database.ts';const {sessionRepository:r}=await import(/* @vite-ignore */ path);await Promise.all([r.save({id:'direct-a',title:'Ajout direct A',date:'2026-10-16',durationSeconds:600}),r.save({id:'direct-b',title:'Ajout direct B',date:'2026-10-16',durationSeconds:600})]);});
  await expect(page.locator('.session-link')).toHaveCount(4);await expect(other.locator('.session-link')).toHaveCount(4);
 });
 test('profil, configuration et planning cohérents dans deux onglets',async({page,context})=>{
- await open(page);await seed(page);await page.getByRole('link',{name:'Coach',exact:true}).click();
+ await open(page);await seed(page);await page.getByRole('navigation').getByRole('link', { name: 'Accueil', exact: true }).click();await page.getByRole('link',{name:'Coach',exact:true}).click();
  const other=await context.newPage();await other.clock.setFixedTime(new Date('2026-10-16T12:00:00Z'));await open(other,'/entrainement');
  await page.evaluate(async()=>{
   const root='/runKLMrun/src/storage/';const {coachProfileRepository:r}=await import(/* @vite-ignore */ root+'coach-profile.ts');const p=await r.get();await r.save({...p,availability:{...p.availability,sessionsPerWeek:2}},p.revision);
@@ -38,8 +39,8 @@ test('profil, configuration et planning cohérents dans deux onglets',async({pag
   await expect(p.getByRole('region',{name:'Observations du coach',exact:true})).toContainText('Vous souhaitez 2 sorties par semaine');
   await expect(p.getByRole('region',{name:'Votre accompagnement',exact:true})).toContainText('Reprendre');
  }
- const planning=(p:Page)=>p.getByRole('region',{name:'Votre planning personnel',exact:true});
- await planning(page).getByRole('button',{name:'Accepter',exact:true}).click();
+ const planning=(p:Page)=>p.getByRole('region',{name:'Ancien planning personnel',exact:true});
+ await seedLegacyPlanning(page);
  await expect(planning(other).getByRole('button',{name:'Modifier cette séance'})).toBeVisible();
  await planning(other).getByRole('button',{name:'Modifier cette séance'}).click();await planning(other).getByLabel('Durée maximale (minutes)').fill('17');
  await planning(other).getByRole('button',{name:'Enregistrer la séance'}).click();
@@ -61,7 +62,7 @@ test('une lecture ancienne ne remplace pas une liste plus récente',async({page}
 });
 
 test('archive Polar via worker : les deux onglets voient le lot validé',async({page,context})=>{
- await open(page,'/parametres');const other=await context.newPage();await open(other);
+ await open(page,'/historique');await page.getByText('Importer des activités',{exact:true}).click();const other=await context.newPage();await open(other);
  const writer=new ZipWriter(new BlobWriter(),{useWebWorkers:false});
  for(const id of ['a','b'])await writer.add(`training-session_${id}.json`,new TextReader(JSON.stringify({exercises:[{sport:'RUNNING',startTime:'2026-10-15T10:00:00',duration:'PT10M'}]})));
  const zip=await writer.close();
@@ -71,7 +72,8 @@ await page.getByRole('button', {
   exact: true
 }).click();
 
-// Vérifier d'abord que l'importation a réellement abouti.
+// Attendre le worker avant de quitter la page (le démontage peut interrompre l’import).
+await expect(page.getByRole('status').filter({hasText:'Compte rendu'})).toContainText('2 séances ajoutées');
 await page.getByRole('link', {
   name: 'Accueil',
   exact: true

@@ -15,11 +15,11 @@ test('splash initial de trois secondes, version commune et navigation interne', 
   await expect(page.locator('.brand-version')).toHaveText(version);
   await expect(page.getByRole('img', { name: 'Logo runKLMrun', exact: true })).toHaveCount(0);
   await expect(page.getByRole('img', { name: 'runKLMrun', exact: true })).toBeVisible();
-  for (const name of ['Historique', 'Statistiques', 'Coach', 'Paramètres', 'Accueil']) {
+  for (const name of ['Courses', 'Paramètres', 'Accueil']) {
     await page.getByRole('navigation').getByRole('link', { name }).click();
     await expect(page.locator('.splash-screen')).toHaveCount(0);
   }
-  await page.getByRole('navigation').getByRole('link', { name: 'Historique' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click();
   await page.getByRole('link', { name: 'runKLMrun — Accueil' }).click();
   await expect(page).toHaveURL(/#\/$/);
 });

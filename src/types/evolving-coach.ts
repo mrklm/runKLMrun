@@ -58,7 +58,7 @@ export interface CoachingStrategy {
   claims: { status: 'hypothesis' | 'supported'; text: string; evidenceSessionIds: string[]; limitations: string[] }[];
   missingInformation: string[];
 }
-export type OptionalSessionFeeling = { effort: 'easy' | 'moderate' | 'hard' | 'very-hard'; comment?: string };
+export type OptionalSessionFeeling = { effort?: 'easy' | 'moderate' | 'hard' | 'very-hard'; comment?: string };
 
 /** Choix durables uniquement ; disponibilités et préférences restent dans coachProfile. */
 export interface EvolvingCoachValues {

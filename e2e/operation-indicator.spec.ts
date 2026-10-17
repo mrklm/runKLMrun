@@ -39,10 +39,10 @@ test('une erreur de sauvegarde ferme l’indicateur et libère les actions', asy
   });
   const backups = page.getByRole('region', { name: 'Données et sauvegardes', exact: true });
   await backups.getByRole('button', { name: 'Exporter mes données', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Importer les séances', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Importer les séances', exact: true, includeHidden: true })).toBeDisabled();
   await expect(backups.getByText(/Lecture des données, préparation et compression/)).toBeVisible();
   await expect(backups.getByRole('alert')).toBeVisible();
   await expect(backups.getByText(/Lecture des données, préparation et compression/)).toHaveCount(0);
   await expect(backups.getByRole('button', { name: 'Exporter mes données', exact: true })).toBeEnabled();
-  await expect(page.getByRole('button', { name: 'Importer les séances', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Importer les séances', exact: true, includeHidden: true })).toBeEnabled();
 });

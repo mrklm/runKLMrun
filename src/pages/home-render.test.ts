@@ -14,7 +14,7 @@ describe('dernières sorties de l’accueil', () => {
   it('limite à cinq séances après le tri, même si les plus récentes arrivent en fin de tableau', () => {
     const html = render(Array.from({ length: 8 }, (_, i) => session(i + 1)));
     expect(titles(html)).toEqual([8, 7, 6, 5, 4].map(i => `Sortie synthétique ${i}`));
-    expect(html).toContain('Dernières sorties');
+    expect(html).toContain('Dernière sortie'); expect(html).toContain('Activités récentes');
   });
   it('classe les séances par date puis heure décroissante sans modifier les données reçues', () => {
     const input = [session(2, { id: 'early', title: 'Sortie synthétique matin', startTime: '2025-01-02T08:00:00' }), session(1), session(2, { id: 'late', title: 'Sortie synthétique soir', startTime: '2025-01-02T18:00:00' })];
@@ -28,10 +28,10 @@ describe('dernières sorties de l’accueil', () => {
   it('conserve le message d’accueil sans séance', () => {
     const html = render([]);
     expect(titles(html)).toEqual([]); expect(html).toContain('Votre histoire commence ici');
-    expect(html).toContain('Vous n’avez encore aucune sortie enregistrée.'); expect(html).not.toContain('session-card');
+    expect(html).toContain('Vous n’avez encore aucune sortie à date exploitable enregistrée.'); expect(html).not.toContain('session-card');
   });
   it.each([{ sessions: [] }, { sessions: [session(1)] }])('propose le lien vers tout l’historique', ({ sessions }) => {
-    expect(render(sessions)).toContain('<a href="#/historique">Voir tout l’historique</a>');
+    expect(render(sessions)).toContain('<a href="#/courses/historique">Voir tout l’historique</a>');
   });
   it('conserve les informations de chaque séance', () => {
     const html = render([session(1)]);

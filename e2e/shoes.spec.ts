@@ -46,6 +46,7 @@ test('première utilisation libre, modification, attribution explicite et sauveg
   await expect(pair.getByText('Kilométrage cumulé').locator('..').locator('dd')).toHaveText('12 km');
   await page.getByRole('link', { name: 'Accueil', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Paire du littoral : Limite atteinte' })).toBeVisible();
+  await page.getByRole('navigation').getByRole('link', { name: 'Paramètres', exact: true }).click();
   await page.getByRole('link', { name: 'Mes chaussures', exact: true }).click();
   await pair.getByRole('button', { name: 'Archiver cette paire' }).click();
   await expect(pair.getByRole('button', { name: 'Réactiver cette paire' })).toBeVisible();
@@ -69,7 +70,7 @@ test('première utilisation libre, modification, attribution explicite et sauveg
 });
 
 test('propose la paire par défaut après un import, sans attribuer les doublons', async ({ page }) => {
-  await page.goto('./#/parametres'); await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await page.goto('./#/historique'); await expect(page.locator('.splash-screen')).toHaveCount(0);await page.getByText('Importer des activités',{exact:true}).click();
   await page.evaluate(() => new Promise<void>((resolve, reject) => {
     const request = indexedDB.open('runklmrun');
     request.onerror = () => reject(request.error);
@@ -135,12 +136,14 @@ test('modes automatique et manuel, conversion confirmée et choix direct dans l�
   await page.getByRole('checkbox', { name: 'Je confirme la conversion en associations manuelles.' }).check();
   await page.getByRole('button', { name: 'Confirmer la conversion' }).click();
   await expect(pairA.getByText('Kilométrage cumulé').locator('..').locator('dd')).toHaveText('5 km');
-  await page.getByRole('link', { name: 'Historique', exact: true }).click();
+  await page.getByRole('link', { name: 'Courses', exact: true }).click();
+  await page.getByText('Historique des courses', { exact: true }).click();
   const card = page.locator('li').filter({ has: page.getByRole('link', { name: 'r2', exact: true }) });
   const selector = card.getByLabel('Chaussures utilisées', { exact: true });
   await expect(selector).toHaveValue('A');
   await selector.selectOption('B'); await expect(selector).toHaveValue('B');
   await selector.selectOption(''); await expect(selector).toHaveValue('');
+  await page.getByRole('navigation').getByRole('link', { name: 'Paramètres', exact: true }).click();
   await page.getByRole('link', { name: 'Mes chaussures', exact: true }).click();
   await page.getByRole('radio', { name: 'Une seule paire — Automatique' }).click();
   await expect(page.getByRole('radio', { name: 'Une seule paire — Automatique' })).toBeChecked();

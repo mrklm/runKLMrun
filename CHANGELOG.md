@@ -1,5 +1,14 @@
 # Historique des versions
 
+## v0.7.0 — 2026-10-17 — Suggestions libres et espace Courses
+
+- Coach : jusqu’à trois suggestions facultatives sur sept jours, avec variation prudente des durées selon la pratique et les disponibilités.
+- Mémorisation des suggestions réellement présentées, rapprochement factuel avec les sorties et informations temporaires sur les suggestions passées.
+- Navigation simplifiée : Accueil, Courses et Paramètres ; accueil recentré sur les sorties et le Coach.
+- Courses réunit importation, saisie manuelle, statistiques, calendrier mensuel et historique repliable ; anciennes routes conservées.
+- Ressenti facultatif à quatre niveaux et commentaire personnel, modifiables après chaque sortie.
+- Sauvegarde des suggestions et annotations, compatibilité avec les anciens fichiers et protections contre les conflits entre onglets.
+
 ## v0.6.1 — 2026-10-16 — Amélioration du Coach et synchronisation des données
 
 ### Améliorations

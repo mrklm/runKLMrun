@@ -16,7 +16,7 @@ describe('fiche de séance', () => {
   });
   it('gère une séance introuvable avec retour vers l’historique', () => {
     const html = renderToStaticMarkup(createElement(Session, {}));
-    expect(html).toContain('Séance introuvable'); expect(html).toContain('href="#/historique"');
+    expect(html).toContain('Séance introuvable'); expect(html).toContain('href="#/courses/historique"');
   });
   it('affiche le chargement sans masquer le résumé', () => {
     const html = renderToStaticMarkup(createElement(Session, { session }));

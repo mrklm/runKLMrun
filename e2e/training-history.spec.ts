@@ -51,8 +51,9 @@ test('réutilise les résumés sans lecture des détails lors des changements de
   const period = page.getByRole('combobox', { name: 'Période du bilan' });
   await expect(period).toBeVisible();
   await period.selectOption('4'); await period.selectOption('12');
-  await page.getByRole('navigation').getByRole('link', { name: 'Historique' }).click();
-  await page.getByRole('navigation').getByRole('link', { name: 'Coach' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Accueil', exact: true }).click();
+  await page.getByRole('link', { name: 'Coach', exact: true }).click();
   expect((await page.evaluate(() => (window as unknown as { storageReads: string[] }).storageReads)).filter(call => call.endsWith(':sessions') || call.endsWith(':details'))).toEqual(['all:sessions', 'all:sessions']); // StrictMode rejoue l’effet initial en développement.
 });
 test('présente l’erreur commune de stockage sans faux bilan vide', async ({ page }) => {

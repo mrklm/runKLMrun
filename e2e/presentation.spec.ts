@@ -14,12 +14,12 @@ test.beforeEach(async ({ page }) => {
 });
 test('filtres réels, calendrier local et agrégations des graphiques', async ({ page }) => {
   await expect(page.locator('.hero')).toHaveCount(0);
-  await page.getByRole('navigation').getByRole('link', { name: 'Statistiques' }).click();
-  const count = page.locator('.statistics-metrics > div').filter({ hasText: 'Nombre de séances' }).locator('dd');
+  await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click();
+  const count = page.locator('.statistics-metrics > div').filter({ hasText: 'Nombre de sorties' }).locator('dd');
   await expect(page.getByRole('combobox', { name: 'Période', exact: true })).toHaveValue('week');
   await expect(count).toHaveText('2');
   await expect(page.getByRole('status')).toContainText('28/12/2025 – 03/01/2026');
-  await expect(page.getByRole('heading', { name: 'Distance parcourue par jour (km)' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Calendrier mensuel' })).toBeVisible();
   await page.getByRole('combobox', { name: 'Période', exact: true }).selectOption('month');
   await expect(page.getByRole('combobox', { name: 'Mois', exact: true })).toHaveValue('01'); await expect(count).toHaveText('2');
   await page.getByRole('combobox', { name: 'Année', exact: true }).selectOption('2024'); await page.getByRole('combobox', { name: 'Mois', exact: true }).selectOption('02');
@@ -27,6 +27,7 @@ test('filtres réels, calendrier local et agrégations des graphiques', async ({
   await page.getByRole('combobox', { name: 'Mois', exact: true }).selectOption('03'); await expect(page.getByText('Aucune séance pour cette période')).toBeVisible();
   await page.getByRole('combobox', { name: 'Période', exact: true }).selectOption('year');
   await expect(page.getByRole('combobox', { name: 'Année', exact: true })).toHaveValue('2026'); await expect(count).toHaveText('2');
+  await page.getByText('Évolution sur la période', { exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Distance parcourue par semaine (km)' })).toBeVisible();
   await page.getByRole('combobox', { name: 'Période', exact: true }).selectOption('all'); await expect(count).toHaveText('5');
   await expect(page.locator('.recharts-surface')).toHaveCount(3);

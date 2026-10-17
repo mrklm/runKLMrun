@@ -5,13 +5,13 @@ import { ImportReportView } from './ImportReportView';
 import { tcxReport, zipReport } from '../importers/polar-selection';
 import { emptyReport } from '../importers/import-report';
 import { emptyTcxReport } from '../importers/tcx-files';
-import { Settings } from '../pages/Settings';
+import { History } from '../pages/History';
 import { SessionCurves } from '../pages/Session';
 // Le sélecteur de thème dépend du navigateur et n'est pas l'objet de ce rendu serveur.
 vi.mock('./Appearance', () => ({ Appearance: () => null }));
 describe('interface TCX', () => {
-  it('conserve le ZIP et propose la sélection multiple TCX dans les paramètres', () => {
-    const html = renderToStaticMarkup(createElement(Settings));
+  it('conserve le ZIP et propose la sélection multiple TCX dans l’historique', () => {
+    const html = renderToStaticMarkup(createElement(History, { sessions: [] }));
     expect(html).toContain('Importer des séances Polar'); expect(html).toContain('accept=".zip,.ZIP,.tcx,.TCX" multiple=""');
     expect(html.match(/accept="\.zip,\.ZIP,\.tcx,\.TCX"/g)).toHaveLength(1); expect(html).toContain('Importer les séances');
   });

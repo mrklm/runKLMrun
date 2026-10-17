@@ -49,7 +49,7 @@ export async function exportGzip(data: BackupData, version: string, limits: Back
   if (typeof CompressionStream === 'undefined') throw new BackupError('Votre navigateur ne permet pas de créer une sauvegarde gzip. Utilisez un navigateur compatible.');
   validateBackupData(data);
   const bytes = (() => {
-    const text = canonicalJson({ format: 'runKLMrun-backup', formatVersion: data.coachPlanning !== undefined ? 4 : data.evolvingCoach !== undefined ? 3 : data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1, exportedAt, appVersion: version, data });
+    const text = canonicalJson({ format: 'runKLMrun-backup', formatVersion: data.coachSuggestions !== undefined ? 5 : data.coachPlanning !== undefined ? 4 : data.evolvingCoach !== undefined ? 3 : data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1, exportedAt, appVersion: version, data });
     const stats = inspectJsonStats(text, limits);
     checkIntegrityEnvelope(stats, limits);
     return new TextEncoder().encode(text);

@@ -33,7 +33,7 @@ describe('dépôt et migration du profil', () => {
     await repository.save({ ...p, goal: { ...p.goal, kind: 'regular' }, availability: { ...p.availability, durationMode: 'custom', maxMinutesByDay: { monday: 90 } } }, p.revision);
     const sessions = createSessionRepository(n);
     expect(await sessions.list()).toEqual([session]); expect(await sessions.getDetails(session.id)).toEqual(details);
-    const db = await openDatabase(n); expect(db.version).toBe(7); expect([...db.objectStoreNames]).toEqual(['coachPlanning', 'coachProfile', 'details', 'evolvingCoach', 'sessions', 'shoeAssignments', 'shoeSettings', 'shoes']); db.close();
+    const db = await openDatabase(n); expect(db.version).toBe(8); expect([...db.objectStoreNames]).toEqual(['coachPlanning', 'coachProfile', 'coachSuggestions', 'details', 'evolvingCoach', 'sessions', 'shoeAssignments', 'shoeSettings', 'shoes']); db.close();
   });
   it('refuse les données invalides sans modifier le profil existant', async () => {
     const repo = createCoachProfileRepository(name(), now), p = await repo.save(emptyProfileValues(), undefined);

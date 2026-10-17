@@ -8,7 +8,7 @@ describe('présentation compacte', () => {
   it('retire le bandeau de l’accueil sans retirer les dernières sorties', () => {
     const html = renderToStaticMarkup(createElement(Home, { sessions: [] }));
     expect(html).not.toContain('À votre rythme.'); expect(html).not.toContain('class="hero"');
-    expect(html).not.toContain('Consulter votre historique'); expect(html).toContain('Dernières sorties');
+    expect(html).not.toContain('Consulter votre historique'); expect(html).toContain('Dernière sortie');
   });
   it('sélectionne sept jours par défaut et annonce la période vide', () => {
     const html = renderToStaticMarkup(createElement(Statistics, { sessions: [] }));

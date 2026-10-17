@@ -45,8 +45,9 @@ test('entretien au démarrage, verrou entre onglets et consultation sans détail
   await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
   await expect.poll(count).toBe(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByRole('link', { name: 'Historique', exact: true }).click();
-  await page.getByRole('link', { name: /Sortie synthétique ancienne/ }).click();
+  await page.getByRole('link', { name: 'Courses', exact: true }).click();
+  await page.getByText('Historique des courses', { exact: true }).click();
+  await page.locator('.courses-history').getByRole('link', { name: /Sortie synthétique ancienne/ }).click();
   await expect(page.getByRole('heading', { name: 'Informations générales' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Détails indisponibles' })).toBeVisible();
   // Simule une nouvelle échéance sur le contexte synthétique après activation.

@@ -342,3 +342,30 @@ ancienne sans planning le vide. Une révision avancée protège les brouillons o
 Toutes ces écritures appartiennent à la transaction atomique de restauration et
 au contrôle existant de modification depuis l'aperçu. Aucun consentement n'est
 créé à partir de la présence d'une séance planifiée.
+
+### Suggestions présentées : format 5
+
+`data.coachSuggestions` déclenche le format 5 pour les exports JSON et gzip.
+Le magasin vide est omis des instantanés : sans suggestions, les formats 1 à 4
+restent utilisés selon les données présentes. Les anciens fichiers restent lisibles ;
+les anciennes versions de l'application rejetteront explicitement le format 5.
+Le numéro du format de sauvegarde est indépendant de la version de l’application.
+
+Validation stricte : champs, dates, révisions, identité déterministe, expiration,
+unicité des identifiants et existence des activités associées. Le SHA-256 est vérifié
+avant toute transformation. La lecture cohérente, la détection des modifications depuis
+l'aperçu et la transaction atomique incluent le nouveau magasin.
+
+- Fusion : une suggestion locale de même identifiant est conservée intégralement
+  (dates, révision, obsolescence et association). Une différence est signalée dans le
+  bilan des conflits. Les nouvelles identités sont ajoutées ; un lien vers un résumé
+  en conflit entraîne l'exclusion de la suggestion entrante, avec avertissement.
+- Remplacement : le magasin est remplacé. Pour une identité déjà locale, la révision
+  dépasse les deux révisions afin d'invalider les anciennes intentions d'écriture.
+- Ancien fichier sans suggestions : la fusion conserve les suggestions locales ;
+  le remplacement les efface, comme les autres données absentes du fichier.
+- Les suggestions expirées présentes dans un fichier restent restaurées à l'identique
+  quant à leur contenu et à leur expiration : aucune purge silencieuse. Seule l'API
+  explicite de nettoyage les retire. Aucun planning n'est dérivé de ces suggestions.
+
+Aucun diagnostic moteur n'est inclus dans les suggestions sauvegardées.

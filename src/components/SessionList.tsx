@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import type { RunningSession } from '../types/session';
 import { duration, pace, heartRate, ascent } from '../core/analysis/session-format';
 import { sessionHref } from '../core/analysis/session-detail';
-export function SessionList({ sessions, limit, shoeSelection = false }: { sessions: RunningSession[]; limit?: number; shoeSelection?: boolean }) {
+export function SessionList({ sessions, limit, shoeSelection = false, compact = false }: { sessions: RunningSession[]; limit?: number; shoeSelection?: boolean; compact?: boolean }) {
   const displayedSessions = useMemo(() => [...sessions]
     .sort((a, b) => (b.startTime ?? b.date).localeCompare(a.startTime ?? a.date))
     .slice(0, limit), [sessions, limit]);
@@ -15,9 +15,9 @@ export function SessionList({ sessions, limit, shoeSelection = false }: { sessio
       <dl className="session-metrics">
         <div><dt>Distance</dt><dd>{session.distanceMeters === undefined ? '—' : `${(session.distanceMeters / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} km`}</dd></div>
         <div><dt>Durée</dt><dd>{duration(session.durationSeconds)}</dd></div>
-        <div><dt>Allure moyenne</dt><dd>{pace(session.averagePaceSecondsPerKm)}</dd></div>
+        {!compact && <><div><dt>Allure moyenne</dt><dd>{pace(session.averagePaceSecondsPerKm)}</dd></div>
         <div><dt>FC moyenne</dt><dd>{heartRate(session.averageHeartRate)}</dd></div>
-        <div><dt>{ascentLabel(session.ascentEstimate)}</dt><dd>{ascent(session.ascentMeters)}</dd></div>
+        <div><dt>{ascentLabel(session.ascentEstimate)}</dt><dd>{ascent(session.ascentMeters)}</dd></div></>}
       </dl>
       </a>
       {shoeSelection && <ShoeHistorySelect sessionId={session.id} />}

@@ -4,6 +4,7 @@ import type { CoachProfile } from './coach-profile';
 import type { RunningSession, SessionDetails } from './session';
 
 export interface BackupData {
+  coachSuggestions?: import('./coach-suggestion').StoredSuggestion[];
   coachPlanning?: import('./coach-planning').CoachPlanning;
   evolvingCoach?: EvolvingCoachRecord;
   shoes?: Shoe[];
@@ -27,7 +28,7 @@ export interface RestoreRetention {
 }
 export interface BackupPayload {
   format: 'runKLMrun-backup';
-  formatVersion: 1 | 2 | 3 | 4;
+  formatVersion: 1 | 2 | 3 | 4 | 5;
   exportedAt: string;
   appVersion: string;
   data: BackupSourceData;

@@ -1,4 +1,4 @@
-# runKLMrun — v0.6.1
+# runKLMrun — v0.7.0
 
 Socle d’une application web open source de suivi et de planification des
 entraînements de course à pied. Interface en français, responsive, sans compte,
@@ -56,7 +56,7 @@ locaux de développement : l’application publiée ne nécessite aucun serveur 
 ## GitHub Pages
 
 La base Vite est configurée à `/runKLMrun/`. La navigation par fragment
-(`#/historique`, `#/entrainement`, `#/parametres`) permet de rafraîchir ou d’ouvrir
+(`#/`, `#/courses`, `#/parametres`) permet de rafraîchir ou d’ouvrir
 une page directement sans règle de réécriture serveur.
 
 Le workflow `.github/workflows/pages.yml` installe les dépendances, teste,
@@ -71,7 +71,7 @@ simple création de ce socle local.
 ```text
 src/
 ├── components/        # Composants de présentation réutilisables
-├── pages/             # Accueil, Historique, Entraînement, Paramètres
+├── pages/             # Accueil, Courses, Paramètres et anciennes routes
 ├── core/              # Agrégations métier, sans React ni stockage
 │   ├── analysis/       # Totaux, regroupements calendaires et semaines ISO
 │   ├── planning/       # Réservé à la planification
@@ -88,9 +88,9 @@ Les Paramètres restent accessibles en cas d’erreur de stockage. Entraînement
 utilise les mêmes états de chargement et d’erreur que les pages fondées sur les résumés.
 
 Les agrégations de résumés restent indépendantes de React, du DOM et d’IndexedDB.
-Le Coach propose une prochaine séance et un planning personnel ; aucun programme automatique sur plusieurs semaines ni calcul de charge sportive n’est implémenté. Recharts affiche
-les statistiques ; son code est chargé à l’ouverture de la page Statistiques.
-L’importateur Polar est disponible dans Paramètres ; son périmètre exact est décrit ci-dessous.
+Le Coach affiche jusqu’à trois suggestions libres sur sept jours et conserve l’ancien planning ; aucun programme automatique sur plusieurs semaines ni calcul de charge sportive n’est implémenté. Recharts affiche
+les statistiques ; son code est chargé à l’ouverture de Courses.
+L’importateur Polar est disponible dans Courses ; son périmètre exact est décrit ci-dessous.
 
 ## Données et prochaines étapes
 
@@ -111,10 +111,10 @@ la [documentation du format et de la restauration](src/backup/README.md).
 
 ## Tester l'import Polar
 
-1. Lancer `npm run dev`, puis ouvrir **Paramètres → Importer des données Polar**.
+1. Lancer `npm run dev`, puis ouvrir **Courses → Importer des activités**.
 2. Sélectionner localement le ZIP d'export de compte Polar. Ne jamais le copier
    dans le dépôt. Attendre le compte rendu ; les autres pages restent utilisables.
-3. Ouvrir **Historique** : date/heure, distance, durée, allure, FC moyenne et
+3. Ouvrir **Courses → Historique des courses** : date/heure, distance, durée, allure, FC moyenne et
    dénivelé positif des courses reconnues sont affichés, sans données fictives.
 4. Recharger la page pour vérifier la persistance, puis réimporter le même ZIP :
    le compte rendu indique les doublons et aucune séance n'est remplacée.
@@ -181,16 +181,18 @@ ils suivent immédiatement les changements de thème. Les menus natifs peuvent c
 au navigateur ou au système.
 
 
-## Historique et statistiques
+## Courses : historique, statistiques et calendrier
 
-**Historique** regroupe les séances par année puis par mois, du plus récent au
+**Courses** (`#/courses`) réunit les outils d’importation et de création manuelle, les statistiques, le calendrier, les graphiques d’évolution et l’historique. Les anciennes routes `#/historique` et `#/statistiques` restent compatibles.
+
+**Historique des courses**, fermé par défaut, regroupe les séances par année puis par mois, du plus récent au
 plus ancien. Chaque niveau affiche le nombre de séances et la distance cumulée.
-L'année et le mois les plus récents sont ouverts à l'arrivée ; les autres sont
+À l’ouverture de l’historique, l’année et le mois les plus récents sont ouverts ; les autres sont
 repliés. Les éléments natifs `details/summary` s'utilisent au clavier (Tab, Entrée
 ou Espace) et exposent leur état aux lecteurs d'écran. Les informations de chaque
 séance sont conservées. Les listes des mois repliés ne sont pas rendues.
 
-**Statistiques** (`#/statistiques`) propose quatre périodes :
+Les statistiques proposent quatre périodes :
 
 - **7 derniers jours**, par défaut : aujourd'hui et les six jours précédents,
   selon le calendrier local du navigateur, même aux changements de mois,
@@ -200,9 +202,8 @@ séance sont conservées. Les listes des mois repliés ne sont pas rendues.
 - **Année** : année sélectionnable, initialisée à l'année courante.
 - **Tout** : toutes les séances enregistrées.
 
-La période active est affichée explicitement. Les trois graphiques sont
-journaliers pour les sept derniers jours et le mois (jusqu'à 31 jours).
-Pour Année et Tout, les regroupements suivants sont utilisés. Le filtre s'applique au nombre de séances, aux kilomètres,
+La période active est affichée explicitement. Le calendrier mensuel possède sa propre navigation, indépendante de ce filtre. Il distingue les sorties réalisées des suggestions déjà mémorisées, sans générer de suggestion ni les compter dans les totaux.
+Pour Année et Tout, « Évolution sur la période » conserve les regroupements suivants. Le filtre s'applique au nombre de séances, aux kilomètres,
 aux heures et au dénivelé positif cumulé, ainsi qu'aux trois graphiques :
 
 - distance parcourue par semaine, en km ;
@@ -253,9 +254,9 @@ n'est ajoutée.
 
 ### Vérification manuelle
 
-1. Ouvrir Historique : seule l'année la plus récente et son dernier mois sont
+1. Ouvrir Courses, puis déplier Historique des courses : seule l'année la plus récente et son dernier mois sont
    ouverts. Déplier les autres groupes au clavier et vérifier leurs totaux.
-2. Ouvrir Statistiques et sélectionner une année : comparer ses indicateurs
+2. Dans Courses, sélectionner une année et ouvrir Évolution sur la période : comparer ses indicateurs
    avec l'historique ; vérifier les trois graphiques et leurs infobulles.
 3. Parcourir les fenêtres et consulter les tableaux ; vérifier les semaines de
    fin décembre/début janvier lorsque des séances sont présentes.
@@ -303,7 +304,7 @@ nécessaire.
 
 ## Importer des séances Polar — v0.4.0
 
-Dans **Paramètres → Importer des séances Polar**, sélectionnez une archive ZIP
+Dans **Courses → Importer des activités**, sélectionnez une archive ZIP
 Polar ou un ou plusieurs fichiers TCX, puis cliquez sur **Importer les séances**.
 Les extensions sont reconnues sans distinction de casse (`.zip`, `.ZIP`, `.tcx`,
 `.TCX`). Les lots mixtes et les lots de plusieurs ZIP sont refusés avec explication.
@@ -683,3 +684,29 @@ Le Coach ne rapproche pas automatiquement prévu et réalisé et n’adapte pas 
 planning après une séance manquée. Il n’analyse ni fatigue subjective ni météo réelle.
 Le panneau « Diagnostic Coach », fermé par défaut, est réservé à `npm run dev` ;
 il expose les calculs exacts sans écriture et disparaît du build de production.
+
+
+### Suggestions libres — phase 5C.2
+
+L’interface actuelle remplace la proposition unique décrite ci-dessus par zéro à trois
+« Suggestions du Coach » sur sept jours. Date, durée, effort facile, terrain connu et
+explication courte sont affichés sans bouton d’acceptation ou de refus. Vous pouvez
+suivre, adapter ou ignorer ces idées : elles ne sont pas des rendez-vous.
+Les règles de prudence et le consentement existants restent appliqués.
+
+L’« Ancien planning personnel » conserve les séances acceptées auparavant, leurs notes,
+les modifications et les annulations ; leurs actions de gestion restent disponibles dans
+cette partie distincte. Les refus historiques sont conservés dans les données.
+Seules les cartes effectivement présentées sont mémorisées. Leur coexistence est protégée ;
+le remplacement des anciennes suggestions attend la présentation de l’ensemble complet.
+Les sauvegardes utilisent le format 5 en présence de suggestions, sans changer la lecture
+des anciens formats. Aucun rapprochement automatique avec les activités n’est effectué.
+
+## Ressenti facultatif
+
+La fiche d’une sortie et le formulaire de création manuelle permettent de renseigner
+un effort perçu (Facile, Modérée, Difficile ou Très difficile) et un commentaire
+indépendant de 2 000 caractères maximum. Ces annotations peuvent être modifiées
+ou supprimées, sont sauvegardées et ne sont pas utilisées par le moteur du Coach.
+En fusion, le résumé local reste prioritaire en cas de conflit ; un remplacement
+restaure les annotations du fichier après confirmation explicite.

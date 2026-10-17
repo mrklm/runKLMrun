@@ -1,7 +1,10 @@
+import type { OptionalSessionFeeling } from './evolving-coach';
 import type { AscentEstimate } from '../core/analysis/ascent';
 /** Résumé léger. Distances/altitudes en m, durées en s, FC en bpm. */
 export interface RunningSession {
   id: string;
+  /** Annotation personnelle facultative, jamais déduite des mesures. */
+  feeling?: OptionalSessionFeeling;
   title: string;
   date: string;
   startTime?: string;

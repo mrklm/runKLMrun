@@ -125,9 +125,24 @@ export function prepareRestore(local: BackupData, incoming: BackupSourceData, op
       revision: nextCoachRevision(Math.max(local.coachPlanning.revision, coachPlanning?.revision ?? 0)), updatedAt: now,
     };
   }
+  const suggestions = new Map((options.mode === 'merge' ? local.coachSuggestions ?? [] : []).map(s => [s.id, structuredClone(s)]));
+  for (const suggestion of incoming.coachSuggestions ?? []) {
+    const existing = suggestions.get(suggestion.id);
+    if (existing) {
+      if (canonicalJson(existing) !== canonicalJson(suggestion)) {
+        report.conflicts++; report.warnings.push('Une suggestion locale est conservée avec son état et son association, sans écrasement.');
+      }
+      continue;
+    }
+    if (suggestion.activityId && sessionConflicts.has(suggestion.activityId)) {
+      report.conflicts++; report.warnings.push('Une suggestion du fichier n’a pas été ajoutée : son activité associée présente un conflit local.'); continue;
+    }
+    const previous = options.mode === 'replace' ? local.coachSuggestions?.find(s => s.id === suggestion.id) : undefined;
+    suggestions.set(suggestion.id, previous ? {...suggestion, revision:nextCoachRevision(Math.max(previous.revision,suggestion.revision)), updatedAt:now} : structuredClone(suggestion));
+  }
   if (report.conflicts) report.warnings.push(`${report.conflicts} conflit(s) : les résumés, détails, chaussures et associations locaux concernés sont conservés, sans écrasement. Gardez le fichier pour consulter les variantes.`);
   const allSessions = [...sessions.values()];
   const ambiguous = ambiguousSessions(allSessions);
   if (ambiguous) report.warnings.push(`${ambiguous} ressemblance(s) Polar/TCX entre identifiants différents : les séances sont conservées séparément.`);
-  return { data: { ...(coachPlanning ? { coachPlanning } : {}), ...(evolvingCoach ? { evolvingCoach } : {}), sessions: allSessions, details: [...details.values()], coachProfile, ...(shoes.size || assignments.size || shoeSettings ? { ...(shoeSettings ? { shoeSettings } : {}), shoes: [...shoes.values()], shoeAssignments: [...assignments.values()] } : {}) }, report };
+  return { data: { ...(suggestions.size ? { coachSuggestions:[...suggestions.values()] } : {}), ...(coachPlanning ? { coachPlanning } : {}), ...(evolvingCoach ? { evolvingCoach } : {}), sessions: allSessions, details: [...details.values()], coachProfile, ...(shoes.size || assignments.size || shoeSettings ? { ...(shoeSettings ? { shoeSettings } : {}), shoes: [...shoes.values()], shoeAssignments: [...assignments.values()] } : {}) }, report };
 }

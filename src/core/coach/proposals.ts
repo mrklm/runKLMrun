@@ -1,3 +1,6 @@
+import { suggestionId } from './suggestions';
+import type { CoachPlanning } from '../../types/coach-planning';
+import { validateCoachPlanning } from './planning';
 import { roundProposalDuration, recommendTerrain } from './proposal-presentation';
 import type { CoachProfileValues, Weekday } from '../../types/coach-profile';
 import type { EvolvingCoachValues, CoachGoal } from '../../types/evolving-coach';
@@ -111,6 +114,28 @@ export interface ProposalInput {
 }
 /** Premier moteur : au plus une suggestion, aucune écriture et aucun rattrapage. */
 export function proposeNextSession(input: ProposalInput): CoachProposal {
+  return calculateProposals(input);
+}
+/** API préparatoire : même calcul, horizon court, sans raccordement à l’interface. */
+export const MAX_SUGGESTIONS = 3;
+export type SuggestionSet = Omit<CoachProposal, 'suggestions'> & {
+  suggestions: (CoachProposal['suggestions'][number] & { id: string; explanation: string })[];
+};
+export function proposeSuggestions(input: ProposalInput, planning?: CoachPlanning): SuggestionSet {
+  if (planning) validateCoachPlanning(planning);
+  const result = calculateProposals({...input, policy:{...input.policy,horizonDays:7}}, planning, true);
+  return {...result,suggestions:result.suggestions.map(s => ({...s,
+    id:suggestionId({date:s.date,kind:s.kind,durationSeconds:s.durationSeconds,terrain:{surface:s.recommendedTerrain.surface,relief:s.recommendedTerrain.relief}}),
+    explanation: s.durationBasis.assessment === 'discovery'
+      ? `${s.durationSeconds / 60} minutes faciles sur un jour disponible, sans durée déduite de vos anciennes sorties.`
+      : s.kind === 'endurance'
+        ? `${s.durationSeconds / 60} minutes en aisance, proches de vos sorties récentes, sans augmenter leur durée habituelle.`
+        : s.durationBasis.observedMedianSeconds !== null && s.durationSeconds < s.durationBasis.observedMedianSeconds
+          ? `${s.durationSeconds / 60} minutes faciles, plus courtes que la durée habituelle de vos sorties récentes.`
+          : `${s.durationSeconds / 60} minutes faciles, selon vos sorties récentes et vos disponibilités.`,
+  }))};
+}
+function calculateProposals(input: ProposalInput, planning?: CoachPlanning, multiple = false): CoachProposal {
   const { configuration, historicalProfile: profile, referenceDate } = input;
   const policy = structuredClone(input.policy);
   const evidence = proposalEvidence(input.sessions, referenceDate, policy);
@@ -119,7 +144,7 @@ export function proposeNextSession(input: ProposalInput): CoachProposal {
   if (horizon.to.length !== 10) throw new Error('Horizon hors des dates calendaires prises en charge.');
   const goal: CoachGoal | null = configuration?.goal ?? (profile?.goal.kind ? { model: 'legacy', value: structuredClone(profile.goal) } : null);
   const result: CoachProposal = { status: 'not-enabled', goal: goal ? structuredClone(goal) : null, horizon, suggestions: [], reasons: [], constraints: [], evidence, policy, diagnostic: { availability: profile ? structuredClone(profile.availability) : undefined, attempts: [] },
-    limitations: [...evidence.observed.limitations, 'Les résumés ne permettent pas de justifier une intensité soutenue ni une cible de fréquence cardiaque. Aucune météo n’est déduite.', 'Une seule prochaine suggestion : ce résultat n’est pas un programme complet.'] };
+    limitations: [...evidence.observed.limitations, 'Les résumés ne permettent pas de justifier une intensité soutenue ni une cible de fréquence cardiaque. Aucune météo n’est déduite.', multiple ? 'Suggestions libres sur sept jours, sans programme ni réponse attendue.' : 'Une seule prochaine suggestion : ce résultat n’est pas un programme complet.'] };
   if (!configuration) { result.reasons.push('Aucune configuration évolutive : aucun objectif historique converti.'); return result; }
   validateEvolvingCoachValues(configuration);
   evidence.declaredExperience = configuration.experience;
@@ -177,29 +202,67 @@ export function proposeNextSession(input: ProposalInput): CoachProposal {
   const target = configuration.goal;
   const deadline = target.kind === 'race' ? target.eventDate : target.kind === 'distance' ? target.targetDate : undefined;
   const skipped = new Set<string>();
+  const supported = durationBasis!.assessment === 'supported' && evidence.medianGapDays !== null;
+  const maximum = multiple && supported ? MAX_SUGGESTIONS : 1;
+  const interval = Math.max(1, Math.ceil(spacing));
+  const planned = multiple ? (planning?.sessions ?? []).filter(s => s.status === 'planned') : [];
+  // Budget descriptif, jamais une charge physiologique : ne pas dépasser le volume
+  // de durée correspondant au rythme observé (ou souhaité s’il est moins fréquent).
+  const budget = multiple && supported
+    ? Math.floor(evidence.medianDurationSeconds! * 7 / Math.max(1, spacing))
+      - planned.filter(s => s.date >= horizon.from && s.date <= horizon.to).reduce((sum,s)=>sum+s.durationSeconds,0)
+    : Infinity;
+  let proposedSeconds = 0, previousDay: number | undefined;
+
   for (let day = from; day < from + policy.horizonDays; day++) {
     if (day < earliest) continue;
     const date = dateAt(day);
+    if (multiple && (previousDay !== undefined && day - previousDay < interval
+      || planned.some(s => Math.abs(dayNumber(s.date) - day) < interval))) {
+      skipped.add('Créneau écarté pour préserver l’espacement avec les suggestions et séances déjà planifiées.'); continue;
+    }
     if (deadline && date >= deadline) { skipped.add('Aucun créneau de préparation compatible avant l’échéance.'); continue; }
     const weekday = weekdays[new Date(day * DAY).getUTCDay()];
     if (!a.days.includes(weekday)) continue;
     const cap = a.durationMode === 'custom' ? maximumMinutesForDay(profile!, weekday) : a.minutesPerSession;
-    const afterCapsSeconds = Math.min(seconds, cap === undefined ? seconds : cap * 60);
-    const duration = roundProposalDuration(afterCapsSeconds);
-    result.diagnostic!.attempts.push({ date, availableMaximumSeconds: cap === undefined ? null : cap * 60, afterCapsSeconds, roundedSeconds: duration });
+    const alternate = multiple && supported && result.suggestions.length % 2 === 1;
+    const habitual = multiple && supported && !alternate && ['endurance','speed','distance','race'].includes(kind);
+    const dayBasis = habitual ? {
+      ...durationBasis!, proposedMaximumSeconds: evidence.medianDurationSeconds!,
+      diagnostic: { ...durationBasis!.diagnostic, coefficient: 1, afterCoefficientSeconds: evidence.medianDurationSeconds!, editorialMinimumApplied: false },
+      reasons: ['Durée habituelle plafonnée à la médiane des références récentes représentatives, sans progression automatique.'],
+    } : durationBasis!;
+    const dayMaximum = dayBasis.proposedMaximumSeconds;
+    const afterCapsSeconds = Math.min(dayMaximum, cap === undefined ? dayMaximum : cap * 60);
+    const varied = afterCapsSeconds;
+    const duration = roundProposalDuration(varied);
+    result.diagnostic!.attempts.push({ date, availableMaximumSeconds: cap === undefined ? null : cap * 60, afterCapsSeconds: varied, roundedSeconds: duration });
     if (duration < policy.minimumSuggestionSeconds) { skipped.add(`Vos disponibilités sur les jours compatibles sont trop courtes pour une séance de ${policy.minimumSuggestionSeconds / 60} min.`); continue; }
+    if (multiple && proposedSeconds + duration > budget) {
+      skipped.add('Le volume correspondant à votre rythme récent est déjà couvert dans cet horizon.'); continue;
+    }
+    if (multiple && !result.suggestions.length) {
+      result.diagnostic!.durationBasis = dayBasis;
+      result.diagnostic!.roundedBeforeAvailability = roundProposalDuration(dayMaximum);
+    }
     const limits = [...result.limitations];
     if (cap === undefined) limits.push('Plafond de durée non renseigné pour ce jour ; aucun plafond supposé.');
-    if (duration < seconds) limits.push(`Durée réduite à ${duration} s après application des plafonds et arrondi inférieur par pas de 5 minutes.`);
-    const reasons = [...result.reasons, ...durationBasis!.reasons, `Jour disponible : ${DAYS[weekday]}. Les autres disponibilités ne sont pas des obligations.`, discovery ? 'Découverte sans référence de durée actuelle.' : `Durée fondée sur ${evidence.knownDurations} résumé(s) récent(s), médiane observée ${evidence.medianDurationSeconds} s ; maximum proposé avant disponibilité ${seconds} s.`];
-    const suggestionKind = discovery || kind === 'begin' || kind === 'return' ? 'discovery' : kind === 'endurance' ? 'endurance' : 'easy';
+    if (duration < dayMaximum) limits.push(`Durée réduite à ${duration} s après application des plafonds et arrondi inférieur par pas de 5 minutes.`);
+    const reasons = [...result.reasons, ...dayBasis.reasons, `Jour disponible : ${DAYS[weekday]}. Les autres disponibilités ne sont pas des obligations.`, discovery ? 'Découverte sans référence de durée actuelle.' : `Durée fondée sur ${evidence.knownDurations} résumé(s) récent(s), médiane observée ${evidence.medianDurationSeconds} s ; maximum proposé avant disponibilité ${dayMaximum} s.`];
+    const suggestionKind = discovery || kind === 'begin' || kind === 'return' ? 'discovery' : (habitual && duration === roundProposalDuration(evidence.medianDurationSeconds!) || !multiple && kind === 'endurance') ? 'endurance' : 'easy';
     result.suggestions.push({ date, recommendedTerrain: recommendTerrain(configuration.goal, configuration.experience, suggestionKind, profile?.preferences.terrain, input.sessions.filter(s=>recentIds.includes(s.id))), kind: suggestionKind,
-      intention: result.reasons[0], durationSeconds: duration, durationBasis: { ...durationBasis!, availableMaximumSeconds: cap === undefined ? null : cap * 60, diagnostic: { ...durationBasis!.diagnostic, afterCapsSeconds } }, intensity: { kind: 'easy', description: 'Sortie de course à pied en aisance ressentie. Cette durée est un maximum indicatif, jamais une obligation. Vous pouvez ralentir, raccourcir, marcher ou interrompre la séance. Aucune alternance marche/course imposée, aucune allure ni FC cible.' },
+      intention: result.reasons[0], durationSeconds: duration, durationBasis: { ...dayBasis, availableMaximumSeconds: cap === undefined ? null : cap * 60, diagnostic: { ...dayBasis.diagnostic, afterCapsSeconds: varied } }, intensity: { kind: 'easy', description: 'Sortie de course à pied en aisance ressentie. Cette durée est un maximum indicatif, jamais une obligation. Vous pouvez ralentir, raccourcir, marcher ou interrompre la séance. Aucune alternance marche/course imposée, aucune allure ni FC cible.' },
       optional: true, ...(profile?.preferences.terrain ? { terrainPreference: profile.preferences.terrain } : {}), reasons, referenceSessionIds: [...recentIds], limitations: limits });
     result.status = durationBasis?.assessment !== 'supported' || discovery || evidence.possibleGap || evidence.knownDurations < recentIds.length || evidence.medianGapDays === null || cap === undefined || !!deadline ? 'cautious' : 'possible';
-    result.constraints.push(...skipped); return result;
+    if (!multiple) { result.constraints.push(...skipped); return result; }
+    proposedSeconds += duration; previousDay = day;
+    if (result.suggestions.length >= maximum) break;
   }
-  result.status = 'unavailable'; result.constraints.push(...skipped);
+  // Même durée et même intensité : un seul libellé descriptif, sans stratégie fictive.
+  if (multiple) for (const suggestion of result.suggestions) {
+    if (suggestion.kind === 'endurance' && result.suggestions.some(other => other.kind === 'easy' && other.durationSeconds === suggestion.durationSeconds)) suggestion.kind = 'easy';
+  }
+  if (!result.suggestions.length) result.status = 'unavailable'; result.constraints.push(...skipped);
   if (!result.diagnostic!.attempts.length) result.constraints.push('Aucun jour compatible avec vos disponibilités et votre rythme dans cet horizon court.');
   return result;
 }

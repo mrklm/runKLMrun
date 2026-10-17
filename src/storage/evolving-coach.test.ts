@@ -68,7 +68,7 @@ it('migration v5 additive : préserve chaque magasin historique sans conversion'
   for (const [store, rows] of Object.entries(entries)) for (const row of rows) await old.put(store, row);
   old.close();
   const db = await openDatabase(n);
-  expect(db.version).toBe(7);
+  expect(db.version).toBe(8);
   for (const [store, rows] of Object.entries(entries)) expect(await db.getAll(store as keyof typeof entries)).toEqual(rows);
   expect(await db.getAll('evolvingCoach')).toEqual([]); db.close();
 });
