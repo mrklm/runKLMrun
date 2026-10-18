@@ -22,7 +22,7 @@ it('migration v7 additive : planning et autres magasins inchangés',async()=>{
  const n=name(),db=await openDB(n,7,{upgrade(d){d.createObjectStore('coachPlanning',{keyPath:'id'});d.createObjectStore('sessions',{keyPath:'id'});}});
  const planning={id:'local',sessions:[{status:'cancelled',note:'Note synthétique'}],dismissed:['refus'],revision:7};
  await db.put('coachPlanning',planning);await db.put('sessions',{id:'ancien'});db.close();
- const upgraded=await openDatabase(n);expect(upgraded.version).toBe(8);expect(await upgraded.get('coachPlanning','local')).toEqual(planning);
+ const upgraded=await openDatabase(n);expect(upgraded.version).toBe(9);expect(await upgraded.get('coachPlanning','local')).toEqual(planning);
  expect(await upgraded.getAll('coachSuggestions')).toEqual([]);expect(await upgraded.get('sessions','ancien')).toEqual({id:'ancien'});upgraded.close();
 });
 it('identité stable, persistance, présentations répétées et concurrentes sans doublons ni notifications inutiles',async()=>{

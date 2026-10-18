@@ -2,6 +2,7 @@ import { memoryError } from './errors';
 import type { BackupData, BackupDocument, BackupPayload } from '../types/backup';
 import { BACKUP_LIMITS, inspectJson, type BackupLimits } from './limits';
 import { BackupError, validateBackup, validateBackupData } from './validation';
+import { validateOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
 
 /** Ordre lexicographique des clés, ordre des tableaux conservé, règles JSON pour undefined. */
 export function canonicalJson(value: unknown): string {
@@ -20,8 +21,9 @@ export async function sha256Bytes(input: Uint8Array<ArrayBuffer>): Promise<strin
 export const sha256 = (text: string) => sha256Bytes(new TextEncoder().encode(text));
 export async function createBackup(data: BackupData, appVersion: string, exportedAt = new Date().toISOString()): Promise<BackupDocument> {
   validateBackupData(data);
+  for(const occurrence of data.coachSuggestionsV2??[])await validateOccurrenceV2(occurrence);
   // Le résultat n’est pas lié aux objets d’entrée ; les champs facultatifs undefined sont omis.
-  const serialized = canonicalJson({ format: 'runKLMrun-backup', formatVersion: data.coachSuggestions !== undefined ? 5 : data.coachPlanning !== undefined ? 4 : data.evolvingCoach !== undefined ? 3 : data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1, exportedAt, appVersion, data });
+  const serialized = canonicalJson({ format: 'runKLMrun-backup', formatVersion: data.coachSuggestionsV2 !== undefined ? 6 : data.coachSuggestions !== undefined ? 5 : data.coachPlanning !== undefined ? 4 : data.evolvingCoach !== undefined ? 3 : data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1, exportedAt, appVersion, data });
   inspectJson(serialized);
   const payload: BackupPayload = JSON.parse(serialized);
   return { ...payload, integrity: { algorithm: 'SHA-256', digest: await sha256(serialized) } };
@@ -30,6 +32,9 @@ export async function verifyBackup(value: unknown): Promise<BackupDocument> {
   validateBackup(value);
   const { integrity, ...payload } = value;
   if (await sha256(canonicalJson(payload)) !== integrity.digest) throw new BackupError('L’intégrité du fichier est incorrecte. La sauvegarde a été altérée ou endommagée.');
+  for(const occurrence of value.data.coachSuggestionsV2??[]) {
+    try {await validateOccurrenceV2(occurrence);} catch {throw new BackupError('Une occurrence de suggestion V2 est invalide.');}
+  }
   return value;
 }
 export async function parseBackup(text: string, limits: BackupLimits = BACKUP_LIMITS): Promise<BackupDocument> {

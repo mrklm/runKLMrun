@@ -17,7 +17,7 @@ function setup() {
   const summary=make(80),title={...make(30),nextElementSibling:summary};title.contains=hit=>hit===title;
   let covered=false;
   document.elementFromPoint=(_x,y)=>covered?null:y<80?title:summary;
-  const card={isConnected:true,querySelector:()=>title} as unknown as HTMLElement;
+  const card={isConnected:true,querySelector:(selector:string)=>selector==='[data-title]'?title:selector==='[data-summary]'?summary:title} as unknown as HTMLElement;
   return {card,document,style,frame,disconnect,cover:(v:boolean)=>{covered=v;},intersection:(value=true)=>intersect([{target:card,isIntersecting:value}])};
 }
 afterEach(()=>{vi.useRealTimers();vi.unstubAllGlobals();});
@@ -47,4 +47,9 @@ it('montage/cleanup/remontage StrictMode et remplacement avant la deuxième fram
 it('masquage entre les deux frames annule la confirmation',()=>{
  const env=setup(),present=vi.fn(),stop=watchSuggestionPresentation(env.card,present);
  env.intersection();env.frame();env.document.visibilityState='hidden';env.frame();expect(present).not.toHaveBeenCalled();stop();
+});
+it('accepte des repères explicites pour une autre carte',()=>{
+ const env=setup(),present=vi.fn(),stop=watchSuggestionPresentation(env.card,present,{
+   title:'[data-title]',summary:'[data-summary]'});
+ env.intersection();env.frame();env.frame();expect(present).toHaveBeenCalledTimes(1);stop();
 });

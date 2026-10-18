@@ -59,7 +59,7 @@ it.each(['merge','replace'] as const)('restauration %s : aperçu silencieux, év
  const n=name(),service=createBackupService({export:d=>exportGzip(d,'0.6.0'),parse:file=>readBackupFile(file),prepare:(p,o)=>prepareNative(p,o)},n),spy=vi.spyOn(storageChanges,'committed');
  const preview=await service.preview(new Blob([JSON.stringify(await createBackup({sessions:[session],details:[],coachProfile:null},'0.6.0'))]));
  expect(spy).not.toHaveBeenCalled();await service.restore(preview,{mode,profile:mode==='merge'?'keep':'restore'});
- expect(spy).toHaveBeenCalledTimes(1);expect(spy).toHaveBeenCalledWith(n,['sessions','profile','configuration','planning','shoes','suggestions']);
+ expect(spy).toHaveBeenCalledTimes(1);expect(spy).toHaveBeenCalledWith(n,['sessions','profile','configuration','planning','shoes','suggestions','suggestions-v2']);
  spy.mockClear();await expect(service.restore(preview,{mode,profile:mode==='merge'?'keep':'restore'})).rejects.toThrow();expect(spy).not.toHaveBeenCalled();
 });
 

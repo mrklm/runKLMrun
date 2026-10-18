@@ -140,9 +140,31 @@ export function prepareRestore(local: BackupData, incoming: BackupSourceData, op
     const previous = options.mode === 'replace' ? local.coachSuggestions?.find(s => s.id === suggestion.id) : undefined;
     suggestions.set(suggestion.id, previous ? {...suggestion, revision:nextCoachRevision(Math.max(previous.revision,suggestion.revision)), updatedAt:now} : structuredClone(suggestion));
   }
+  const suggestionsV2=new Map((options.mode==='merge'?local.coachSuggestionsV2??[]:[]).map(value=>[value.id,structuredClone(value)]));
+  const presentationKeys=new Map([...suggestionsV2.values()].map(value=>[value.presentationKey,value.id]));
+  const activityOwners=new Map([...suggestionsV2.values()].flatMap(value=>value.activityId?[[value.activityId,value.id] as const]:[]));
+  for(const occurrence of incoming.coachSuggestionsV2??[]) {
+    const sameId=suggestionsV2.get(occurrence.id),keyOwner=presentationKeys.get(occurrence.presentationKey),activityOwner=occurrence.activityId?activityOwners.get(occurrence.activityId):undefined;
+    if(sameId) {
+      if(canonicalJson(sameId)!==canonicalJson(occurrence)) {
+        report.conflicts++;report.warnings.push('Une occurrence V2 locale est conservée : son identifiant possède un contenu différent dans la sauvegarde.');
+      }
+      continue;
+    }
+    if(keyOwner!==undefined) {
+      report.conflicts++;report.warnings.push('Une occurrence V2 locale est conservée : sa clé de présentation appartient à un autre identifiant.');continue;
+    }
+    if(activityOwner!==undefined||occurrence.activityId&&sessionConflicts.has(occurrence.activityId)) {
+      report.conflicts++;report.warnings.push('Une occurrence V2 du fichier n’a pas été ajoutée : son association à une activité est contradictoire.');continue;
+    }
+    suggestionsV2.set(occurrence.id,structuredClone(occurrence));presentationKeys.set(occurrence.presentationKey,occurrence.id);
+    if(occurrence.activityId)activityOwners.set(occurrence.activityId,occurrence.id);
+  }
   if (report.conflicts) report.warnings.push(`${report.conflicts} conflit(s) : les résumés, détails, chaussures et associations locaux concernés sont conservés, sans écrasement. Gardez le fichier pour consulter les variantes.`);
   const allSessions = [...sessions.values()];
   const ambiguous = ambiguousSessions(allSessions);
   if (ambiguous) report.warnings.push(`${ambiguous} ressemblance(s) Polar/TCX entre identifiants différents : les séances sont conservées séparément.`);
-  return { data: { ...(suggestions.size ? { coachSuggestions:[...suggestions.values()] } : {}), ...(coachPlanning ? { coachPlanning } : {}), ...(evolvingCoach ? { evolvingCoach } : {}), sessions: allSessions, details: [...details.values()], coachProfile, ...(shoes.size || assignments.size || shoeSettings ? { ...(shoeSettings ? { shoeSettings } : {}), shoes: [...shoes.values()], shoeAssignments: [...assignments.values()] } : {}) }, report };
+  return { data: { ...(suggestions.size ? { coachSuggestions:[...suggestions.values()] } : {}),
+    ...(suggestionsV2.size||incoming.coachSuggestionsV2!==undefined?{coachSuggestionsV2:[...suggestionsV2.values()]}:{}),
+    ...(coachPlanning ? { coachPlanning } : {}), ...(evolvingCoach ? { evolvingCoach } : {}), sessions: allSessions, details: [...details.values()], coachProfile, ...(shoes.size || assignments.size || shoeSettings ? { ...(shoeSettings ? { shoeSettings } : {}), shoes: [...shoes.values()], shoeAssignments: [...assignments.values()] } : {}) }, report };
 }

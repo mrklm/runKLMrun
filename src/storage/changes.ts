@@ -1,8 +1,8 @@
 import { DATABASE_NAME } from './database-connection';
-export type ChangeScope = 'sessions' | 'profile' | 'configuration' | 'planning' | 'shoes' | 'suggestions' | 'feelings';
+export type ChangeScope = 'sessions' | 'profile' | 'configuration' | 'planning' | 'shoes' | 'suggestions' | 'suggestions-v2' | 'feelings';
 export interface StorageChange { database: string; scopes: ChangeScope[] }
 const channelName = 'runklmrun-storage-changed';
-const scopes: ChangeScope[] = ['sessions', 'profile', 'configuration', 'planning', 'shoes', 'suggestions', 'feelings'];
+const scopes: ChangeScope[] = ['sessions', 'profile', 'configuration', 'planning', 'shoes', 'suggestions', 'suggestions-v2', 'feelings'];
 /** Invalidation seulement : aucun contenu personnel, aucune écriture à la réception. */
 export function createChangeBus(transport = typeof self !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
   const source = crypto.randomUUID();

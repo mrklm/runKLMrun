@@ -4,6 +4,8 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { RunningSession, SessionDetails } from '../types/session';
 import type { CoachProfile } from '../types/coach-profile';
 export interface RunDatabase extends DBSchema {
+  coachSuggestionsV2: { key: string; value: import('../core/coach/persistence-foundations-v2').PersistableOccurrenceV2;
+    indexes: { presentationKey: string; presentedOn: string } };
   coachSuggestions: { key: string; value: import('../types/coach-suggestion').StoredSuggestion; indexes: { expiresOn: string } };
   coachPlanning: { key: string; value: import('../types/coach-planning').CoachPlanning };
   evolvingCoach: { key: string; value: EvolvingCoachRecord };
@@ -15,7 +17,7 @@ export interface RunDatabase extends DBSchema {
   coachProfile: { key: string; value: CoachProfile };
 }
 export const DATABASE_NAME = 'runklmrun';
-export const DATABASE_VERSION = 8;
+export const DATABASE_VERSION = 9;
 export class StorageBlockedError extends Error {
   constructor() { super('La mise à jour du stockage est bloquée. Fermez les autres onglets de runKLMrun, puis réessayez.'); }
 }
@@ -25,6 +27,11 @@ export function openDatabase(name = DATABASE_NAME): Promise<IDBPDatabase<RunData
     let blocked = false;
     openDB<RunDatabase>(name, DATABASE_VERSION, {
       upgrade(database) {
+        if (!database.objectStoreNames.contains('coachSuggestionsV2')) {
+          const suggestionsV2=database.createObjectStore('coachSuggestionsV2',{keyPath:'id'});
+          suggestionsV2.createIndex('presentationKey','presentationKey',{unique:true});
+          suggestionsV2.createIndex('presentedOn','presentation.presentedOn');
+        }
         if (!database.objectStoreNames.contains('coachSuggestions')) database.createObjectStore('coachSuggestions', { keyPath: 'id' }).createIndex('expiresOn', 'expiresOn');
         if (!database.objectStoreNames.contains('coachPlanning')) database.createObjectStore('coachPlanning', { keyPath: 'id' });
         if (!database.objectStoreNames.contains('evolvingCoach')) database.createObjectStore('evolvingCoach', { keyPath: 'id' });

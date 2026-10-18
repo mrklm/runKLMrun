@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { deleteDB, openDB } from 'idb';
 import { createEvolvingCoachRepository } from './evolving-coach';
-import { openDatabase } from './database-connection';
+import { DATABASE_VERSION,openDatabase } from './database-connection';
 import { ProfileConflictError } from './coach-profile';
 import { createBackupService, prepareNative, readBackupSnapshot } from './backup';
 import { createBackup, canonicalJson, sha256 } from '../backup/format';
@@ -68,7 +68,7 @@ it('migration v5 additive : préserve chaque magasin historique sans conversion'
   for (const [store, rows] of Object.entries(entries)) for (const row of rows) await old.put(store, row);
   old.close();
   const db = await openDatabase(n);
-  expect(db.version).toBe(8);
+  expect(db.version).toBe(DATABASE_VERSION);
   for (const [store, rows] of Object.entries(entries)) expect(await db.getAll(store as keyof typeof entries)).toEqual(rows);
   expect(await db.getAll('evolvingCoach')).toEqual([]); db.close();
 });

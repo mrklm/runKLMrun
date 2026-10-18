@@ -1,6 +1,6 @@
 import type { CoachProposal } from '../types/coach-proposal';
 import { DAYS } from '../core/coach/profile';
-import { formatCoachDuration } from './coach-planning-display';
+import { formatCoachDuration, formatCoachDurationText } from './coach-planning-display';
 
 /** Lecture du résultat déjà calculé : aucun accès au stockage ni appel du moteur. */
 export function CoachDiagnostic({ proposal }: { proposal: CoachProposal }) {
@@ -43,8 +43,8 @@ export function CoachDiagnostic({ proposal }: { proposal: CoachProposal }) {
     <dl>{rows.map(([label,value]) => <div className="coach-explanation" key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
     {a?.durationMode === 'custom' && <ul>{Object.entries(a.maxMinutesByDay ?? {}).map(([day,minutes]) => <li key={day}>{DAYS[day as keyof typeof DAYS]} : {duration(minutes === undefined ? undefined : minutes * 60)}</li>)}</ul>}
     {!!trace?.attempts.length && <><h4>Plafonds et arrondis par jour examiné</h4><ul>{trace.attempts.map(attempt => <li key={attempt.date}>{attempt.date} : plafond disponible {attempt.availableMaximumSeconds === null ? 'non renseigné' : duration(attempt.availableMaximumSeconds)} ; après plafonds {duration(attempt.afterCapsSeconds)} ; après arrondi {duration(attempt.roundedSeconds)}.</li>)}</ul></>}
-    {!s && <><h4>Motifs du refus</h4><ul>{[...proposal.constraints, ...proposal.reasons].map((reason,i) => <li key={i}>{reason}</li>)}</ul></>}
+    {!s && <><h4>Motifs du refus</h4><ul>{[...proposal.constraints, ...proposal.reasons].map((reason,i) => <li key={i}>{formatCoachDurationText(reason)}</li>)}</ul></>}
     <h4>Raisons exactes du coefficient</h4>
-    {d ? d.coefficientReasons.length ? <ul>{d.coefficientReasons.map(reason => <li key={reason}>{reason}</li>)}</ul> : <p>Aucun critère de prudence déclenché.</p> : <p>Diagnostic non disponible.</p>}
+    {d ? d.coefficientReasons.length ? <ul>{d.coefficientReasons.map(reason => <li key={reason}>{formatCoachDurationText(reason)}</li>)}</ul> : <p>Aucun critère de prudence déclenché.</p> : <p>Diagnostic non disponible.</p>}
   </details>;
 }

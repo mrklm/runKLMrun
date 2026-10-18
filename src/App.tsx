@@ -29,7 +29,11 @@ function subscribe(callback: () => void) {
   window.addEventListener('hashchange', callback);
   return () => window.removeEventListener('hashchange', callback);
 }
-function getPath() { return window.location.hash.slice(1) || '/'; }
+function getPath() {
+  const hashPath = window.location.hash.slice(1);
+  if (hashPath) return hashPath;
+  return window.location.pathname.replace(/\/$/, '') === `${import.meta.env.BASE_URL}entrainement` ? '/entrainement' : '/';
+}
 
 type DataState = { status: 'loading' } | { status: 'error'; message?: string } | { status: 'ready'; sessions: RunningSession[] };
 
@@ -68,7 +72,8 @@ export function App() {
 
   useEffect(() => {
     let active = true;
-    setData({ status: 'loading' });
+    // Une relecture après notification ne doit pas remonter le Coach comme une nouvelle consultation.
+    setData(previous => previous.status === 'ready' ? previous : { status: 'loading' });
     sessionRepository.list().then(
       (sessions) => { if (active) setData({ status: 'ready', sessions }); },
       error => { if (active) setData({ status: 'error', message: error instanceof StorageBlockedError ? error.message : undefined }); },

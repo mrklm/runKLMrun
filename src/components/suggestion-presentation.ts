@@ -1,9 +1,12 @@
 /** Présentation observable, pas une preuve de lecture : titre et durée visibles,
  * onglet au premier plan, sans recouvrement (y compris le splash).
  * Aucun accès au stockage ici. */
-export function isSuggestionVisible(card: HTMLElement): boolean {
+export type PresentationVisibilitySelectors={readonly title:string;readonly summary:string};
+const defaultSelectors:PresentationVisibilitySelectors={title:'h4',summary:'h4 + *'};
+
+export function isSuggestionVisible(card: HTMLElement,selectors:PresentationVisibilitySelectors=defaultSelectors): boolean {
   if (!card.isConnected || document.visibilityState !== 'visible') return false;
-  const title = card.querySelector('h4'), summary = title?.nextElementSibling;
+  const title = card.querySelector(selectors.title), summary = card.querySelector(selectors.summary);
   if (!title || !summary) return false;
   for (const element of [title, summary]) {
     for (let ancestor: Element | null = element; ancestor; ancestor = ancestor.parentElement) {
@@ -22,10 +25,11 @@ export function isSuggestionVisible(card: HTMLElement): boolean {
 
 /** Deux frames de confirmation après intersection. Le cleanup annule tout travail
  * avant présentation, notamment le premier montage exploratoire de StrictMode. */
-export function watchSuggestionPresentation(card: HTMLElement, present: (stillVisible: () => boolean) => void): () => void {
+export function watchSuggestionPresentation(card: HTMLElement, present: (stillVisible: () => boolean) => void,
+  selectors:PresentationVisibilitySelectors=defaultSelectors): () => void {
   let disposed = false, delivered = false, intersecting = false;
   let frame: number | undefined, retry: ReturnType<typeof setTimeout> | undefined;
-  const visible = () => !disposed && isSuggestionVisible(card);
+  const visible = () => !disposed && isSuggestionVisible(card,selectors);
   const cancel = () => {
     if (frame !== undefined) cancelAnimationFrame(frame);
     if (retry !== undefined) clearTimeout(retry);

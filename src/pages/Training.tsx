@@ -10,6 +10,9 @@ import { localToday } from '../core/analysis/statistics-period';
 import { formatNumber } from '../core/analysis/session-summary';
 import { duration } from '../core/analysis/session-format';
 import { sessionHref } from '../core/analysis/session-detail';
+import { CoachV2Experimental } from '../components/CoachV2Experimental';
+import { coachV2PublicEnabled } from '../core/coach/activation-v2';
+import { CoachV2Comparison } from '../components/CoachV2Comparison';
 
 const dateLabel = (date: string) => date.split('-').reverse().join('/');
 const distanceLabel = (value: number | null) => value === null ? '—' : `${formatNumber(value / 1000)} km`;
@@ -32,7 +35,9 @@ export function Training({ sessions }: { sessions: RunningSession[] }) {
   const data = comparison.current;
   return <>
     <header className="page-heading"><h1>Coach</h1></header>
-    <CoachPlanning sessions={sessions} />
+    <CoachV2Experimental />
+    <CoachV2Comparison />
+    {!coachV2PublicEnabled()&&<CoachPlanning sessions={sessions} />}
     <CoachProfile comparison={comparison}>
 <section className="panel settings-panel training-history" aria-labelledby="training-history-title">
       <h2 id="training-history-title">Votre activité récente</h2>

@@ -1,8 +1,10 @@
 import { validateFeeling } from '../core/analysis/session-feeling';
 import { validateStoredSuggestion } from '../core/coach/suggestions';
+import { associationEvidenceMatchesV2,validateOccurrenceShapeV2,type PersistableOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
 import { validateCoachPlanning } from '../core/coach/planning';
 import { validateEvolvingCoachRecord } from '../core/coach/configuration';
 import { validateShoe } from '../core/shoes/shoes';
+import type { RunningSession } from '../types/session';
 import type { CoachProfile } from '../types/coach-profile';
 import type { BackupData, BackupDocument, BackupSourceData } from '../types/backup';
 import { validSessionDate } from '../core/analysis/session-summary';
@@ -31,7 +33,7 @@ function array(value: unknown): asserts value is unknown[] { if (!Array.isArray(
 export function validateBackupData(value: unknown, source: true): asserts value is BackupSourceData;
 export function validateBackupData(value: unknown, source?: false): asserts value is BackupData;
 export function validateBackupData(value: unknown, source = false): asserts value is BackupSourceData {
-  fields(value, 'sessions details coachProfile shoes shoeAssignments shoeSettings evolvingCoach coachPlanning coachSuggestions');
+  fields(value, 'sessions details coachProfile shoes shoeAssignments shoeSettings evolvingCoach coachPlanning coachSuggestions coachSuggestionsV2');
   if (value.coachPlanning !== undefined) {
     try { validateCoachPlanning(value.coachPlanning); } catch { fail('Planning invalide dans la sauvegarde.'); }
   }
@@ -71,6 +73,29 @@ export function validateBackupData(value: unknown, source = false): asserts valu
       try { validateStoredSuggestion(suggestion); } catch { fail('Suggestion invalide dans la sauvegarde.'); }
       if (ids.has(suggestion.id) || (suggestion.activityId !== undefined && !sessions.has(suggestion.activityId))) fail('Suggestion dupliquée ou association à une activité absente.');
       ids.add(suggestion.id);
+    }
+  }
+  if(value.coachSuggestionsV2!==undefined) {
+    array(value.coachSuggestionsV2);const ids=new Set<string>(),keys=new Set<string>(),activities=new Set<string>();
+    const validated:PersistableOccurrenceV2[]=[];
+    for(const occurrence of value.coachSuggestionsV2) {
+      try {validateOccurrenceShapeV2(occurrence);} catch {fail('Occurrence de suggestion V2 invalide dans la sauvegarde.');}
+      if(ids.has(occurrence.id)||keys.has(occurrence.presentationKey))fail('Occurrence V2 dupliquée par identité ou clé de présentation.');
+      if(occurrence.activityId!==undefined) {
+        if(!sessions.has(occurrence.activityId)||activities.has(occurrence.activityId))fail('Association V2 absente ou attribuée plusieurs fois.');
+        const associatedSession=value.sessions.find(session=>(session as {id?:unknown}).id===occurrence.activityId) as RunningSession|undefined;
+        if(occurrence.associationEvidence!==undefined&&(!associatedSession||!associationEvidenceMatchesV2(occurrence,associatedSession)))
+          fail('Association V2 incompatible avec les caractéristiques sportives de l’activité.');
+        activities.add(occurrence.activityId);
+      }
+      ids.add(occurrence.id);keys.add(occurrence.presentationKey);validated.push(occurrence);
+    }
+    const byId=new Map(validated.map(occurrence=>[occurrence.id,occurrence]));
+    for(const occurrence of validated) {
+      if(occurrence.supersedesId!==undefined&&!ids.has(occurrence.supersedesId))fail('Chaîne de remplacement V2 incomplète.');
+      if(occurrence.supersededById!==undefined&&!ids.has(occurrence.supersededById))fail('Chaîne de remplacement V2 incomplète.');
+      if(occurrence.supersedesId!==undefined&&byId.get(occurrence.supersedesId)?.supersededById!==occurrence.id)fail('Chaîne de remplacement V2 incohérente.');
+      if(occurrence.supersededById!==undefined&&byId.get(occurrence.supersededById)?.supersedesId!==occurrence.id)fail('Chaîne de remplacement V2 incohérente.');
     }
   }
   for (const d of value.details) {
@@ -142,14 +167,16 @@ export function validateBackupData(value: unknown, source = false): asserts valu
 
 export function validateBackup(value: unknown): asserts value is BackupDocument {
   if (!object(value) || value.format !== 'runKLMrun-backup') fail('Ce fichier n’est pas une sauvegarde runKLMrun.');
-  if (value.formatVersion !== 1 && value.formatVersion !== 2 && value.formatVersion !== 3 && value.formatVersion !== 4 && value.formatVersion !== 5) fail('Cette version de sauvegarde n’est pas prise en charge. Utilisez une version compatible de runKLMrun.');
+  if (value.formatVersion !== 1 && value.formatVersion !== 2 && value.formatVersion !== 3 && value.formatVersion !== 4 && value.formatVersion !== 5 && value.formatVersion !== 6) fail('Cette version de sauvegarde n’est pas prise en charge. Utilisez une version compatible de runKLMrun.');
   fields(value, 'format formatVersion exportedAt appVersion data integrity');
   if (!timestamp(value.exportedAt) || !text(value.appVersion) || !value.appVersion.length) fail();
   fields(value.integrity, 'algorithm digest');
   if (value.integrity.algorithm !== 'SHA-256' || !text(value.integrity.digest) || !/^[a-f0-9]{64}$/.test(value.integrity.digest)) fail('L’empreinte de la sauvegarde est absente ou invalide.');
   validateBackupData(value.data, true);
-  if (value.formatVersion !== 5 && value.data.coachSuggestions !== undefined) fail('Les suggestions nécessitent le format 5.');
+  if (value.formatVersion < 5 && value.data.coachSuggestions !== undefined) fail('Les suggestions nécessitent le format 5.');
   if (value.formatVersion === 5 && value.data.coachSuggestions === undefined) fail('Suggestions absentes du format 5.');
+  if(value.formatVersion!==6&&value.data.coachSuggestionsV2!==undefined)fail('Les suggestions V2 nécessitent le format 6.');
+  if(value.formatVersion===6&&value.data.coachSuggestionsV2===undefined)fail('Occurrences V2 absentes du format 6.');
   if (value.formatVersion < 3 && value.data.evolvingCoach !== undefined) fail('Le Coach évolutif nécessite le format de sauvegarde 3.');
   if (value.formatVersion < 4 && value.data.coachPlanning !== undefined) fail('Le planning nécessite le format 4.');
   if (value.formatVersion === 4 && value.data.coachPlanning === undefined) fail('Planning absent du format 4.');

@@ -12,7 +12,11 @@ export function formatCoachDuration(value: number): string {
 /** Pour les messages textuels existants, sans modifier le diagnostic source. */
 export function formatCoachDurationText(text: string): string {
   const readable = text.replace(/Après arrondi inférieur par pas de 5 minutes, durée inférieure au minimum éditorial fourni \((\d+) s\), sans dépassement du plafond\./g, 'Vos sorties récentes ou vos disponibilités ne permettent pas de proposer une séance d’au moins $1 s.');
-  return readable.replace(/\b(\d+(?:[.,]\d+)?) s\b/g,(_match,value:string)=>formatCoachDuration(Number(value.replace(',','.'))));
+  // Seuls les champs de durée des messages connus sont convertis, pas tout nombre suivi de « s ».
+  const durations = readable.replace(/(minimum éditorial de |médiane observée |maximum proposé(?: avant disponibilité)? |plafond prudent |chrono déclaré : |durée de découverte fournie par la politique : |durée réduite à |référence V2 |référence fournie : |séance d’au moins |maximum |repère )(\d+(?:[.,]\d+)?) s\b/gi,
+    (_match,prefix:string,value:string)=>prefix+formatCoachDuration(Number(value.replace(',','.'))));
+  return durations.replace(/^(\d+(?:[.,]\d+)?) minutes (?=faciles|en aisance)/,
+    (_match,value:string)=>`${formatCoachDuration(Number(value.replace(',','.'))*60)} `);
 }
 export interface CoachExplanation { title: string; text: string }
 /** Projection d'affichage : ne recalcule ni la date, ni la durée, ni les seuils du moteur. */
@@ -31,7 +35,7 @@ export function coachExplanations(proposal: CoachProposal, suggestion: SessionSu
   const usual = approximateMinutes === 0 ? 'quelques secondes' : `${approximateMinutes} minute${approximateMinutes === 1 ? '' : 's'}`;
   const duration=observed===null
     ? `Sans durée récente de référence, le Coach propose une sortie de découverte de ${chosen}.${capped?` Votre disponibilité de ${formatCoachDuration(basis.availableMaximumSeconds!)} limite aussi cette proposition.`:''}`
-    : `Vos sorties récentes${partial?' dont la durée est connue':''} durent généralement autour de ${usual}. Le Coach vous propose ${suggestion.durationSeconds / 60} minutes pour cette séance${capped?`, en tenant compte de votre disponibilité de ${formatCoachDuration(basis.availableMaximumSeconds!)}`:''}.`;
+    : `Vos sorties récentes${partial?' dont la durée est connue':''} durent généralement autour de ${usual}. Le Coach vous propose ${chosen} pour cette séance${capped?`, en tenant compte de votre disponibilité de ${formatCoachDuration(basis.availableMaximumSeconds!)}`:''}.`;
   const surface={road:'la route',trail:'les chemins',treadmill:'le tapis',none:''}[terrain.surface];
   const surfaceText=surface
     ? suggestion.terrainPreference && suggestion.terrainPreference!=='none'?`Votre préférence pour ${surface} est conservée.`:`Les séances récentes renseignées indiquent ${surface}.`

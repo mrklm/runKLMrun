@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { deleteDB, openDB } from 'idb';
 import { createShoeRepository } from './shoes';
 import { createSessionRepository } from './database';
-import { openDatabase } from './database-connection';
+import { DATABASE_VERSION,openDatabase } from './database-connection';
 import { shoeMileage, sessionsInPeriod, validateShoe } from '../core/shoes/shoes';
 import type { Shoe } from '../types/shoe';
 import type { RunningSession } from '../types/session';
@@ -26,7 +26,7 @@ describe('chaussures et associations', () => {
     const old = await openDB(name, 3, { upgrade(db) { for (const store of ['sessions', 'details', 'coachProfile']) db.createObjectStore(store, { keyPath: 'id' }); } });
     await old.put('sessions', sessions[0]); await old.put('details', { id: 'a' }); old.close();
     const db = await openDatabase(name);
-    expect(db.version).toBe(8); expect(await db.get('sessions', 'a')).toEqual(sessions[0]); expect(await db.get('details', 'a')).toEqual({ id: 'a' });
+    expect(db.version).toBe(DATABASE_VERSION); expect(await db.get('sessions', 'a')).toEqual(sessions[0]); expect(await db.get('details', 'a')).toEqual({ id: 'a' });
     expect(await db.count('shoes')).toBe(0); db.close();
   });
   it('crée et modifie une date de première utilisation indépendante de l’achat, sans attribution', async () => {

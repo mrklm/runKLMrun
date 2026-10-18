@@ -2,6 +2,7 @@ import { memoryError } from './errors';
 import type { BackupData, BackupDocument, BackupExport } from '../types/backup';
 import { canonicalJson, parseBackup, sha256Bytes } from './format';
 import { BackupError, validateBackupData } from './validation';
+import { validateOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
 import { BACKUP_LIMITS, checkExpandedSize, compressedSizeError, inspectJsonStats, checkIntegrityEnvelope, jsonSizeError, type BackupLimits } from './limits';
 
 const CHUNK = 64 * 1024;
@@ -48,8 +49,9 @@ export async function readBackupFile(file: Blob, limits: BackupLimits = BACKUP_L
 export async function exportGzip(data: BackupData, version: string, limits: BackupLimits = BACKUP_LIMITS, exportedAt = new Date().toISOString()): Promise<BackupExport> {
   if (typeof CompressionStream === 'undefined') throw new BackupError('Votre navigateur ne permet pas de créer une sauvegarde gzip. Utilisez un navigateur compatible.');
   validateBackupData(data);
+  for(const occurrence of data.coachSuggestionsV2??[])await validateOccurrenceV2(occurrence);
   const bytes = (() => {
-    const text = canonicalJson({ format: 'runKLMrun-backup', formatVersion: data.coachSuggestions !== undefined ? 5 : data.coachPlanning !== undefined ? 4 : data.evolvingCoach !== undefined ? 3 : data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1, exportedAt, appVersion: version, data });
+    const text = canonicalJson({ format: 'runKLMrun-backup', formatVersion: data.coachSuggestionsV2 !== undefined ? 6 : data.coachSuggestions !== undefined ? 5 : data.coachPlanning !== undefined ? 4 : data.evolvingCoach !== undefined ? 3 : data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1, exportedAt, appVersion: version, data });
     const stats = inspectJsonStats(text, limits);
     checkIntegrityEnvelope(stats, limits);
     return new TextEncoder().encode(text);

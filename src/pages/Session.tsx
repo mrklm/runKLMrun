@@ -9,6 +9,7 @@ import { duration, measure, pace, heartRate, ascent } from '../core/analysis/ses
 import { prepareSeries } from '../core/analysis/session-detail';
 import { SynchronizedSessionCharts } from '../components/SynchronizedSessionCharts';
 import { EmptyState } from '../components/EmptyState';
+import { CoachV2ActivityAssociation } from '../components/CoachV2ActivityAssociation';
 
 export function SessionInformation({ session }: { session: RunningSession }) {
   const fields = [
@@ -48,6 +49,7 @@ export function Session({ session }: { session?: RunningSession }) {
       {state.status === 'ready' && <SessionCurves details={state.details} />}
       <SessionFeeling key={session.id} id={session.id} />
       <SessionShoes sessionId={session.id} session={session} />
+      <CoachV2ActivityAssociation session={session} />
     </>}
   </>;
 }

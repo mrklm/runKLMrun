@@ -1,4 +1,6 @@
 import { suggestionId } from './suggestions';
+import { bootstrapHabitualReference,type ReferenceBootstrapResult } from './reference-bootstrap-v2';
+import type { StoredSuggestion } from '../../types/coach-suggestion';
 import type { CoachPlanning } from '../../types/coach-planning';
 import { validateCoachPlanning } from './planning';
 import { roundProposalDuration, recommendTerrain } from './proposal-presentation';
@@ -66,7 +68,7 @@ export function proposalEvidence(sessions: readonly RunningSession[], referenceD
     ] };
 }
 /** Réduction éditoriale explicite, jamais une estimation de capacité ou de charge. */
-function selectDuration(e: ProposalEvidence, p: ProposalPolicy, goal: string) {
+function selectDuration(e: ProposalEvidence, p: ProposalPolicy, goal: string,reference?:ReferenceBootstrapResult) {
   const observed = e.medianDurationSeconds;
   if (observed === null) return p.discoverySeconds === undefined ? undefined : {
     observedMedianSeconds: null, proposedMaximumSeconds: p.discoverySeconds,
@@ -76,6 +78,7 @@ function selectDuration(e: ProposalEvidence, p: ProposalPolicy, goal: string) {
   const d = p.duration;
   const recentCount = e.horizons.find(h => h.kind === 'recent')!.sessionIds.length;
   const reasons: string[] = [];
+  if(reference?.confidence==='provisional') reasons.push('Référence V2 provisoire : elle décrit des durées réelles sans établir une capacité confirmée.');
   if (e.knownDurations < d.minimumReferences) reasons.push(`Seulement ${e.knownDurations} durées utilisables ; repère éditorial : ${d.minimumReferences}.`);
   if (e.knownDurations < recentCount) reasons.push('Durées partiellement renseignées.');
   // Un historique documenté reste actuel jusqu'au repère d'écart significatif
@@ -111,6 +114,10 @@ export interface ProposalInput {
   sessions: readonly RunningSession[];
   referenceDate: string;
   policy: ProposalPolicy;
+  /** Injection interne uniquement. L'absence conserve strictement V1. */
+  referenceMode?:'v1'|'v2-experimental';
+  /** Requis avec V2 expérimental ; jamais chargé implicitement par le moteur. */
+  storedSuggestions?:readonly StoredSuggestion[];
 }
 /** Premier moteur : au plus une suggestion, aucune écriture et aucun rattrapage. */
 export function proposeNextSession(input: ProposalInput): CoachProposal {
@@ -139,12 +146,19 @@ function calculateProposals(input: ProposalInput, planning?: CoachPlanning, mult
   const { configuration, historicalProfile: profile, referenceDate } = input;
   const policy = structuredClone(input.policy);
   const evidence = proposalEvidence(input.sessions, referenceDate, policy);
+  const mode=input.referenceMode??'v1';
+  if(mode==='v2-experimental'&&!input.storedSuggestions) throw new Error('Les suggestions persistées sont requises pour la référence V2 expérimentale.');
+  const v2=mode==='v2-experimental'?bootstrapHabitualReference({sessions:input.sessions,suggestions:input.storedSuggestions!,
+    referenceDate,proposalPolicy:policy,bootstrapPolicy:'hybrid'}):undefined;
+  const durationEvidence=v2?{...evidence,medianDurationSeconds:v2.referenceSeconds}:evidence;
   const from = dayNumber(referenceDate) + 1;
   const horizon = { from: dateAt(from), to: dateAt(from + policy.horizonDays - 1) };
   if (horizon.to.length !== 10) throw new Error('Horizon hors des dates calendaires prises en charge.');
   const goal: CoachGoal | null = configuration?.goal ?? (profile?.goal.kind ? { model: 'legacy', value: structuredClone(profile.goal) } : null);
   const result: CoachProposal = { status: 'not-enabled', goal: goal ? structuredClone(goal) : null, horizon, suggestions: [], reasons: [], constraints: [], evidence, policy, diagnostic: { availability: profile ? structuredClone(profile.availability) : undefined, attempts: [] },
     limitations: [...evidence.observed.limitations, 'Les résumés ne permettent pas de justifier une intensité soutenue ni une cible de fréquence cardiaque. Aucune météo n’est déduite.', multiple ? 'Suggestions libres sur sept jours, sans programme ni réponse attendue.' : 'Une seule prochaine suggestion : ce résultat n’est pas un programme complet.'] };
+  if(v2) result.diagnostic!.reference={mode:'v2-experimental',confidence:v2.confidence,freshness:v2.freshness,
+    sourceIds:[...v2.sourceIds],reasons:[...v2.reasons]};
   if (!configuration) { result.reasons.push('Aucune configuration évolutive : aucun objectif historique converti.'); return result; }
   validateEvolvingCoachValues(configuration);
   evidence.declaredExperience = configuration.experience;
@@ -159,8 +173,9 @@ function calculateProposals(input: ProposalInput, planning?: CoachPlanning, mult
     result.status = 'unavailable'; result.constraints.push(!a?.days ? 'Jours disponibles non renseignés.' : !a.days.length ? 'Aucun jour disponible déclaré.' : 'Vous avez indiqué zéro séance souhaitée.'); return result;
   }
   const recentIds = evidence.horizons.find(h => h.kind === 'recent')!.sessionIds;
-  const discovery = evidence.medianDurationSeconds === null;
-  const durationBasis = selectDuration(evidence, policy, configuration.goal.kind);
+  const referenceIds=v2?[...v2.sourceIds]:[...recentIds];
+  const discovery = durationEvidence.medianDurationSeconds === null;
+  const durationBasis = selectDuration(durationEvidence, policy, configuration.goal.kind,v2);
   result.diagnostic!.durationBasis = durationBasis;
   result.diagnostic!.freshnessLimitDays = durationBasis?.diagnostic.freshnessLimitDays;
   const seconds = durationBasis?.proposedMaximumSeconds;
@@ -202,14 +217,14 @@ function calculateProposals(input: ProposalInput, planning?: CoachPlanning, mult
   const target = configuration.goal;
   const deadline = target.kind === 'race' ? target.eventDate : target.kind === 'distance' ? target.targetDate : undefined;
   const skipped = new Set<string>();
-  const supported = durationBasis!.assessment === 'supported' && evidence.medianGapDays !== null;
+  const supported = durationBasis!.assessment === 'supported' && durationEvidence.medianGapDays !== null;
   const maximum = multiple && supported ? MAX_SUGGESTIONS : 1;
   const interval = Math.max(1, Math.ceil(spacing));
   const planned = multiple ? (planning?.sessions ?? []).filter(s => s.status === 'planned') : [];
   // Budget descriptif, jamais une charge physiologique : ne pas dépasser le volume
   // de durée correspondant au rythme observé (ou souhaité s’il est moins fréquent).
   const budget = multiple && supported
-    ? Math.floor(evidence.medianDurationSeconds! * 7 / Math.max(1, spacing))
+    ? Math.floor(durationEvidence.medianDurationSeconds! * 7 / Math.max(1, spacing))
       - planned.filter(s => s.date >= horizon.from && s.date <= horizon.to).reduce((sum,s)=>sum+s.durationSeconds,0)
     : Infinity;
   let proposedSeconds = 0, previousDay: number | undefined;
@@ -228,8 +243,8 @@ function calculateProposals(input: ProposalInput, planning?: CoachPlanning, mult
     const alternate = multiple && supported && result.suggestions.length % 2 === 1;
     const habitual = multiple && supported && !alternate && ['endurance','speed','distance','race'].includes(kind);
     const dayBasis = habitual ? {
-      ...durationBasis!, proposedMaximumSeconds: evidence.medianDurationSeconds!,
-      diagnostic: { ...durationBasis!.diagnostic, coefficient: 1, afterCoefficientSeconds: evidence.medianDurationSeconds!, editorialMinimumApplied: false },
+      ...durationBasis!, proposedMaximumSeconds: durationEvidence.medianDurationSeconds!,
+      diagnostic: { ...durationBasis!.diagnostic, coefficient: 1, afterCoefficientSeconds: durationEvidence.medianDurationSeconds!, editorialMinimumApplied: false },
       reasons: ['Durée habituelle plafonnée à la médiane des références récentes représentatives, sans progression automatique.'],
     } : durationBasis!;
     const dayMaximum = dayBasis.proposedMaximumSeconds;
@@ -248,11 +263,13 @@ function calculateProposals(input: ProposalInput, planning?: CoachPlanning, mult
     const limits = [...result.limitations];
     if (cap === undefined) limits.push('Plafond de durée non renseigné pour ce jour ; aucun plafond supposé.');
     if (duration < dayMaximum) limits.push(`Durée réduite à ${duration} s après application des plafonds et arrondi inférieur par pas de 5 minutes.`);
-    const reasons = [...result.reasons, ...dayBasis.reasons, `Jour disponible : ${DAYS[weekday]}. Les autres disponibilités ne sont pas des obligations.`, discovery ? 'Découverte sans référence de durée actuelle.' : `Durée fondée sur ${evidence.knownDurations} résumé(s) récent(s), médiane observée ${evidence.medianDurationSeconds} s ; maximum proposé avant disponibilité ${dayMaximum} s.`];
-    const suggestionKind = discovery || kind === 'begin' || kind === 'return' ? 'discovery' : (habitual && duration === roundProposalDuration(evidence.medianDurationSeconds!) || !multiple && kind === 'endurance') ? 'endurance' : 'easy';
-    result.suggestions.push({ date, recommendedTerrain: recommendTerrain(configuration.goal, configuration.experience, suggestionKind, profile?.preferences.terrain, input.sessions.filter(s=>recentIds.includes(s.id))), kind: suggestionKind,
+    const referenceReason=v2?`Durée fondée sur ${referenceIds.length} résumé(s), référence V2 ${durationEvidence.medianDurationSeconds} s ; maximum proposé avant disponibilité ${dayMaximum} s.`
+      :`Durée fondée sur ${evidence.knownDurations} résumé(s) récent(s), médiane observée ${evidence.medianDurationSeconds} s ; maximum proposé avant disponibilité ${dayMaximum} s.`;
+    const reasons = [...result.reasons, ...dayBasis.reasons, `Jour disponible : ${DAYS[weekday]}. Les autres disponibilités ne sont pas des obligations.`, discovery ? 'Découverte sans référence de durée actuelle.' : referenceReason];
+    const suggestionKind = discovery || kind === 'begin' || kind === 'return' ? 'discovery' : (habitual && duration === roundProposalDuration(durationEvidence.medianDurationSeconds!) || !multiple && kind === 'endurance') ? 'endurance' : 'easy';
+    result.suggestions.push({ date, recommendedTerrain: recommendTerrain(configuration.goal, configuration.experience, suggestionKind, profile?.preferences.terrain, input.sessions.filter(s=>referenceIds.includes(s.id))), kind: suggestionKind,
       intention: result.reasons[0], durationSeconds: duration, durationBasis: { ...dayBasis, availableMaximumSeconds: cap === undefined ? null : cap * 60, diagnostic: { ...dayBasis.diagnostic, afterCapsSeconds: varied } }, intensity: { kind: 'easy', description: 'Sortie de course à pied en aisance ressentie. Cette durée est un maximum indicatif, jamais une obligation. Vous pouvez ralentir, raccourcir, marcher ou interrompre la séance. Aucune alternance marche/course imposée, aucune allure ni FC cible.' },
-      optional: true, ...(profile?.preferences.terrain ? { terrainPreference: profile.preferences.terrain } : {}), reasons, referenceSessionIds: [...recentIds], limitations: limits });
+      optional: true, ...(profile?.preferences.terrain ? { terrainPreference: profile.preferences.terrain } : {}), reasons, referenceSessionIds: referenceIds, limitations: limits });
     result.status = durationBasis?.assessment !== 'supported' || discovery || evidence.possibleGap || evidence.knownDurations < recentIds.length || evidence.medianGapDays === null || cap === undefined || !!deadline ? 'cautious' : 'possible';
     if (!multiple) { result.constraints.push(...skipped); return result; }
     proposedSeconds += duration; previousDay = day;

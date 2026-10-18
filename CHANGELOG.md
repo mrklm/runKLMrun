@@ -1,5 +1,17 @@
 # Historique des versions
 
+## v0.8.0 — 2026-10-18 — Coach V2 expérimental et perspectives sur sept jours
+
+- Coach V2 réservé au mode interne : comparaison en lecture seule avec V1, explications en français, durées lisibles et limites explicites.
+- Référence de durée fondée sur les activités réelles, avec distinction entre repère provisoire et confirmé ; catalogue de séances soumis aux critères d'admissibilité V2.
+- Prochaine séance accompagnée de perspectives facultatives et révisables sur sept jours, selon les disponibilités et les plafonds enregistrés. Espacement entre intentions, sans progression automatique ni assimilation à des activités réalisées.
+- Présentations séparées de l'espacement sportif ; à partir de 18 h locales, les nouveaux calculs commencent demain sans prolonger l'horizon.
+- Renouvellement à la consultation ou au retour sur l'onglet, sans minuteur à minuit ; conservation des propositions présentes et futures compatibles.
+- Priorité aux activités réelles pour la compatibilité sportive ; une association ne transfère pas le type conseillé à l'activité effectuée.
+- Persistance des propositions effectivement présentées, conservation de l'historique et des associations tardives, déduplication transactionnelle entre onglets. Les perspectives seules ne créent pas d'occurrences persistées.
+- Sauvegarde au format 6 des occurrences V2 avec contrôle d'intégrité et compatibilité des formats précédents, issue des phases préparatoires.
+- V2 reste expérimental et non activé publiquement ; aucune sanction ni séance de rattrapage pour une suggestion non suivie.
+
 ## v0.7.0 — 2026-10-17 — Suggestions libres et espace Courses
 
 - Coach : jusqu’à trois suggestions facultatives sur sept jours, avec variation prudente des durées selon la pratique et les disponibilités.

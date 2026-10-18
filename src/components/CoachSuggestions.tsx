@@ -34,7 +34,7 @@ export function CoachSuggestions({proposal,context,emptyMessage}:{proposal:Sugge
         {proposal.suggestions.map(s=><article key={s.id} data-suggestion-id={s.id} ref={element=>{if(element)cards.current.set(s.id,element);else cards.current.delete(s.id);}} className="notice coach-proposal-card" aria-label={`${kindLabel(s.kind)} — ${dateLabel(s.date)}`}>
           <h4>{kindLabel(s.kind)} — {dateLabel(s.date)}</h4>
           <p>{formatCoachDuration(s.durationSeconds)} · Allure tranquille{s.recommendedTerrain.surface !== 'none' || s.recommendedTerrain.relief !== 'free' ? ` · ${s.recommendedTerrain.label}` : ''}</p>
-          <p>{s.explanation}</p>
+          <p>{formatCoachDurationText(s.explanation)}</p>
         </article>)}
       </div>
       {proposal.limitations.filter(text=>text.startsWith('Échéance déclarée')).map(text=><p className="training-coverage" key={text}>{text}</p>)}

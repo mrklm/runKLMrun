@@ -79,6 +79,13 @@ export interface SessionSuggestion {
 export interface CoachProposal {
   /** Trace éphémère, y compris sans suggestion ; jamais persistée. */
   diagnostic?: {
+    reference?: {
+      mode: 'v1' | 'v2-experimental';
+      confidence: 'v1' | 'unavailable' | 'provisional' | 'confirmed';
+      freshness: 'current' | 'expired' | 'insufficient';
+      sourceIds: string[];
+      reasons: string[];
+    };
     availability?: import('./coach-profile').CoachProfileValues['availability'];
     durationBasis?: Omit<SessionSuggestion['durationBasis'], 'availableMaximumSeconds' | 'diagnostic'> & {
       diagnostic: Omit<NonNullable<SessionSuggestion['durationBasis']['diagnostic']>, 'afterCapsSeconds'>;

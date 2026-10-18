@@ -728,6 +728,8 @@ summary { cursor:pointer; }
 .coach-planning details { margin-block: .75rem; }
 .coach-planning summary { cursor: pointer; }
 .coach-planning textarea { max-width: 100%; min-height: 5rem; }
+.coach-v2-experimental { border-style: dashed; }
+.coach-v2-experimental > :last-child { margin-bottom: 0; }
 
 .coach-proposal-note { margin: .5rem 0 1.25rem; line-height: 1.6; }
 .coach-explanations { padding-block: .25rem; }
@@ -756,7 +758,9 @@ summary { cursor:pointer; }
 .calendar-activity, .calendar-suggestion { display:block; padding:6px; margin-top:6px; border-radius:4px; overflow-wrap:anywhere; font-size:.8rem; }
 .calendar-activity { background:var(--panel); color:var(--panel-fg); border:1px solid var(--border); text-decoration:none; }
 .calendar-suggestion { border:1px dashed var(--border); }
+.calendar-suggestion-v2 { border-color:var(--accent); background:var(--field); }
 .calendar-activity span, .calendar-suggestion span { display:block; }
+.coach-v2-association-candidate + .coach-v2-association-candidate { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border); }
 .calendar-activity:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 .statistics-trends { margin-top:24px; }
 @media (max-width:600px) {

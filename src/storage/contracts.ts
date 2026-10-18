@@ -10,6 +10,7 @@ export interface SessionRepository {
   getDetails(id: string): Promise<SessionDetails | undefined>;
   list(): Promise<RunningSession[]>;
   save(session: RunningSession): Promise<void>;
+  remove?(id:string):Promise<boolean>;
 }
 
 /** Sauvegarde versionnée, prévisualisation sans écriture et restauration atomique. */

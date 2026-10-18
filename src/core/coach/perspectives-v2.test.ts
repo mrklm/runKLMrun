@@ -1,0 +1,89 @@
+import { describe,expect,it } from 'vitest';
+import { adaptCoachV2Readonly,type CoachV2ApplicationSnapshot } from './application-adapter-v2';
+import { compareCoachVersionsReadonly } from './comparison-v1-v2';
+import { coachV2Perspectives } from './perspectives-v2';
+import { reusableActiveOccurrenceV2,selectedApplicationSuggestionV2 } from './presentation-identity-v2';
+import { civilDate,ianaTimeZone,instantIso,observePresentationV2 } from './persistence-foundations-v2';
+
+const date='2026-10-18';
+const snapshot:CoachV2ApplicationSnapshot={
+  sessions:['09-22','09-27','10-02','10-07','10-12','10-15'].map((day,index)=>({
+    id:'run-'+index,title:'Course',sport:'RUNNING',date:'2026-'+day,durationSeconds:2400})),
+  configuration:{goal:{model:'evolving',kind:'endurance'},experience:'experienced',structuredPlanningPreference:'accepted'},
+  profile:{goal:{kind:'endurance'},availability:{days:['monday','wednesday','friday'],minutesPerSession:45},
+    preferences:{terrain:'road'},accompanimentMode:'advisor'},
+  occurrences:[],
+};
+const dates=(values:ReturnType<typeof coachV2Perspectives>)=>values.map(value=>value.date);
+async function stored(input=snapshot){
+  const result=adaptCoachV2Readonly(input,date);
+  return (await observePresentationV2({selection:selectedApplicationSuggestionV2(result,1),existing:[],createId:()=> 'retained',
+    moment:{presentedOn:civilDate(date),presentedAt:instantIso(date+'T08:00:00.000Z'),timeZone:ianaTimeZone('Europe/Paris'),
+      utcOffsetMinutes:120,civilDateRule:'device-local-at-presentation'},
+    provenance:{engine:'coach-v2',contractVersion:1,referenceConfidence:'provisional',
+      referenceSourceIds:input.sessions.map(value=>value.id),limitationCodes:[]}})).occurrence;
+}
+
+describe('perspectives V2 sur sept jours, sans activité fictive',()=>{
+  it('retient les disponibilités espacées sans progression automatique ni mutation',()=>{
+    const before=structuredClone(snapshot),result=adaptCoachV2Readonly(snapshot,date),plan=coachV2Perspectives(result);
+    expect(dates(plan)).toEqual(['2026-10-19','2026-10-21','2026-10-23']);
+    expect(plan.map(value=>value.indicative)).toEqual([false,true,true]);
+    expect(new Set(plan.map(value=>value.session.totalDurationSeconds)).size).toBe(1);
+    expect(snapshot).toEqual(before);
+    expect(result.facts.sessionIds).toEqual(snapshot.sessions.map(value=>value.id));
+    expect(coachV2Perspectives(adaptCoachV2Readonly(snapshot,date))).toEqual(plan);
+  });
+  it.each([{days:['monday'] as const},{days:[] as const}])('ne remplit pas artificiellement les jours : $days',({days})=>{
+    const input={...snapshot,profile:{...snapshot.profile!,availability:{days:[...days],minutesPerSession:45}}};
+    expect(coachV2Perspectives(adaptCoachV2Readonly(input,date))).toHaveLength(days.length);
+  });
+  it('ne propose rien malgré les disponibilités si la référence réelle est insuffisante',()=>{
+    expect(coachV2Perspectives(adaptCoachV2Readonly({...snapshot,sessions:snapshot.sessions.slice(-1)},date))).toEqual([]);
+  });
+  it('espace les intentions quotidiennes et ne prolonge pas l’horizon après 18 h',()=>{
+    const input={...snapshot,profile:{...snapshot.profile!,availability:{
+      days:['sunday','monday','tuesday','wednesday','thursday','friday','saturday'] as const,minutesPerSession:45}}};
+    // Copie mutable conforme au profil.
+    const value={...input,profile:{...input.profile,availability:{...input.profile.availability,days:[...input.profile.availability.days]}}};
+    expect(dates(coachV2Perspectives(adaptCoachV2Readonly(value,{date,minuteOfDay:1079}))))
+      .toEqual(['2026-10-18','2026-10-20','2026-10-22','2026-10-24']);
+    expect(dates(coachV2Perspectives(adaptCoachV2Readonly(value,{date,minuteOfDay:1080}))))
+      .toEqual(['2026-10-19','2026-10-21','2026-10-23']);
+  });
+  it('ne répète pas une séance structurée envisagée et ne la transforme pas en expérience acquise',()=>{
+    const input={...snapshot,configuration:{...snapshot.configuration!,goal:{model:'evolving' as const,kind:'speed' as const}}};
+    const plan=coachV2Perspectives(adaptCoachV2Readonly(input,date));
+    expect(plan.map(value=>value.session.type)).toEqual(['intervals','easy-endurance','easy-endurance']);
+    expect(input.sessions).toEqual(snapshot.sessions);
+  });
+  it('ancre les perspectives sur la suggestion future retenue par un autre onglet',async()=>{
+    const future={...snapshot,profile:{...snapshot.profile!,availability:{days:['wednesday'] as const,minutesPerSession:45}}};
+    const occurrence=await stored({...future,profile:{...future.profile,availability:{...future.profile.availability,days:['wednesday']}}});
+    const input={...snapshot,occurrences:[occurrence]},before=structuredClone(input),result=adaptCoachV2Readonly(input,date);
+    expect(result.selectedDate).toBe('2026-10-19');
+    expect(reusableActiveOccurrenceV2(input.occurrences,result,date)?.id).toBe(occurrence.id);
+    const plan=coachV2Perspectives(result,occurrence);
+    expect(dates(plan)).toEqual(['2026-10-21','2026-10-23']);
+    expect(plan[0].session).toBe(occurrence.content);
+    expect(input).toEqual(before);
+    const comparison=compareCoachVersionsReadonly(input,date);
+    expect(comparison.v2.suggestions.map(value=>value.date)).toEqual(dates(plan));
+    expect(comparison.v2.suggestions[0].durationSeconds).toBe(occurrence.content.totalDurationSeconds);
+  });
+  it('réévalue après une activité réelle sans supprimer l’occurrence incompatible',async()=>{
+    const occurrence=await stored(),input={...snapshot,occurrences:[occurrence],
+      sessions:[...snapshot.sessions,{id:'actual',title:'Course réelle',sport:'RUNNING',date,durationSeconds:2400}]};
+    const before=structuredClone(input),result=adaptCoachV2Readonly(input,date);
+    expect(reusableActiveOccurrenceV2(input.occurrences,result,date)).toBeUndefined();
+    expect(dates(coachV2Perspectives(result))).toEqual(['2026-10-21','2026-10-23']);
+    expect(input).toEqual(before);
+  });
+  it('conserve aujourd’hui après 18 h et calcule seulement les perspectives suivantes',async()=>{
+    const occurrence=await stored(),input={...snapshot,occurrences:[occurrence]};
+    const result=adaptCoachV2Readonly(input,{date:'2026-10-19',minuteOfDay:1081});
+    const retained=reusableActiveOccurrenceV2(input.occurrences,result,'2026-10-19');
+    expect(retained?.id).toBe(occurrence.id);
+    expect(dates(coachV2Perspectives(result,retained))).toEqual(['2026-10-19','2026-10-21','2026-10-23']);
+  });
+});

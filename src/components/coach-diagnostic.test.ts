@@ -39,7 +39,7 @@ it('sans suggestion : affiche explicitement l’absence de calcul',()=>{vi.stubE
 it('explique la durée en langage courant sans modifier le diagnostic',()=>{
  const p=proposeNextSession(input('endurance',45)),s=p.suggestions[0];
  const explanation=coachExplanations(p,s).find(block=>block.title==='La durée')!.text;
- expect(explanation).toBe('Vos sorties récentes durent généralement autour de 37 minutes. Le Coach vous propose 30 minutes pour cette séance.');
+ expect(explanation).toBe('Vos sorties récentes durent généralement autour de 37 minutes. Le Coach vous propose 30 min pour cette séance.');
  expect(p.evidence.medianDurationSeconds).toBe(2221);
  expect(s.durationBasis.diagnostic?.editorialMinimumApplied).toBe(true);
  expect(explanation).not.toContain('éditorial');
