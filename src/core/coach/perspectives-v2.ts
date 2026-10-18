@@ -25,7 +25,7 @@ export function coachV2Perspectives(result:CoachV2ReadonlyResult,retained?:Persi
     const selected=orchestratePrototypeSession({referenceDate:nextDate,
       goal:retained?.opportunity.goal??result.catalog.adaptedInput!.goal,habitualReferenceSeconds:result.reference.referenceSeconds,
       availabilitySeconds:Math.max(...candidates.map(value=>value.totalDurationSeconds)),
-      candidates,activities:[],presented:[],envisaged}).selected;
+      coachTemperament:result.coachTemperament,candidates,activities:result.activityEvidence,presented:[],envisaged}).selected;
     if(!selected)continue;
     values.push({date:nextDate,session:selected,indicative:true});
     envisaged.push({date:nextDate,type:selected.type});

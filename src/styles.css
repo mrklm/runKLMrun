@@ -770,3 +770,7 @@ summary { cursor:pointer; }
   .calendar-weekday { display:inline; }
   .calendar-activity, .calendar-suggestion { font-size:.9rem; padding:10px; }
 }
+
+.coach-temperament input[type="range"] { display:block; width:100%; min-height:44px; accent-color:var(--panel-link); }
+.coach-temperament-labels { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; font-size:.85rem; text-align:center; }
+.coach-temperament-labels .selected { font-weight:700; text-decoration:underline; }

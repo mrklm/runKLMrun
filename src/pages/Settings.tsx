@@ -2,6 +2,7 @@ import { DetailRetention } from '../components/DetailRetention';
 import { Backups } from '../components/Backups';
 import { Appearance } from '../components/Appearance';
 import { CoachConfiguration } from '../components/CoachConfiguration';
+import { CoachTemperamentSettings } from '../components/CoachTemperamentSettings';
 import { CoachProfile } from '../components/CoachProfile';
 
 export function Settings({ active = true }: { active?: boolean }) {
@@ -13,6 +14,7 @@ export function Settings({ active = true }: { active?: boolean }) {
         <details className="panel settings-panel"><summary>Configurer le Coach</summary>
           {active && <><CoachConfiguration /><CoachProfile /></>}
         </details>
+        {active && <CoachTemperamentSettings />}
         <p><a href="#/entrainement">Ancien planning et page Coach</a></p>
       </section>
       <section aria-labelledby="settings-shoes-title">

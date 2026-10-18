@@ -1,4 +1,4 @@
-import { nextCoachRevision } from '../core/coach/configuration';
+import { nextCoachRevision, resolveCoachTemperament } from '../core/coach/configuration';
 import { classifyDetails } from '../core/analysis/detail-retention';
 import type { BackupData, BackupSourceData, RestoreOptions, RestoreReport } from '../types/backup';
 import { canonicalJson } from './format';
@@ -94,7 +94,8 @@ export function prepareRestore(local: BackupData, incoming: BackupSourceData, op
   let evolvingCoach = options.mode === 'merge' && local.evolvingCoach ? structuredClone(local.evolvingCoach)
     : incoming.evolvingCoach ? structuredClone(incoming.evolvingCoach) : undefined;
   if (options.mode === 'merge' && local.evolvingCoach && incoming.evolvingCoach
-    && canonicalJson(local.evolvingCoach.configuration) !== canonicalJson(incoming.evolvingCoach.configuration)) {
+    && (canonicalJson(local.evolvingCoach.configuration) !== canonicalJson(incoming.evolvingCoach.configuration)
+      || resolveCoachTemperament(local.evolvingCoach) !== resolveCoachTemperament(incoming.evolvingCoach))) {
     report.conflicts++;
     report.warnings.push('La configuration locale du Coach évolutif est conservée, sans écrasement.');
   }

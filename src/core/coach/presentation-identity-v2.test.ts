@@ -1,3 +1,6 @@
+import { calculateCoachV2Readonly } from '../../storage/coach-v2-readonly';
+import { CoachV2TemperamentChanged } from '../../storage/coach-suggestions-v2';
+import { createEvolvingCoachRepository } from '../../storage/evolving-coach';
 import 'fake-indexeddb/auto';
 import { afterEach,describe,expect,it,vi } from 'vitest';
 import { deleteDB } from 'idb';
@@ -94,9 +97,9 @@ describe('identité applicative et génération V2',()=>{
     const runs:RunningSession[]=['2026-10-01','2026-10-04','2026-10-07','2026-10-10','2026-10-13','2026-10-16']
       .map((date,index)=>({id:`run-${index}`,date,title:'Course',sport:'RUNNING',durationSeconds:2400}));
     const values={...configuration,goal:{model:'evolving',kind:'speed'} as const};
-    const initial=adaptCoachV2Readonly({sessions:runs,occurrences:[],configuration:values,profile},'2026-10-18');
+    const initial=adaptCoachV2Readonly({coachTemperament:'rentre-dedans',sessions:runs,occurrences:[],configuration:values,profile},'2026-10-18');
     expect(initial.candidate?.type).toBe('intervals');
-    const name=await database(values,runs);await presentCoachV2Selection({result:initial,referenceDate:'2026-10-18',moment:moment(),
+    const name=await database(values,runs);await createEvolvingCoachRepository(name).saveTemperament('rentre-dedans',1);await presentCoachV2Selection({result:initial,referenceDate:'2026-10-18',moment:moment(),
       provenance:{...provenance,referenceSourceIds:runs.map(run=>run.id)},createId:()=> 'intervals'},name);
     const stored=await createSuggestionV2Repository(name).listAll();
     const result=adaptCoachV2Readonly({sessions:[...runs,{id:'real-intervals',date:'2026-10-17',title:'Fractionné réel',sport:'RUNNING',durationSeconds:2400}],
@@ -211,4 +214,35 @@ describe('identité applicative et génération V2',()=>{
     await expect(presentCoachV2Selection({result,referenceDate:'2026-10-18',moment:moment(),provenance},name)).rejects.toThrow(/incomplète/);
     const db=await openDatabase(name);expect(await db.count('coachSuggestionsV2')).toBe(0);expect(await db.count('coachSuggestions')).toBe(0);db.close();
   });
+});
+
+
+it('refuse un tempérament périmé puis conserve l’occurrence présentée malgré un nouveau changement',async()=>{
+  const name=await database(),repo=createEvolvingCoachRepository(name);
+  const stale=await calculateCoachV2Readonly('2026-10-18',name);
+  const changed=await repo.saveTemperament('rentre-dedans',1);
+  await expect(presentCoachV2Selection({result:stale,referenceDate:'2026-10-18',moment:moment(),provenance},name))
+    .rejects.toBeInstanceOf(CoachV2TemperamentChanged);
+  expect(await createSuggestionV2Repository(name).listAll()).toEqual([]);
+  const fresh=await calculateCoachV2Readonly('2026-10-18',name);
+  overlapPreparations();
+  const pair=await Promise.all([0,1].map(()=>presentCoachV2Selection({result:fresh,referenceDate:'2026-10-18',moment:moment(),provenance},name)));
+  expect(pair[0].occurrence).toEqual(pair[1].occurrence);
+  await repo.saveTemperament('pas-a-pas',changed.revision);
+  const reused=await presentCoachV2Selection({result:fresh,referenceDate:'2026-10-18',moment:moment(),provenance},name);
+  expect(reused).toMatchObject({status:'reused-active',occurrence:pair[0].occurrence});
+  expect(await createSuggestionV2Repository(name).listAll()).toEqual([pair[0].occurrence]);
+});
+
+it('revérifie le tempérament dans la transaction si un autre onglet le change pendant la préparation',async()=>{
+  const name=await database(),repo=createEvolvingCoachRepository(name);
+  const result=await calculateCoachV2Readonly('2026-10-18',name);
+  const digest=crypto.subtle.digest.bind(crypto.subtle);let changed=false;
+  vi.spyOn(crypto.subtle,'digest').mockImplementation(async(algorithm,data)=>{
+    if(!changed){changed=true;await repo.saveTemperament('evolution-active',1);}
+    return digest(algorithm,data);
+  });
+  await expect(presentCoachV2Selection({result,referenceDate:'2026-10-18',moment:moment(),provenance},name))
+    .rejects.toBeInstanceOf(CoachV2TemperamentChanged);
+  expect(changed).toBe(true);expect(await createSuggestionV2Repository(name).listAll()).toEqual([]);
 });

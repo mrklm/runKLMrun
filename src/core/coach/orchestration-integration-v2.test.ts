@@ -72,7 +72,8 @@ describe('orchestration expérimentale V2 intégrée',()=>{
     const documented=call({sessions:activities,configuration:config('speed'),proposalPolicy:productPolicy('speed'),
       documentedActivityTypes:{[old.id]:'intervals'}});
     expect(documented.catalog.adaptedInput?.observedSessionTypes).toEqual(['intervals']);
-    expect(documented.selection?.session.type).toBe('intervals');
+    expect(documented.catalog.sessions.some(value=>value.type==='intervals')).toBe(true);
+    expect(documented.selection?.session.type).toBe('easy-endurance'); // Défaut Pas à Pas, sans retirer le candidat admissible.
   });
 
   it('introduit un fractionné avec six activités réelles réparties sur 28 jours',()=>{

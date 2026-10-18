@@ -1,5 +1,14 @@
 # Historique des versions
 
+## v0.9.0 — 2026-10-18 — Type de Coach et Coach V2
+
+- Accueil : les activités récentes incluent désormais la dernière course enregistrée et conservent l’ordre chronologique.
+- Ajout du réglage « Type de Coach » : Pas à Pas, Évolution Active et Rentre dedans.
+- Coach V2 : prise en compte temporaire d’un ressenti difficile déclaré sur une activité réelle, sans assimiler les suggestions à des activités.
+- Coach V2 : différenciation des propositions selon le tempérament, après les protections sportives communes.
+- Espacements, récupération, plafonds, accès au fractionné, disponibilités et contraintes d’historique restent inchangés pour les trois tempéraments.
+- Les profils contenant `coachTemperament` ne sont pas compatibles avec les anciennes versions qui rejettent ce nouveau champ.
+
 ## v0.8.1 — 2026-10-18 — Simplification de l’interface Coach
 
 - Accueil : résumé des périodes visible et observations détaillées repliées par défaut, avec bouton accessible « Afficher les détails » / « Masquer les détails », sans modification de leur contenu.

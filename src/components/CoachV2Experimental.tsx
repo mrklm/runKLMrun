@@ -5,7 +5,7 @@ import { localCoachV2Reference } from '../core/coach/local-reference-v2';
 import { formatCoachDuration } from './coach-planning-display';
 import { reusableActiveOccurrenceV2 } from '../core/coach/presentation-identity-v2';
 import { calculateCoachV2Readonly } from '../storage/coach-v2-readonly';
-import { createSuggestionV2Repository,presentCoachV2Selection } from '../storage/coach-suggestions-v2';
+import { CoachV2TemperamentChanged,createSuggestionV2Repository,presentCoachV2Selection } from '../storage/coach-suggestions-v2';
 import { civilDate,ianaTimeZone,instantIso,type PersistableOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
 import type { CoachV2ReadonlyResult } from '../core/coach/application-adapter-v2';
 import { COACH_V2_INTERNAL_KEY,coachV2Enabled,coachV2ActivationMode } from '../core/coach/activation-v2';
@@ -17,7 +17,7 @@ export { COACH_V2_INTERNAL_KEY };
 export const coachV2InternalEnabled=()=>coachV2ActivationMode()==='internal';
 export { coachV2Labels };
 const dateLabel=(value:string)=>value.split('-').reverse().join('/');
-type View={result:CoachV2ReadonlyResult;occurrence?:PersistableOccurrenceV2};
+type View={result:CoachV2ReadonlyResult;occurrence?:PersistableOccurrenceV2;freshExplanation?:ReturnType<typeof coachV2Explanation>};
 
 export function CoachV2Experimental({surface='training'}:{surface?:'training'|'home'}) {
   const enabled=coachV2Enabled(),cardRef=useRef<HTMLElement>(null),attemptedRef=useRef('');
@@ -50,8 +50,12 @@ export function CoachV2Experimental({surface='training'}:{surface?:'training'|'h
         presentedOn:civilDate(localToday()),timeZone:ianaTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone),utcOffsetMinutes:-now.getTimezoneOffset(),civilDateRule:'device-local-at-presentation'},
         provenance:{engine:'coach-v2',contractVersion:1,referenceConfidence:result.reference.confidence==='confirmed'?'confirmed':'provisional',
           referenceSourceIds:[...result.reference.sourceIds],limitationCodes:[]}}).then(stored=>{
-            if(stillVisible())setView({result,occurrence:stored.occurrence});
-          }).catch(()=>setPresentationError('La suggestion est affichée, mais elle n’a pas pu être mémorisée.')).finally(()=>setBusy(false));
+            if(stillVisible())setView({result,occurrence:stored.occurrence,
+              ...(stored.status==='created'?{freshExplanation:coachV2Explanation(result)}:{})});
+          }).catch(error=>{
+            if(error instanceof CoachV2TemperamentChanged){attemptedRef.current='';setRefresh(value=>value+1);}
+            else setPresentationError('La suggestion est affichée, mais elle n’a pas pu être mémorisée.');
+          }).finally(()=>setBusy(false));
     },{title:'[data-presentation-title]',summary:'[data-presentation-summary]'});
   },[enabled,result,session,date,occurrence,presentationKey,retry]);
   if(!enabled)return null;
@@ -75,7 +79,7 @@ export function CoachV2Experimental({surface='training'}:{surface?:'training'|'h
       {session.structure.recoveries?.map((block,index)=><li key={`recovery-${index}`}>Récupération : {block.repetitions&&`${block.repetitions} × `}{formatCoachDuration(block.durationSeconds)} — {block.instruction}</li>)}
       {session.structure.coolDown&&<li>Retour au calme : {formatCoachDuration(session.structure.coolDown.durationSeconds)} — {session.structure.coolDown.instruction}</li>}
     </ul>}</details>}
-    <CoachExplanationDetails {...(occurrence?storedCoachV2Explanation(occurrence):coachV2Explanation(result!))}/>
+    <CoachExplanationDetails {...(view.freshExplanation??(occurrence?storedCoachV2Explanation(occurrence):coachV2Explanation(result!)))}/>
     {perspectives.length>0&&<section aria-label="Perspectives sur 7 jours">
       <h3>Perspectives des jours suivants</h3>
       <p>Facultatives et susceptibles d’évoluer selon vos activités réelles.</p>

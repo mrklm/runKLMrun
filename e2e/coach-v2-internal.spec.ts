@@ -187,3 +187,28 @@ test('erreur de mémorisation puis nouvel essai sans doublon',async({page})=>{
   await panel.getByRole('button',{name:'Réessayer'}).click();
   await expect(panel.getByRole('status')).toContainText('vous est proposée');expect(await count(page)).toBe(1);
 });
+
+test('ressenti difficile : explication réelle conservée pendant la présentation',async({page})=>{
+  await page.clock.install({time:new Date('2026-10-18T10:00:00Z')});
+  await page.goto('./#/entrainement');await seed(page);
+  await page.evaluate(async modules=>{
+    const {openDatabase}=await import(/* @vite-ignore */ modules+'storage/database-connection.ts');
+    const db=await openDatabase(),tx=db.transaction(['sessions','evolvingCoach'],'readwrite');
+    await tx.objectStore('sessions').clear();
+    for(const [index,date] of ['2026-09-27','2026-10-01','2026-10-05','2026-10-09','2026-10-12','2026-10-15'].entries()){
+      await tx.objectStore('sessions').put({id:'feeling-'+index,title:'Course',sport:'RUNNING',date,durationSeconds:2400,
+        ...(index===5?{feeling:{effort:'hard'}}:{})});
+    }
+    const record=await tx.objectStore('evolvingCoach').get('local');
+    record.coachTemperament='rentre-dedans';record.configuration.goal={model:'evolving',kind:'speed'};await tx.objectStore('evolvingCoach').put(record);
+    await tx.done;db.close();localStorage.setItem('runklmrun:coach-v2-internal','enabled');
+  },modules);
+  await page.reload();
+  const panel=page.getByTestId('coach-v2-experimental');await panel.scrollIntoViewIfNeeded();
+  await expect(panel.getByRole('status')).toContainText('vous est proposée');
+  await expect(panel.locator('[data-presentation-title]')).toContainText('Endurance facile');
+  await expect(panel).toContainText('la course du 15/10/2026 a été ressentie comme difficile');
+  expect(await count(page)).toBe(1);
+  await page.reload();await expect(panel.getByRole('status')).toContainText('vous est proposée');
+  expect(await count(page)).toBe(1);
+});

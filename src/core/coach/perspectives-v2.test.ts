@@ -52,7 +52,7 @@ describe('perspectives V2 sur sept jours, sans activité fictive',()=>{
       .toEqual(['2026-10-19','2026-10-21','2026-10-23']);
   });
   it('ne répète pas une séance structurée envisagée et ne la transforme pas en expérience acquise',()=>{
-    const input={...snapshot,configuration:{...snapshot.configuration!,goal:{model:'evolving' as const,kind:'speed' as const}}};
+    const input={...snapshot,coachTemperament:'rentre-dedans' as const,configuration:{...snapshot.configuration!,goal:{model:'evolving' as const,kind:'speed' as const}}};
     const plan=coachV2Perspectives(adaptCoachV2Readonly(input,date));
     expect(plan.map(value=>value.session.type)).toEqual(['intervals','easy-endurance','easy-endurance']);
     expect(input.sessions).toEqual(snapshot.sessions);
@@ -85,5 +85,51 @@ describe('perspectives V2 sur sept jours, sans activité fictive',()=>{
     const retained=reusableActiveOccurrenceV2(input.occurrences,result,'2026-10-19');
     expect(retained?.id).toBe(occurrence.id);
     expect(dates(coachV2Perspectives(result,retained))).toEqual(['2026-10-19','2026-10-21','2026-10-23']);
+  });
+});
+
+describe('ressenti dans le pipeline V2',()=>{
+  const speed={...snapshot,coachTemperament:'rentre-dedans' as const,sessions:snapshot.sessions.map((session,index)=>({...session,date:['2026-09-27','2026-10-01','2026-10-05','2026-10-09','2026-10-12','2026-10-15'][index]})),configuration:{...snapshot.configuration!,goal:{model:'evolving' as const,kind:'speed' as const}}};
+  it('partage le classement entre prochaine séance et perspectives, sans effet V1',()=>{
+    const plans=['pas-a-pas','evolution-active','rentre-dedans'].map(value=>{
+      const input={...speed,coachTemperament:value as NonNullable<CoachV2ApplicationSnapshot['coachTemperament']>};
+      expect(compareCoachVersionsReadonly(input,date).v1).toEqual(compareCoachVersionsReadonly(speed,date).v1);
+      return coachV2Perspectives(adaptCoachV2Readonly(input,date)).map(item=>item.session.type);
+    });
+    expect(plans).toEqual([
+      ['easy-endurance','easy-endurance','easy-endurance'],
+      ['easy-endurance','intervals','easy-endurance'],
+      ['intervals','easy-endurance','easy-endurance'],
+    ]);
+  });
+  const withFeeling={...speed,sessions:speed.sessions.map((session,index)=>index===5?{...session,feeling:{effort:'hard' as const}}:session)};
+  it('transmet le ressenti réel aux perspectives et laisse V1 inchangé',()=>{
+    const before=structuredClone(withFeeling),result=adaptCoachV2Readonly(withFeeling,date);
+    expect(result.activityEvidence.at(-1)).toMatchObject({date:'2026-10-15',effort:'hard'});
+    expect(result.candidate?.type).toBe('easy-endurance');
+    const plan=coachV2Perspectives(result);
+    expect(plan.map(value=>value.session.type)).toEqual(['easy-endurance','easy-endurance','intervals']);
+    expect('rationale' in plan[1].session&&plan[1].session.rationale.designChoices.join(' ')).toContain('ressentie');
+    expect('rationale' in plan[2].session&&plan[2].session.rationale.designChoices.join(' ')).not.toContain('ressentie');
+    expect(compareCoachVersionsReadonly(withFeeling,date).v1).toEqual(compareCoachVersionsReadonly(speed,date).v1);
+    expect(withFeeling).toEqual(before);
+    expect(adaptCoachV2Readonly(withFeeling,date)).toEqual(result);
+  });
+  it('conserve sans réécriture une occurrence déjà présentée et compatible',async()=>{
+    const occurrence=await stored(speed),input={...withFeeling,occurrences:[occurrence]},before=structuredClone(input);
+    const result=adaptCoachV2Readonly(input,date),retained=reusableActiveOccurrenceV2(input.occurrences,result,date);
+    expect(retained).toBe(occurrence);expect(retained?.content.type).toBe('intervals');
+    expect(coachV2Perspectives(result,retained)[0].session).toBe(occurrence.content);
+    expect(input).toEqual(before);
+  });
+  it.each([
+    {id:'cycling',sport:'CYCLING',date:'2026-10-16'},
+    {id:'invalid',sport:'RUNNING',date:'2026-10-99'},
+    {id:'future',sport:'RUNNING',date:'2026-10-20'},
+  ])('ne laisse pas le ressenti non pertinent de $id influencer le choix',row=>{
+    const session={...row,title:'Activité',durationSeconds:2400};
+    const baseline=adaptCoachV2Readonly({...speed,sessions:[...speed.sessions,session]},date);
+    const result=adaptCoachV2Readonly({...speed,sessions:[...speed.sessions,{...session,feeling:{effort:'very-hard'}}]},date);
+    expect(result).toEqual(baseline);
   });
 });

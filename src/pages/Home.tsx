@@ -25,7 +25,7 @@ export function Home({ sessions }: { sessions: RunningSession[] }) {
     {!coachV2PublicEnabled()&&<CoachPlanning sessions={sessions} dashboard>
       <section className="panel" aria-labelledby="activity-title">
         <h2 id="activity-title">Activités récentes</h2>
-        {recent.length > 1 ? <SessionList sessions={recent.slice(1,5)} compact /> : <p>Aucune autre sortie récente enregistrée.</p>}
+        {recent.length ? <SessionList sessions={recent.slice(0,4)} compact /> : <p>Aucune sortie récente enregistrée.</p>}
         <p><a href="#/courses/historique">Voir tout l’historique</a></p>
       </section>
     </CoachPlanning>}

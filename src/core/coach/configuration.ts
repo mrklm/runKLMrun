@@ -1,4 +1,4 @@
-import type { EvolvingCoachRecord, EvolvingCoachValues } from '../../types/evolving-coach';
+import type { CoachTemperament, EvolvingCoachRecord, EvolvingCoachValues } from '../../types/evolving-coach';
 import { validateCoachGoal } from './foundations';
 const object = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
 function fields(v: unknown, allowed: string[]): asserts v is Record<string, unknown> {
@@ -12,10 +12,16 @@ export function validateEvolvingCoachValues(value: unknown): asserts value is Ev
   if (value.structuredPlanningPreference !== undefined && (typeof value.structuredPlanningPreference !== 'string' || !['accepted', 'declined', 'unexpressed'].includes(value.structuredPlanningPreference))) throw new Error('Préférence de planification invalide.');
 }
 export function validateEvolvingCoachRecord(value: unknown): asserts value is EvolvingCoachRecord {
-  fields(value, ['id', 'configuration', 'revision', 'createdAt', 'updatedAt']);
+  fields(value, ['id', 'configuration', 'coachTemperament', 'revision', 'createdAt', 'updatedAt']);
+  if (value.coachTemperament !== undefined && (typeof value.coachTemperament !== 'string'
+    || !['pas-a-pas', 'evolution-active', 'rentre-dedans'].includes(value.coachTemperament))) throw new Error('Tempérament du Coach invalide.');
   const timestamp = (v: unknown): v is string => typeof v === 'string' && Number.isFinite(Date.parse(v)) && new Date(v).toISOString() === v;
   if (value.id !== 'local' || !Number.isSafeInteger(value.revision) || (value.revision as number) < 1 || !timestamp(value.createdAt) || !timestamp(value.updatedAt) || value.updatedAt < value.createdAt) throw new Error('Métadonnées du Coach évolutif invalides.');
   if (value.configuration !== null) validateEvolvingCoachValues(value.configuration);
+}
+/** Résout le défaut d'un enregistrement validé sans modifier les données historiques. */
+export function resolveCoachTemperament(record?: Pick<EvolvingCoachRecord, 'coachTemperament'>): CoachTemperament {
+  return record?.coachTemperament ?? 'pas-a-pas';
 }
 export function nextCoachRevision(previous = 0): number {
   if (!Number.isSafeInteger(previous) || previous < 0 || previous >= Number.MAX_SAFE_INTEGER) throw new Error('Révision du Coach évolutif hors limites.');

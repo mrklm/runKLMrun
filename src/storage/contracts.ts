@@ -28,6 +28,7 @@ export interface CoachProfileRepository {
 
 /** Absence initiale : undefined ; suppression : configuration null avec révision conservée. */
 export interface EvolvingCoachRepository {
+  saveTemperament(value: import('../types/evolving-coach').CoachTemperament, expectedRevision: number | undefined): Promise<import('../types/evolving-coach').EvolvingCoachRecord>;
   get(): Promise<import('../types/evolving-coach').EvolvingCoachRecord | undefined>;
   save(values: import('../types/evolving-coach').EvolvingCoachValues, expectedRevision: number | undefined): Promise<import('../types/evolving-coach').EvolvingCoachRecord>;
   remove(expectedRevision: number | undefined): Promise<import('../types/evolving-coach').EvolvingCoachRecord>;

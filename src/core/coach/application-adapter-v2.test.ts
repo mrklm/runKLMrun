@@ -166,7 +166,7 @@ describe('adaptateur applicatif V2 en lecture seule',()=>{
     const actual=[-26,-21,-16,-11,-6,-3].map((offset,index)=>run(`compare-${index}`,offset));
     for(const session of actual)await db.put('sessions',session);
     await db.put('coachProfile',{...profile,id:'local',revision:1,createdAt:'2026-10-01T08:00:00.000Z',updatedAt:'2026-10-01T08:00:00.000Z'});
-    await db.put('evolvingCoach',{id:'local',configuration:config('speed'),revision:1,createdAt:'2026-10-01T08:00:00.000Z',updatedAt:'2026-10-01T08:00:00.000Z'});db.close();
+    await db.put('evolvingCoach',{id:'local',configuration:config('speed'),coachTemperament:'rentre-dedans',revision:1,createdAt:'2026-10-01T08:00:00.000Z',updatedAt:'2026-10-01T08:00:00.000Z'});db.close();
     const add=vi.spyOn(IDBObjectStore.prototype,'add'),put=vi.spyOn(IDBObjectStore.prototype,'put'),remove=vi.spyOn(IDBObjectStore.prototype,'delete');
     const result=await calculateCoachVersionsComparisonReadonly(today,name);
     expect(result.v1.suggestions.length).toBeGreaterThan(0);expect(result.v2.suggestions[0]?.type).toBe('intervals');
@@ -192,15 +192,15 @@ describe('adaptateur applicatif V2 en lecture seule',()=>{
     const linkedBase={...base,opportunity:{...base.opportunity,suggestedFor:civilDate(performed.date)},state:'associated' as const,
       activityId:performed.id,associationEvidence:{sportSignature:activitySportSignatureV2(performed)}};
     const linked:PersistableOccurrenceV2={...linkedBase,retainUntil:retentionLimitV2(linkedBase.opportunity,linkedBase.presentation)};
-    const valid=adaptCoachV2Readonly({sessions:[...history,performed],occurrences:[linked],configuration:config('speed'),profile},today);
+    const valid=adaptCoachV2Readonly({coachTemperament:'rentre-dedans',sessions:[...history,performed],occurrences:[linked],configuration:config('speed'),profile},today);
     expect(valid.catalog.adaptedInput?.observedSessionTypes).toEqual([]);
     expect(valid.candidate?.type).toBe('intervals'); // Introduction fondée sur les activités réelles, pas sur l'association.
-    const documented=adaptCoachV2Readonly({sessions:[...history,performed],occurrences:[linked],configuration:config('speed'),profile,
+    const documented=adaptCoachV2Readonly({coachTemperament:'rentre-dedans',sessions:[...history,performed],occurrences:[linked],configuration:config('speed'),profile,
       documentedActivityTypes:{[performed.id]:'intervals'}},today);
     expect(documented.catalog.adaptedInput?.observedSessionTypes).toEqual(['intervals']);
     expect(documented.candidate?.type).toBe('easy-endurance');
     const invalid={...performed,durationSeconds:performed.durationSeconds+300};
-    const changed=adaptCoachV2Readonly({sessions:[...history,invalid],occurrences:[linked],configuration:config('speed'),profile},today);
+    const changed=adaptCoachV2Readonly({coachTemperament:'rentre-dedans',sessions:[...history,invalid],occurrences:[linked],configuration:config('speed'),profile},today);
     expect(changed.catalog.adaptedInput?.observedSessionTypes).toEqual([]);
     expect(changed.candidate?.type).toBe('intervals');
   });

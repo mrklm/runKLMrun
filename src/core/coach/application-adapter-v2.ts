@@ -1,5 +1,5 @@
 import type { CoachProfileValues,Weekday } from '../../types/coach-profile';
-import type { EvolvingCoachValues } from '../../types/evolving-coach';
+import type { CoachTemperament, EvolvingCoachValues } from '../../types/evolving-coach';
 import type { RunningSession } from '../../types/session';
 import type { CoachPlanning } from '../../types/coach-planning';
 import type { PersistableOccurrenceV2,TemporalAnchorV2 } from './persistence-foundations-v2';
@@ -10,12 +10,13 @@ import { matchingDate } from './suggestion-matching';
 import { applyAssociationContributionPolicy } from './simulation/association-policy-v2';
 import { EXPERIMENTAL_REFERENCE_PARAMETERS,type ReferenceObservation } from './simulation/habitual-reference-v2';
 import { habitualReferenceValidityV2 } from './simulation/reference-validity-v2';
-import { orchestratePrototypeSession,type SessionOrchestratorResult } from './simulation/session-orchestrator-v2';
+import { orchestratePrototypeSession,type SessionOrchestratorResult,type RecordedActivityEvidence } from './simulation/session-orchestrator-v2';
 import type { PrototypeSession,PrototypeSessionType } from './simulation/session-strategies-v2';
 import { validSessionDate } from '../analysis/session-summary';
 import { resolveCoachV2Reference,type CoachV2Reference } from './local-reference-v2';
 
 export interface CoachV2ApplicationSnapshot {
+  coachTemperament?:CoachTemperament;
   sessions:readonly RunningSession[];
   configuration?:EvolvingCoachValues|null;
   profile?:CoachProfileValues;
@@ -27,6 +28,7 @@ export interface CoachV2ApplicationSnapshot {
   documentedActivityTypes?:Readonly<Record<string,PrototypeSessionType|undefined>>;
 }
 export interface CoachV2ReadonlyResult {
+  coachTemperament:CoachTemperament;
   mode:'v2-readonly';reference:ReferenceBootstrapResult;catalog:ExperimentalCatalogV2Result;
   candidate:PrototypeSession|null;
   reason:SessionOrchestratorResult['reason']|'catalog-unavailable'|'missing-temporal-anchor'|'no-available-date'|'no-admissible-date';
@@ -36,6 +38,8 @@ export interface CoachV2ReadonlyResult {
   uncertainties:string[];
   /** Compatibilité calculée en mémoire, jamais persistée : séances admissibles par date examinée. */
   admissibleSessionsByDate:Record<string,PrototypeSession[]>;
+  /** Activités réelles connues à la consultation, avec ressenti facultatif, jamais persistées ici. */
+  activityEvidence:RecordedActivityEvidence[];
 }
 
 const DAY=86400000,day=(value:string)=>Date.parse(`${value}T00:00:00Z`)/DAY;
@@ -150,12 +154,17 @@ export function adaptCoachV2Readonly(snapshot:CoachV2ApplicationSnapshot,referen
   const declarations={goal:snapshot.configuration?.goal??null,availability:snapshot.profile?.availability??null};
   const uncertainties=['Une sélection calculée ne constitue ni une consultation enregistrée ni une présentation effective.'];
   if(!snapshot.documentedActivityTypes)uncertainties.push('Aucun type de séance fiable n’est fourni par le stockage actuel.');
+  const activities:RecordedActivityEvidence[]=snapshot.sessions.flatMap(session=>{
+    const date=matchingDate(session);if(!date)return [];
+    const documentedType=activityType(session.id);
+    // Une activité datée après la consultation ne fournit pas encore de ressenti exploitable.
+    const effort=date<=referenceDate?session.feeling?.effort:undefined;
+    return [{date,...(documentedType?{documentedType}:{}),...(effort?{effort}:{})}];
+  });
   const admissibleSessionsByDate:Record<string,PrototypeSession[]>={};
-  const temporalAnchor=temporalAnchorFromSnapshotV2(snapshot,referenceDate),base={mode:'v2-readonly' as const,reference,facts,declarations,uncertainties,admissibleSessionsByDate};
+  const temporalAnchor=temporalAnchorFromSnapshotV2(snapshot,referenceDate),base={coachTemperament:snapshot.coachTemperament??'pas-a-pas',mode:'v2-readonly' as const,reference,facts,declarations,uncertainties,admissibleSessionsByDate,activityEvidence:activities};
   if(!temporalAnchor)return {...base,catalog,candidate:null,reason:'missing-temporal-anchor',selectedDate:null,
     dailyMaximumSeconds:null,temporalAnchor:null,temporalAnchorReason:'Aucune activité ou présentation V2 persistée ne fournit une ancre fiable.'};
-  const activities=snapshot.sessions.flatMap(session=>{const date=matchingDate(session);if(!date)return [];
-    const documentedType=activityType(session.id);return [{date,...(documentedType?{documentedType}:{})}];});
   const presented=snapshot.occurrences.filter(value=>value.presentation.presentedOn<=referenceDate)
     .map(value=>({date:value.presentation.presentedOn,type:value.content.type}));
   const catalogs=new Map<string,ExperimentalCatalogV2Result>();
@@ -193,7 +202,7 @@ export function adaptCoachV2Readonly(snapshot:CoachV2ApplicationSnapshot,referen
     cataloguedDates++;
     const orchestrated=orchestratePrototypeSession({referenceDate:selectedDate,goal:catalog.adaptedInput.goal,
       habitualReferenceSeconds:catalog.adaptedInput.habitualReferenceSeconds,availabilitySeconds:maximumSeconds,
-      candidates:catalog.sessions,activities,presented});
+      candidates:catalog.sessions,activities,presented,coachTemperament:snapshot.coachTemperament});
     if(orchestrated.selected&&!first)first={...base,catalog,candidate:orchestrated.selected,reason:orchestrated.reason,selectedDate,
       dailyMaximumSeconds:maximumSeconds,temporalAnchor,temporalAnchorReason:null};
   }

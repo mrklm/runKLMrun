@@ -15,7 +15,7 @@ const catalog=(goal:PrototypeGoal)=>selectPrototypeSessions({goal,habitualRefere
   experience:'experienced',availabilitySeconds:3600,preferredTerrain:'hills',observedSessionTypes:['long-run','intervals','hills'],
   targetDistanceMeters:10000,documentedDistanceMeters:8000,eventDate:'2026-12-01'});
 const run=(goal:PrototypeGoal,dates:TemporalConsultation[],policy:SessionOrchestratorPolicy=SESSION_ORCHESTRATOR_EXPERIMENT,
-  extra:Partial<Parameters<typeof simulateTemporalOrchestration>[0]>={})=>simulateTemporalOrchestration({goal,
+  extra:Partial<Parameters<typeof simulateTemporalOrchestration>[0]>={})=>simulateTemporalOrchestration({coachTemperament:'rentre-dedans',goal,
     habitualReferenceSeconds:2700,candidates:catalog(goal),consultations:dates,policy,...extra});
 const count=(result:ReturnType<typeof run>,type:string)=>result.presentations.filter(value=>value.type===type).length;
 

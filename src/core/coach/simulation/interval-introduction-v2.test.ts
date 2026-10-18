@@ -11,7 +11,7 @@ const runs=(offsets:number[]):RunningSession[]=>offsets.map((offset,index)=>({id
 const candidates=(sessions:RunningSession[])=>selectPrototypeSessions({goal:'speed',habitualReferenceSeconds:2400,evidence:'insufficient',
   experience:'regular',availabilitySeconds:1800,observedSessionTypes:[],intervalIntroduction:intervalIntroductionEvidence(sessions,today)});
 const choose=(sessions:RunningSession[],activities:{date:string;documentedType?:PrototypeSessionType}[]=[],presented:{date:string;type:PrototypeSessionType}[]=[],referenceDate=today)=>
-  orchestratePrototypeSession({referenceDate,goal:'speed',habitualReferenceSeconds:2400,availabilitySeconds:1800,
+  orchestratePrototypeSession({coachTemperament:'rentre-dedans',referenceDate,goal:'speed',habitualReferenceSeconds:2400,availabilitySeconds:1800,
     candidates:candidates(sessions),activities,presented});
 
 describe('introduction expérimentale du fractionné V2',()=>{

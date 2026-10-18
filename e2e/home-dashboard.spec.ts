@@ -59,6 +59,21 @@ test('une activité ajoutée dans un autre onglet actualise la dernière sortie'
  });
  const latest=page.getByRole('region',{name:'Dernière sortie'});
  await expect(latest).toContainText('16/10/2026');await expect(latest).toContainText('5 km');
+ await expect(page.getByRole('region',{name:'Activités récentes'}).getByRole('link',{name:'Sortie synthétique'})).toBeVisible();
  await latest.getByRole('link',{name:'Sortie synthétique'}).focus();await page.keyboard.press('Enter');
  await expect(page).toHaveURL(/seance\/synthetic-dashboard/);
+});
+
+test('les quatre activités récentes incluent la dernière date locale et gardent les anciennes dans Courses',async({page})=>{
+ await page.goto('./');await expect(page.locator('.splash-screen')).toHaveCount(0);
+ await page.evaluate(async()=>{
+  const path='/runKLMrun/src/storage/database.ts';const {sessionRepository}=await import(/* @vite-ignore */ path);
+  for(const day of [14,18,16,15,17])await sessionRepository.save({
+    id:'recent-'+day,title:'Sortie du '+day,date:'2026-10-'+day,
+    ...(day===18?{startTime:'2026-10-18T00:30:00+02:00'}:{}),durationSeconds:1800});
+ });
+ const recent=page.getByRole('region',{name:'Activités récentes'});
+ await expect(recent.locator('time')).toHaveText(['18/10/2026 · 00:30','17/10/2026','16/10/2026','15/10/2026']);
+ await page.getByRole('link',{name:'Voir tout l’historique',exact:true}).click();
+ await expect(page.locator('.courses-history').getByRole('link',{name:'Sortie du 14',exact:true})).toBeVisible();
 });

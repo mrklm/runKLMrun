@@ -6,7 +6,7 @@ import { simulateAllSessionStrategies,type StrategySimulation } from './session-
 const catalog=(goal:PrototypeGoal='speed')=>selectPrototypeSessions({goal,habitualReferenceSeconds:2700,evidence:'documented',
   experience:'experienced',availabilitySeconds:3600,preferredTerrain:'hills',observedSessionTypes:['long-run','intervals','hills'],
   targetDistanceMeters:10000,documentedDistanceMeters:8000,eventDate:'2026-12-01'});
-const input=(overrides:Partial<Parameters<typeof orchestratePrototypeSession>[0]>={})=>({referenceDate:'2026-01-20',goal:'speed' as const,
+const input=(overrides:Partial<Parameters<typeof orchestratePrototypeSession>[0]>={})=>({coachTemperament:'rentre-dedans' as const,referenceDate:'2026-01-20',goal:'speed' as const,
   habitualReferenceSeconds:2700,availabilitySeconds:3600,candidates:catalog(),activities:[],presented:[],...overrides});
 
 function orchestrated(simulation:StrategySimulation) {
@@ -14,7 +14,7 @@ function orchestrated(simulation:StrategySimulation) {
   for(const week of simulation.weeks) {
     const activities:RecordedActivityEvidence[]=simulation.actualObservations.filter(value=>value.date<=week.referenceDate)
       .map(value=>({date:value.date})); // Type volontairement inconnu.
-    const result=orchestratePrototypeSession({referenceDate:week.referenceDate,goal:simulation.goal,
+    const result=orchestratePrototypeSession({coachTemperament:'rentre-dedans',referenceDate:week.referenceDate,goal:simulation.goal,
       habitualReferenceSeconds:week.referenceSeconds,availabilitySeconds:week.availabilitySeconds,
       candidates:week.candidates,activities,presented});
     if(result.selected) { selected.push(result.selected);presented.push({date:week.referenceDate,type:result.selected.type}); }
@@ -122,10 +122,89 @@ describe('orchestrateur temporel expérimental des séances V2',()=>{
 
   it('ne modifie ni les durées ni les blocs du catalogue et ne crée aucune progression',()=>{
     const candidates=catalog(),result=orchestratePrototypeSession(input({candidates}));
-    expect(result.selected).toBe(candidates[1]);
-    expect(result.selected).toEqual(candidates[1]);
+    expect(result.selected).toMatchObject({type:candidates[1].type,totalDurationSeconds:candidates[1].totalDurationSeconds,structure:candidates[1].structure});
+    expect(candidates).toEqual(catalog());
     const ignored=find('wellbeing','regular','ignored');
     expect(new Set(orchestrated(ignored).map(value=>value.durationSeconds))).toEqual(new Set([2100,900]));
     expect(ignored.actualObservations).toEqual([]);
   });
+});
+
+describe('préférence temporaire issue du ressenti réel',()=>{
+  it.each([undefined,'easy','moderate'] as const)('ne modifie pas le choix avec un ressenti %s',effort=>{
+    expect(orchestratePrototypeSession(input({activities:[{date:'2026-01-17',effort}]})))
+      .toEqual(orchestratePrototypeSession(input({activities:[{date:'2026-01-17'}]})));
+  });
+  it.each(['hard','very-hard'] as const)('privilégie le facile pour %s sans modifier les candidats',effort=>{
+    const source=input({activities:[{date:'2026-01-17',effort}]}),before=structuredClone(source);
+    const result=orchestratePrototypeSession(source);
+    expect(result.selected?.type).toBe('easy-endurance');
+    expect(result.selected?.totalDurationSeconds).toBe(catalog()[0].totalDurationSeconds);
+    expect(result.selected?.rationale.designChoices.join(' ')).toContain('17/01/2026');
+    expect(source).toEqual(before);
+  });
+  it('borne la fenêtre à J-6 inclus, exclut J-7 et le futur',()=>{
+    for(const date of ['2026-01-13','2026-01-21']){
+      const source=input({activities:[{date,effort:'hard'}]});
+      expect(orchestratePrototypeSession(source)).toEqual(orchestratePrototypeSession(input({activities:[{date}]})));
+    }
+    expect(orchestratePrototypeSession(input({activities:[{date:'2026-01-14',effort:'hard'}]})).selected?.type).toBe('easy-endurance');
+  });
+  it('ne crée ni récupération ni séance forcée et conserve les espacements et plafonds',()=>{
+    const activities:RecordedActivityEvidence[]=[{date:'2026-01-17',effort:'hard'}];
+    expect(orchestratePrototypeSession(input({activities:[{date:'2026-01-19',effort:'hard'}]}))).toMatchObject({selected:null,reason:'recent-activity'});
+    expect(orchestratePrototypeSession(input({activities,availabilitySeconds:1})).selected).toBeNull();
+    expect(orchestratePrototypeSession(input({activities,candidates:[]})).selected).toBeNull();
+    const candidates=catalog().filter(value=>value.type==='intervals');
+    // Sans alternative facile admissible, cette préférence n'invente aucun candidat.
+    expect(orchestratePrototypeSession(input({activities,candidates})).selected?.type).toBe('intervals');
+  });
+  it('ne justifie rien par le ressenti si une contrainte sportive imposait déjà le facile',()=>{
+    const activity:RecordedActivityEvidence={date:'2026-01-17',documentedType:'intervals',effort:'hard'};
+    expect(orchestratePrototypeSession(input({activities:[activity]})))
+      .toEqual(orchestratePrototypeSession(input({activities:[{...activity,effort:undefined}]})));
+  });
+  it('ne lit aucun ressenti des présentations ou intentions',()=>{
+    const source=input({presented:[{date:'2026-01-20',type:'intervals'}],envisaged:[{date:'2026-01-17',type:'easy-endurance'}]});
+    expect(orchestratePrototypeSession(source).selected?.type).toBe('intervals');
+    expect(orchestratePrototypeSession(source).selected?.rationale.designChoices.join(' ')).not.toContain('ressentie');
+  });
+});
+
+describe('classement des tempéraments après admissibilité',()=>{
+  it.each([
+    ['pas-a-pas','easy-endurance'],['evolution-active','intervals'],['rentre-dedans','intervals'],
+  ] as const)('%s choisit %s sans modifier le catalogue', (coachTemperament,type)=>{
+    const source=input({coachTemperament,activities:[{date:'2026-01-17',documentedType:'easy-endurance'}]}),before=structuredClone(source);
+    expect(orchestratePrototypeSession(source).selected?.type).toBe(type);
+    expect(source).toEqual(before);
+  });
+  it('le défaut est prudent ; la diversification nécessite un type réellement connu ou envisagé',()=>{
+    expect(orchestratePrototypeSession(input({coachTemperament:undefined})).selected?.type).toBe('easy-endurance');
+    const source=input({coachTemperament:'evolution-active',activities:[{date:'2026-01-17'}]});
+    expect(orchestratePrototypeSession(source)).toEqual(orchestratePrototypeSession({...source,coachTemperament:'pas-a-pas'}));
+  });
+  it('Rentre dedans préfère la durée haute admissible, sans créer ni agrandir de séance',()=>{
+    const first=catalog()[1],longer=catalog('endurance').find(value=>value.type==='long-run')!;
+    const source=input({coachTemperament:'rentre-dedans',candidates:[catalog()[0],first,longer]});
+    expect(orchestratePrototypeSession(source).selected?.totalDurationSeconds).toBe(3000);
+    expect(orchestratePrototypeSession({...source,availabilitySeconds:2400}).selected?.type).toBe('intervals');
+  });
+  it.each(['pas-a-pas','evolution-active','rentre-dedans'] as const)('%s respecte ressenti, espacement et absence d’alternative',coachTemperament=>{
+    const source=input({coachTemperament,activities:[{date:'2026-01-17',documentedType:'easy-endurance',effort:'very-hard'}]});
+    expect(orchestratePrototypeSession(source).selected?.type).toBe('easy-endurance');
+    expect(orchestratePrototypeSession({...source,activities:[{date:'2026-01-19'}]}).selected).toBeNull();
+    expect(orchestratePrototypeSession({...source,availabilitySeconds:1}).selected).toBeNull();
+    const only={...source,candidates:[catalog()[0]]};
+    expect(orchestratePrototypeSession(only)).toEqual(orchestratePrototypeSession({...only,coachTemperament:'pas-a-pas'}));
+  });
+});
+
+it.each(['pas-a-pas','evolution-active','rentre-dedans'] as const)('les exclusions structurées restent communes à %s',coachTemperament=>{
+  for(const type of ['intervals','long-run'] as const){
+    const candidates=catalog(type==='long-run'?'endurance':'speed');
+    const source=input({coachTemperament,candidates,activities:[{date:'2026-01-17',documentedType:type}]});
+    expect(orchestratePrototypeSession(source).selected?.type).toBe('easy-endurance');
+    expect(orchestratePrototypeSession({...source,candidates:candidates.filter(value=>value.type===type)}).selected).toBeNull();
+  }
 });

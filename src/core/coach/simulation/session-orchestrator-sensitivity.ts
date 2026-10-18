@@ -1,3 +1,4 @@
+import type { CoachTemperament } from '../../../types/evolving-coach';
 import {
   orchestratePrototypeSession,
   type PresentedSessionEvidence,
@@ -12,6 +13,7 @@ export interface TemporalConsultation {
 }
 export interface TemporalPresentation extends PresentedSessionEvidence { session:PrototypeSession }
 export interface TemporalSensitivityInput {
+  coachTemperament?:CoachTemperament;
   goal:PrototypeGoal;
   habitualReferenceSeconds:number|null;
   candidates:readonly PrototypeSession[];
@@ -39,7 +41,7 @@ export function simulateTemporalOrchestration(input:TemporalSensitivityInput):Te
   for(const consultation of input.consultations) {
     const result=orchestratePrototypeSession({referenceDate:consultation.date,goal:input.goal,
       habitualReferenceSeconds:input.habitualReferenceSeconds,availabilitySeconds:consultation.availabilitySeconds,
-      candidates:input.candidates,activities,presented,policy:input.policy});
+      coachTemperament:input.coachTemperament,candidates:input.candidates,activities,presented,policy:input.policy});
     if(!result.selected) { zeroSuggestionCount++;continue; }
     const presentation={date:consultation.date,type:result.selected.type,session:result.selected};
     const index=presentations.length;

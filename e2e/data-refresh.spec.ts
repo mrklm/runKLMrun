@@ -20,13 +20,13 @@ test('imports TCX successifs et écriture directe : actualisation locale et autr
  for(const [i,day] of [14,15].entries()){
   await page.getByLabel('Sélectionner les fichiers').setInputFiles({name:`synthetic-${day}.TCX`,mimeType:'application/xml',buffer:Buffer.from(tcx(day))});
   await page.getByRole('button',{name:'Importer les séances',exact:true}).click();
-  await expect(other.locator('.session-link')).toHaveCount(i+1);
-  await page.getByRole('link',{name:'Accueil',exact:true}).click();await expect(page.locator('.session-link')).toHaveCount(i+1);
+  await expect(other.getByRole('region',{name:'Activités récentes'}).locator('.session-link')).toHaveCount(i+1);
+  await page.getByRole('link',{name:'Accueil',exact:true}).click();await expect(page.getByRole('region',{name:'Activités récentes'}).locator('.session-link')).toHaveCount(i+1);
   await page.getByRole('link',{name:'Courses',exact:true}).click();
  }
  await page.getByRole('link',{name:'Accueil',exact:true}).click();
  await page.evaluate(async()=>{const path='/runKLMrun/src/storage/database.ts';const {sessionRepository:r}=await import(/* @vite-ignore */ path);await Promise.all([r.save({id:'direct-a',title:'Ajout direct A',date:'2026-10-16',durationSeconds:600}),r.save({id:'direct-b',title:'Ajout direct B',date:'2026-10-16',durationSeconds:600})]);});
- await expect(page.locator('.session-link')).toHaveCount(4);await expect(other.locator('.session-link')).toHaveCount(4);
+ await expect(page.getByRole('region',{name:'Activités récentes'}).locator('.session-link')).toHaveCount(4);await expect(other.getByRole('region',{name:'Activités récentes'}).locator('.session-link')).toHaveCount(4);
 });
 test('profil, configuration et planning cohérents dans deux onglets',async({page,context})=>{
  await open(page);await seed(page);await page.getByRole('navigation').getByRole('link', { name: 'Accueil', exact: true }).click();await page.getByRole('link',{name:'Coach',exact:true}).click();
@@ -56,9 +56,9 @@ test('une lecture ancienne ne remplace pas une liste plus récente',async({page}
  });
  await expect.poll(()=>page.evaluate(()=>typeof (window as any).releaseOldRead)).toBe('function');
  await page.evaluate(async()=>{const path='/runKLMrun/src/storage/database.ts';const {sessionRepository:r}=await import(/* @vite-ignore */ path);await r.save({id:'new',title:'Sortie récente conservée',date:'2026-10-16',durationSeconds:600});});
- await expect(page.getByRole('link',{name:'Sortie récente conservée',exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Activités récentes'}).getByRole('link',{name:'Sortie récente conservée',exact:true})).toBeVisible();
  await page.evaluate(()=>{(window as any).releaseOldRead();});
- await expect(page.getByRole('link',{name:'Sortie récente conservée',exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Activités récentes'}).getByRole('link',{name:'Sortie récente conservée',exact:true})).toBeVisible();
 });
 
 test('archive Polar via worker : les deux onglets voient le lot validé',async({page,context})=>{
@@ -79,8 +79,8 @@ await page.getByRole('link', {
   exact: true
 }).click();
 
-await expect(page.locator('.session-link')).toHaveCount(2);
+await expect(page.getByRole('region',{name:'Activités récentes'}).locator('.session-link')).toHaveCount(2);
 
 // Vérifier ensuite la propagation vers le second onglet.
-await expect(other.locator('.session-link')).toHaveCount(2);
+await expect(other.getByRole('region',{name:'Activités récentes'}).locator('.session-link')).toHaveCount(2);
  });

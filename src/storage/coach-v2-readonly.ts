@@ -1,4 +1,4 @@
-import { validateEvolvingCoachRecord } from '../core/coach/configuration';
+import { resolveCoachTemperament, validateEvolvingCoachRecord } from '../core/coach/configuration';
 import type { CoachV2ApplicationSnapshot,CoachV2ReadonlyResult } from '../core/coach/application-adapter-v2';
 import { adaptCoachV2Readonly } from '../core/coach/application-adapter-v2';
 import { validateOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
@@ -22,7 +22,7 @@ export async function readCoachV2Snapshot(name=DATABASE_NAME):Promise<CoachV2App
     if(configuration)validateEvolvingCoachRecord(configuration);
     if(planning)validateCoachPlanning(planning);
     for(const occurrence of occurrences)await validateOccurrenceV2(occurrence);
-    return {sessions:structuredClone(sessions),occurrences:structuredClone(occurrences),
+    return {coachTemperament:resolveCoachTemperament(configuration),sessions:structuredClone(sessions),occurrences:structuredClone(occurrences),
       ...(profile?{profile:structuredClone(profile)}:{}),
       ...(planning?{planning:structuredClone(planning)}:{}),
       ...(configuration?{configuration:structuredClone(configuration.configuration),

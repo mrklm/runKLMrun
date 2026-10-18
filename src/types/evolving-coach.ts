@@ -66,10 +66,13 @@ export interface EvolvingCoachValues {
   experience?: DeclaredExperience;
   structuredPlanningPreference?: StructuredPlanningPreference;
 }
+export type CoachTemperament = 'pas-a-pas' | 'evolution-active' | 'rentre-dedans';
 /** configuration:null = suppression explicite ; la révision empêche la résurrection par un ancien onglet. */
 export interface EvolvingCoachRecord {
   id: 'local';
   configuration: EvolvingCoachValues | null;
+  /** Préférence indépendante ; absence équivalente à pas-a-pas. */
+  coachTemperament?: CoachTemperament;
   revision: number;
   createdAt: string;
   updatedAt: string;

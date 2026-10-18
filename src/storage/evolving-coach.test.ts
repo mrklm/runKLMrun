@@ -8,7 +8,8 @@ import { createBackup, canonicalJson, sha256 } from '../backup/format';
 import { exportGzip, readBackupFile } from '../backup/compression';
 import { fixture } from '../backup/test-fixture';
 import type { BackupData } from '../types/backup';
-import type { EvolvingCoachValues, EvolvingCoachRecord } from '../types/evolving-coach';
+import { resolveCoachTemperament, validateEvolvingCoachRecord } from '../core/coach/configuration';
+import type { CoachTemperament, EvolvingCoachValues, EvolvingCoachRecord } from '../types/evolving-coach';
 import { canActivateStructuredPlanning, structuredPlanningPolicy } from '../core/coach/foundations';
 
 const names: string[] = [];
@@ -171,4 +172,91 @@ it('refuse un état malformé de sauvegarde et préserve le document signé', as
   expect(preview.backup).toEqual(before);
   const aborted = new AbortController(); aborted.abort();
   await expect(s.preview(await json(data), aborted.signal)).rejects.toMatchObject({ name: 'AbortError' });
+});
+
+
+it('résout les anciens profils en Pas à Pas sans matérialiser le champ', async () => {
+  const n = name(), repo = createEvolvingCoachRepository(n, time);
+  expect(resolveCoachTemperament()).toBe('pas-a-pas');
+  validateEvolvingCoachRecord(record);
+  const saved = await repo.save(values, undefined), before = structuredClone(saved);
+  expect(resolveCoachTemperament(saved)).toBe('pas-a-pas');
+  expect(saved).not.toHaveProperty('coachTemperament');
+  expect((await readBackupFile((await service(n).exportData()).file)).data.evolvingCoach).toEqual(before);
+  expect(await repo.get()).toEqual(before);
+});
+
+it.each(['pas-a-pas','evolution-active','rentre-dedans'] as const)('préserve %s après modification, suppression et recréation de configuration', async coachTemperament => {
+  const n = name(), db = await openDatabase(n), input = { ...record, coachTemperament };
+  validateEvolvingCoachRecord(input);expect(resolveCoachTemperament(input)).toBe(coachTemperament);
+  await db.put('evolvingCoach', input);db.close();
+  const repo = createEvolvingCoachRepository(n, time);
+  const changed = await repo.save({ ...values, experience: 'experienced' }, 1);
+  expect(changed.coachTemperament).toBe(coachTemperament);
+  const removed = await repo.remove(changed.revision);
+  expect(removed).toMatchObject({ configuration: null, coachTemperament });
+  expect((await repo.save(values, removed.revision)).coachTemperament).toBe(coachTemperament);
+});
+
+it.each(['inconnu',null,1,[],{}].map(value => ({ value })))('refuse le tempérament invalide $value sans relâcher la validation', async ({ value }) => {
+  const invalid = { ...record, coachTemperament: value } as EvolvingCoachRecord;
+  expect(() => validateEvolvingCoachRecord(invalid)).toThrow('Tempérament');
+  expect(() => validateEvolvingCoachRecord({ ...record, unknown: true })).toThrow();
+  const n = name(), db = await openDatabase(n);await db.put('evolvingCoach', invalid);db.close();
+  const repo = createEvolvingCoachRepository(n, time);
+  await expect(repo.get()).rejects.toThrow('Tempérament');
+  await expect(repo.save(values, 1)).rejects.toThrow('Tempérament');
+  await expect(service(n).exportData()).rejects.toThrow('Tempérament');
+});
+
+for (const format of ['json','gzip'] as const) it.each(['pas-a-pas','evolution-active','rentre-dedans'] as const)(
+  'sauvegarde et restaure %s en '+format, async coachTemperament => {
+    const source = name(), db = await openDatabase(source), input = { ...record, coachTemperament };
+    await db.put('evolvingCoach', input);db.close();
+    const file = format === 'gzip' ? (await service(source).exportData()).file : await json(await readBackupSnapshot(source));
+    const document = await readBackupFile(file);
+    expect(document.formatVersion).toBe(3);expect(document.data.evolvingCoach).toEqual(input);
+    for (const mode of ['merge','replace'] as const) {
+      const target = name(), s = service(target);
+      await s.restore(await s.preview(file), { mode, profile: mode === 'merge' ? 'keep' : 'restore' });
+      expect(await createEvolvingCoachRepository(target).get()).toEqual(input);
+    }
+  });
+
+it('fusion conserve le tempérament local et signale le conflit ; remplacement ancien retrouve le défaut', async () => {
+  const n = name(), db = await openDatabase(n), local = { ...record, coachTemperament: 'rentre-dedans' as const };
+  await db.put('evolvingCoach', local);db.close();
+  const s = service(n), old = await json({ ...empty(), evolvingCoach: record });
+  const report = await s.restore(await s.preview(old), { mode: 'merge', profile: 'keep' });
+  expect(report.conflicts).toBe(1);
+  expect(await createEvolvingCoachRepository(n).get()).toEqual(local);
+  await s.restore(await s.preview(old), { mode: 'replace', profile: 'restore' });
+  const restored = await createEvolvingCoachRepository(n).get();
+  expect(restored).not.toHaveProperty('coachTemperament');
+  expect(resolveCoachTemperament(restored)).toBe('pas-a-pas');
+});
+
+it('refuse un tempérament inconnu dans une sauvegarde même correctement signée', async () => {
+  const doc = await createBackup({ ...empty(), evolvingCoach: record }, '0.8.1');
+  const { integrity: _integrity, ...payload } = doc;
+  payload.data.evolvingCoach!.coachTemperament = 'inconnu' as CoachTemperament;
+  const malformed = { ...payload, integrity: { algorithm: 'SHA-256', digest: await sha256(canonicalJson(payload)) } };
+  const n = name(), s = service(n), before = await readBackupSnapshot(n);
+  await expect(s.preview(new Blob([JSON.stringify(malformed)]))).rejects.toThrow('Coach évolutif');
+  expect(await readBackupSnapshot(n)).toEqual(before);
+});
+
+it('enregistre le tempérament seul sans remplacer la configuration ni recréer un choix identique', async () => {
+  const n = name(), repo = createEvolvingCoachRepository(n, time), initial = await repo.save(values, undefined);
+  const changed = await repo.saveTemperament('evolution-active', initial.revision);
+  expect(changed.configuration).toEqual(initial.configuration);expect(changed.createdAt).toBe(initial.createdAt);
+  expect(changed.revision).toBe(2);expect(changed.coachTemperament).toBe('evolution-active');
+  expect(await repo.saveTemperament('evolution-active', changed.revision)).toEqual(changed);
+  await expect(repo.saveTemperament('rentre-dedans', initial.revision)).rejects.toBeInstanceOf(ProfileConflictError);
+  expect(await repo.get()).toEqual(changed);
+});
+it('permet une préférence indépendante sans inventer de configuration sportive', async () => {
+  const repo = createEvolvingCoachRepository(name(), time);
+  const saved = await repo.saveTemperament('rentre-dedans', undefined);
+  expect(saved).toMatchObject({ configuration: null, coachTemperament: 'rentre-dedans', revision: 1 });
 });

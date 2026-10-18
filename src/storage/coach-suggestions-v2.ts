@@ -1,3 +1,4 @@
+import { resolveCoachTemperament } from '../core/coach/configuration';
 import { activitySportSignatureV2,associationEvidenceMatchesV2,civilDate,invalidateAssociationV2,observePresentationV2,validateOccurrenceShapeV2,validateOccurrenceV2,type OccurrenceProvenanceV2,
   occurrenceId,type InstantIso,type PersistableOccurrenceV2,type PresentationMomentV2,type PresentationKey,type SelectedSuggestionV2 } from '../core/coach/persistence-foundations-v2';
 import { matchingDate } from '../core/coach/suggestion-matching';
@@ -6,6 +7,8 @@ import { storageChanges } from './changes';
 import { adaptCoachV2Readonly,type CoachV2ReadonlyResult } from '../core/coach/application-adapter-v2';
 import { readCoachV2Snapshot } from './coach-v2-readonly';
 import { nextGenerationV2,reusableActiveOccurrenceV2,selectedApplicationSuggestionV2 } from '../core/coach/presentation-identity-v2';
+
+export class CoachV2TemperamentChanged extends Error {}
 
 export type StoredPresentationResultV2=
   |{readonly status:'created';readonly occurrence:PersistableOccurrenceV2}
@@ -182,6 +185,8 @@ export async function presentCoachV2Selection(input:{result:CoachV2ReadonlyResul
     // Minuit est volontaire ici : la limite de 18 h ne concerne pas leur réutilisation.
     const current=adaptCoachV2Readonly(snapshot,input.referenceDate);
     const reusable=reusableActiveOccurrenceV2(snapshot.occurrences,current,input.referenceDate);
+    if(!reusable&&(input.result.coachTemperament??'pas-a-pas')!==(snapshot.coachTemperament??'pas-a-pas'))
+      throw new CoachV2TemperamentChanged('Le tempérament a changé : recalcul nécessaire.');
     const prepared=reusable?undefined:await observePresentationV2({
       selection:selectedApplicationSuggestionV2(input.result,nextGenerationV2(snapshot.occurrences,input.result)),
       moment:input.moment,provenance:input.provenance,existing:[],createId:input.createId??(()=>crypto.randomUUID())});
@@ -194,6 +199,7 @@ export async function presentCoachV2Selection(input:{result:CoachV2ReadonlyResul
       const configuration=configurations[0];
       if(profiles.length>1||configurations.length>1||!same(sessions,snapshot.sessions)||!same(profiles[0],snapshot.profile)
         ||!same(configuration?.configuration,snapshot.configuration)
+        ||resolveCoachTemperament(configuration)!==(snapshot.coachTemperament??'pas-a-pas')
         ||(configuration?.configuration?configuration.createdAt.slice(0,10):undefined)!==snapshot.configurationCreatedOn
         ||!same(occurrences,snapshot.occurrences)){
         await tx.done;continue; // Aucun ajout à partir d'une lecture devenue périmée.

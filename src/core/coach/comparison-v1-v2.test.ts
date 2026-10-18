@@ -14,7 +14,7 @@ const profile:CoachProfileValues={goal:{kind:'regular'},availability:{sessionsPe
 
 describe('comparaison V1/V2 strictement en lecture seule',()=>{
   it('compare le même instantané sans attribuer au V1 des dimensions absentes',()=>{
-    const snapshot={sessions,occurrences:[],configuration,profile},before=structuredClone(snapshot);
+    const snapshot={coachTemperament:'rentre-dedans' as const,sessions,occurrences:[],configuration,profile},before=structuredClone(snapshot);
     const result=compareCoachVersionsReadonly(snapshot,referenceDate);
     expect(result).toMatchObject({readonly:true,sessionCount:6,goal:'speed'});
     expect(result.v1.suggestions.every(value=>value.engine==='V1')).toBe(true);
@@ -25,7 +25,7 @@ describe('comparaison V1/V2 strictement en lecture seule',()=>{
   });
 
   it('reste déterministe et ne crée aucune occurrence ou association',()=>{
-    const snapshot={sessions,occurrences:[],configuration,profile};
+    const snapshot={coachTemperament:'rentre-dedans' as const,sessions,occurrences:[],configuration,profile};
     expect(compareCoachVersionsReadonly(snapshot,referenceDate)).toEqual(compareCoachVersionsReadonly(snapshot,referenceDate));
     expect(snapshot.occurrences).toEqual([]);
   });
