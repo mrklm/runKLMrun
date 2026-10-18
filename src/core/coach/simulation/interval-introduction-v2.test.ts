@@ -28,8 +28,26 @@ describe('introduction expérimentale du fractionné V2',()=>{
   });
 
   it('C — une suggestion ignorée ne devient ni activité ni récupération obligatoire',()=>{
-    const result=choose(regular,[],[{date:date(-4),type:'intervals'}]);
-    expect(result.selected?.type).toBe('easy-endurance');expect(result.selected?.type).not.toBe('recovery');
+    const activities=regular.map(value=>({date:value.date!}));
+    const before=structuredClone({regular,activities});
+    // Six sorties réparties ; dernière activité à J-3, aucun type structuré documenté.
+    expect(intervalIntroductionEvidence(regular,today)).toMatchObject({activityCount:6,activeWeeks:4,spanDays:23,eligible:true});
+    const baseline=choose(regular,activities);
+    expect(baseline.selected?.type).toBe('intervals');
+    expect(baseline.selected!.totalDurationSeconds).toBeLessThanOrEqual(1800);
+    for(const offset of [-4,0]){
+      const presented=[{date:date(offset),type:'intervals' as const}],unchanged=structuredClone(presented);
+      const result=choose(regular,activities,presented);
+      expect(result).toEqual(baseline);
+      expect(result.selected?.type).not.toBe('recovery');
+      // La présentation ne lève pas non plus les contraintes des activités réelles.
+      expect(choose(regular,[...activities,{date:date(-1)}],presented))
+        .toMatchObject({selected:null,reason:'recent-activity'});
+      expect(choose(regular,[...activities,{date:date(-4),documentedType:'intervals'}],presented).selected?.type)
+        .toBe('easy-endurance');
+      expect(presented).toEqual(unchanged);
+    }
+    expect({regular,activities}).toEqual(before);
   });
 
   it('D — après un fractionné réellement identifié, retient une séance facile',()=>{
