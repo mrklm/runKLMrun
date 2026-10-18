@@ -10,20 +10,24 @@ const session = (day: number, extra: Partial<RunningSession> = {}): RunningSessi
 });
 const render = (sessions: RunningSession[]) => renderToStaticMarkup(createElement(Home, { sessions }));
 const titles = (html: string) => [...html.matchAll(/<strong>(Sortie synthétique [^<]+)<\/strong>/g)].map(m => m[1]);
+const recentTitles = (html: string) => {
+  const section = html.match(/<h2 id="activity-title">Activités récentes<\/h2>([\s\S]*?)<a href="#\/courses\/historique">/);
+  return titles(section?.[1] ?? '');
+};
 describe('dernières sorties de l’accueil', () => {
-  it('limite à cinq séances après le tri, même si les plus récentes arrivent en fin de tableau', () => {
+  it('limite à quatre séances récentes après le tri, même si les plus récentes arrivent en fin de tableau', () => {
     const html = render(Array.from({ length: 8 }, (_, i) => session(i + 1)));
-    expect(titles(html)).toEqual([8, 7, 6, 5, 4].map(i => `Sortie synthétique ${i}`));
+    expect(recentTitles(html)).toEqual([8, 7, 6, 5].map(i => `Sortie synthétique ${i}`));
     expect(html).toContain('Dernière sortie'); expect(html).toContain('Activités récentes');
   });
   it('classe les séances par date puis heure décroissante sans modifier les données reçues', () => {
     const input = [session(2, { id: 'early', title: 'Sortie synthétique matin', startTime: '2025-01-02T08:00:00' }), session(1), session(2, { id: 'late', title: 'Sortie synthétique soir', startTime: '2025-01-02T18:00:00' })];
     const original = structuredClone(input);
-    expect(titles(render(input))).toEqual(['Sortie synthétique soir', 'Sortie synthétique matin', 'Sortie synthétique 1']);
+    expect(recentTitles(render(input))).toEqual(['Sortie synthétique soir', 'Sortie synthétique matin', 'Sortie synthétique 1']);
     expect(input).toEqual(original);
   });
-  it('affiche toutes les séances disponibles si elles sont moins de cinq', () => {
-    expect(titles(render([session(1), session(3), session(2)]))).toEqual([3, 2, 1].map(i => `Sortie synthétique ${i}`));
+  it('affiche toutes les séances disponibles si elles sont moins de quatre', () => {
+    expect(recentTitles(render([session(1), session(3), session(2)]))).toEqual([3, 2, 1].map(i => `Sortie synthétique ${i}`));
   });
   it('conserve le message d’accueil sans séance', () => {
     const html = render([]);
