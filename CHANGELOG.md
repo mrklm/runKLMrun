@@ -1,5 +1,13 @@
 # Historique des versions
 
+## v0.8.1 — 2026-10-18 — Simplification de l’interface Coach
+
+- Accueil : résumé des périodes visible et observations détaillées repliées par défaut, avec bouton accessible « Afficher les détails » / « Masquer les détails », sans modification de leur contenu.
+- Lien vers la configuration et l’ancien planning personnel déplacé sous les observations, avec conservation de la route `#/entrainement`.
+- Configuration du Coach : libellé du programme structuré simplifié en « Propositions autorisées », sans changement de logique.
+- Correction du test des suggestions V2 ignorées : vérification explicite qu’une présentation ne devient pas une activité et n’impose pas de récupération, tout en conservant les contraintes des activités réelles.
+- Aucun changement des règles sportives, des sauvegardes ou de l’activation interne de V2.
+
 ## v0.8.0 — 2026-10-18 — Coach V2 expérimental et perspectives sur sept jours
 
 - Coach V2 réservé au mode interne : comparaison en lecture seule avec V1, explications en français, durées lisibles et limites explicites.

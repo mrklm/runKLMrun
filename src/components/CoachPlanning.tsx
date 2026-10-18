@@ -95,9 +95,9 @@ export function CoachPlanning({sessions,refreshToken=0,dashboard=false,children}
     </>}
     {dashboard && <>
       <PastSuggestions />
-      <p><a href="#/entrainement">Coach</a> — configuration et ancien planning personnel</p>
       {children}
-      {!loading && loaded && <CoachObservations comparison={compareTraining(sessions,8,today)} profile={loaded.profile} />}
+      {!loading && loaded && <CoachObservations comparison={compareTraining(sessions,8,today)} profile={loaded.profile} collapsible />}
+      <p><a href="#/entrainement">Coach</a> — configuration et ancien planning personnel</p>
     </>}
   </div>;
 }

@@ -74,7 +74,7 @@ export function CoachConfiguration({ repository = repositoryDefault, onChange }:
         {draft.date && <div><dt>Date cible</dt><dd>{draft.date.split('-').reverse().join('/')}</dd></div>}
         {configuration.goal.kind === 'race' && <div><dt>Chrono cible</dt><dd>{draft.chrono || 'Terminer, sans objectif chronométrique'}</dd></div>}
         <div><dt>Expérience déclarée</dt><dd>{configuration.experience ? EXPERIENCES[configuration.experience] : 'Non renseignée'}</dd></div>
-        <div><dt>Programme structuré</dt><dd>{configuration.goal.kind === 'wellbeing' ? 'Non proposé pour cet objectif' : configuration.structuredPlanningPreference === 'accepted' ? 'Propositions autorisées — acceptation au cas par cas' : configuration.structuredPlanningPreference === 'declined' ? 'Sans programme structuré' : 'Préférence non exprimée'}</dd></div>
+        <div><dt>Programme structuré</dt><dd>{configuration.goal.kind === 'wellbeing' ? 'Non proposé pour cet objectif' : configuration.structuredPlanningPreference === 'accepted' ? 'Propositions autorisées' : configuration.structuredPlanningPreference === 'declined' ? 'Sans programme structuré' : 'Préférence non exprimée'}</dd></div>
       </dl> : <p>Vous pouvez consulter vos observations sans choisir de nouvel objectif. Aucun choix n’est déduit de votre ancien profil.</p>}
       <button className="button" onClick={() => { setDraft(configurationDraft(configuration)); setPhase('editing'); setError(''); setMessage(''); }}>{configuration ? 'Modifier mes choix' : 'Configurer mon accompagnement'}</button>
     </>}

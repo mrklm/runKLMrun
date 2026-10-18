@@ -38,7 +38,7 @@ for (const width of [390,1280]) test(`Coach unique, sept objectifs et configurat
   await c.getByLabel('Votre préférence d’accompagnement').selectOption('accepted');
   await c.getByLabel('Chrono cible', { exact: false }).fill('01:10:00');
   await c.getByRole('button', { name: 'Enregistrer mes choix' }).click();
-  await expect(c.getByText('Propositions autorisées — acceptation au cas par cas')).toBeVisible();
+  await expect(c.getByText('Propositions autorisées')).toBeVisible();
   await c.getByRole('button', { name: 'Modifier mes choix' }).click();
   await c.getByRole('combobox', { name: 'Votre objectif', exact: true }).selectOption('wellbeing');
   await c.getByRole('button', { name: 'Enregistrer mes choix' }).click();
