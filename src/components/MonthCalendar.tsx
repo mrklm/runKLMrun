@@ -8,30 +8,28 @@ import type { RunningSession } from '../types/session';
 import type { StoredSuggestion } from '../types/coach-suggestion';
 import { coachV2Labels } from './CoachV2Experimental';
 import { coachV2Enabled, coachV2PublicEnabled } from '../core/coach/activation-v2';
-import { createSuggestionV2Repository } from '../storage/coach-suggestions-v2';
-import type { PersistableOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
+import { readCoachV2Projection, type CoachV2Projection } from './coach-v2-projection';
 const calendarDuration = (value: number) => {
   if (!Number.isFinite(value) || value < 0) return '—';
   const seconds = Math.floor(value), hours = Math.floor(seconds / 3600), minutes = Math.floor(seconds / 60) % 60;
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 };
 const repository = createSuggestionRepository();
-const repositoryV2 = createSuggestionV2Repository();
 const weekdays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 export function MonthCalendar({ sessions, today }: { sessions: RunningSession[]; today: string }) {
   const [month, setMonth] = useState(() => today.slice(0, 7));
   const [suggestions, setSuggestions] = useState<StoredSuggestion[]>([]);
-  const [suggestionsV2, setSuggestionsV2] = useState<PersistableOccurrenceV2[]>([]);
+  const [projectionV2, setProjectionV2] = useState<CoachV2Projection>();
   const [error, setError] = useState(false);
   useEffect(() => {
     let generation = 0;
     const refresh = () => {
       const current = ++generation;
       setSuggestions([]);
-      const v2 = coachV2Enabled() ? repositoryV2.listAll() : Promise.resolve([]);
+      const v2 = coachV2Enabled() ? readCoachV2Projection() : Promise.resolve(undefined);
       const v1 = coachV2PublicEnabled() ? Promise.resolve([]) : repository.list();
       void Promise.all([v1, v2]).then(([records, recordsV2]) => {
-        if (current === generation) { setSuggestions(records); setSuggestionsV2(recordsV2.filter(item=>item.state!=='obsolete')); setError(false); }
+        if (current === generation) { setSuggestions(records); setProjectionV2(recordsV2); setError(false); }
       }).catch(() => { if (current === generation) setError(true); });
     };
     const unsubscribe = subscribeStorage(['suggestions', 'suggestions-v2', 'sessions'], refresh);
@@ -58,7 +56,7 @@ export function MonthCalendar({ sessions, today }: { sessions: RunningSession[];
           <strong>● Sortie réalisée</strong><span>{measure(session.distanceMeters, 'km', 1000)} · {calendarDuration(session.durationSeconds)}</span>
         </a>)}
         {events.future.get(date)?.map(suggestion => <div className="calendar-suggestion" key={suggestion.id}><strong>○ Suggestion facultative</strong><span>{suggestion.kind === 'endurance' ? 'Endurance' : suggestion.kind === 'discovery' ? 'Découverte' : 'Sortie facile'} · {calendarDuration(suggestion.durationSeconds)}</span></div>)}
-        {suggestionsV2.filter(item=>item.opportunity.suggestedFor===date).map(item=><div className="calendar-suggestion calendar-suggestion-v2" key={item.id} data-testid="calendar-suggestion-v2"><strong>◇ Suggestion du Coach</strong><span>{coachV2Labels.type[item.content.type]} · {calendarDuration(item.content.totalDurationSeconds)}</span></div>)}
+        {projectionV2?.perspectives.filter(item=>item.date===date).map((item,index)=><div className="calendar-suggestion calendar-suggestion-v2" key={`${item.date}-${index}`} data-testid="calendar-suggestion-v2"><strong>◇ Suggestion du Coach</strong><span>{coachV2Labels.type[item.session.type]} · {calendarDuration(item.session.totalDurationSeconds)}</span></div>)}
       </li> : <li className="calendar-blank" aria-hidden="true" key={`blank-${index}`} />)}
     </ol>
   </section>;

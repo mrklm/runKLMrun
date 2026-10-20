@@ -1,5 +1,11 @@
 # Historique des versions
 
+## v0.12.0 — 2026-10-20 — Suggestions et paramètres
+
+- Coach : calendrier synchronisé avec la suggestion V2 courante et ses perspectives révisables, sans écriture supplémentaire.
+- Interface : suggestions homogènes, activités récentes et type de Coach repliés par défaut.
+- Paramètres : bilan Coach, chaussures et sauvegardes accessibles dans des sections repliables ; titres harmonisés.
+
 ## v0.11.0 — 2026-10-20 — Coach V2 public
 
 - Coach V2 devient le Coach principal en développement comme en production, sans activation locale ; le moteur V1 reste disponible comme secours dans le code.

@@ -3,27 +3,30 @@ import { Appearance } from '../components/Appearance';
 import { CoachConfiguration } from '../components/CoachConfiguration';
 import { CoachTemperamentSettings } from '../components/CoachTemperamentSettings';
 import { CoachProfile } from '../components/CoachProfile';
+import { Shoes } from '../components/Shoes';
+import { Training } from './Training';
 import { useState } from 'react';
+import type { RunningSession } from '../types/session';
 
-export function Settings({ active = true }: { active?: boolean }) {
+export function Settings({ active = true, sessions = [] }: { active?: boolean; sessions?: RunningSession[] }) {
   const [storageOpen, setStorageOpen] = useState(false);
   return (
     <>
-      <header className="page-heading"><span className="eyebrow">VOTRE ESPACE PERSONNEL</span><h1>Paramètres</h1><p>Comprenez où sont conservées vos données.</p></header>
+      <header className="page-heading"><h1>Paramètres</h1></header>
       <section aria-labelledby="settings-coach-title">
         <h2 id="settings-coach-title">Coach</h2>
         <details className="panel settings-panel"><summary>Configurer le Coach</summary>
           {active && <><CoachConfiguration /><CoachProfile /></>}
         </details>
         {active && <CoachTemperamentSettings />}
-        <p><a href="#/entrainement">Ancien planning et page Coach</a></p>
+        <details className="panel settings-panel"><summary>Configuration et bilan</summary>{active && <Training sessions={sessions} embedded />}</details>
       </section>
       <section aria-labelledby="settings-shoes-title">
         <h2 id="settings-shoes-title">Chaussures</h2>
-        <p><a href="#/chaussures">Mes chaussures</a></p>
+        <details className="panel settings-panel"><summary>Mes chaussures</summary>{active && <Shoes sessions={sessions} embedded />}</details>
       </section>
       <section aria-labelledby="settings-data-title"><h2 id="settings-data-title">Données</h2>
-      <Backups />
+      <details className="panel settings-panel"><summary>Données et sauvegardes</summary>{active && <Backups />}</details>
       </section>
       <section aria-labelledby="settings-app-title"><h2 id="settings-app-title">Application</h2><Appearance /></section>
       <section className="panel settings-panel" aria-labelledby="storage-title">

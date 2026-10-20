@@ -4,8 +4,10 @@ import { expect, it, vi } from 'vitest';
 import { MonthCalendar } from './MonthCalendar';
 import { SessionList } from './SessionList';
 import { Settings } from '../pages/Settings';
+import { Home } from '../pages/Home';
 import { CoachV2Comparison } from './CoachV2Comparison';
 import { CoachSuggestionCard } from './CoachV2Experimental';
+import { CoachTemperamentSettings } from './CoachTemperamentSettings';
 
 vi.mock('./Appearance', () => ({ Appearance: () => createElement('div') }));
 vi.mock('./Backups', () => ({ Backups: () => createElement('div') }));
@@ -39,4 +41,22 @@ it('garde le stockage local fermé et accessible, sans la notice informative sup
   const html = renderToStaticMarkup(createElement(Settings, { active: false }));
   expect(html).toContain('Afficher les détails'); expect(html).toContain('aria-expanded="false"');
   expect(html).not.toContain('Conservation des données détaillées');
+  expect(html).toContain('Configuration et bilan'); expect(html).toContain('Mes chaussures'); expect(html).toContain('Données et sauvegardes');
+});
+
+it('replie par défaut les activités récentes et le type de Coach', () => {
+  const home = renderToStaticMarkup(createElement(Home, { sessions: [] }));
+  expect(home).toContain('<details class="panel settings-panel" aria-labelledby="activity-title"><summary id="activity-title">Activités récentes</summary>');
+  const temperament = renderToStaticMarkup(createElement(CoachTemperamentSettings));
+  expect(temperament).toContain('<details class="panel settings-panel coach-temperament" aria-labelledby="coach-temperament-title"><summary id="coach-temperament-title">Type de Coach</summary>');
+  expect(temperament).not.toContain(' open=""');
+});
+
+it('ne conserve que la description active du tempérament', () => {
+  const html = renderToStaticMarkup(createElement(CoachTemperamentSettings));
+  expect(html).toContain('coach-temperament-description');
+  expect(html).not.toContain('Tempérament choisi');
+  expect(html).not.toContain('Préférence enregistrée');
+  expect(html).not.toContain('pas ton niveau sportif');
+  expect(html).not.toContain('Ce choix s’applique aux nouveaux calculs');
 });

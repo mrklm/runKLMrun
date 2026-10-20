@@ -89,7 +89,7 @@ export function App() {
     }
   }, [path, currentPage, isSession]);
 
-  const needsData = path === '/chaussures' || path === '/entrainement' || isSession || path === '/' || path === '/courses';
+  const needsData = path === '/chaussures' || path === '/entrainement' || path === '/parametres' || isSession || path === '/' || path === '/courses';
   return (
     <>
     {showSplash && <SplashScreen />}
@@ -109,7 +109,7 @@ export function App() {
         {isSession && data.status === 'ready' && <Suspense fallback={<p role="status">Chargement de la fiche…</p>}><Session key={path} session={data.sessions.find(s => s.id === sessionId)} /></Suspense>}
         {path === '/chaussures' && data.status === 'ready' && <Shoes sessions={data.sessions} />}
         {path === '/entrainement' && data.status === 'ready' && <Training sessions={data.sessions} />}
-        <div hidden={path !== '/parametres'}><Settings active={path === '/parametres'} /></div>
+        <div hidden={path !== '/parametres'}><Settings active={path === '/parametres'} sessions={data.status === 'ready' ? data.sessions : []} /></div>
         {!currentPage && !isSession && <section className="panel status"><h1>Page introuvable</h1><p>Cette page n’existe pas.</p><a className="button" href="#/">Revenir à l’accueil</a></section>}
       </main>
       <footer><span>runKLMrun</span></footer>

@@ -11,7 +11,7 @@ const session = (day: number, extra: Partial<RunningSession> = {}): RunningSessi
 const render = (sessions: RunningSession[]) => renderToStaticMarkup(createElement(Home, { sessions }));
 const titles = (html: string) => [...html.matchAll(/<strong>(Sortie synthétique [^<]+)<\/strong>/g)].map(m => m[1]);
 const recentTitles = (html: string) => {
-  const section = html.match(/<h2 id="activity-title">Activités récentes<\/h2>([\s\S]*?)<a href="#\/courses\/historique">/);
+  const section = html.match(/<summary id="activity-title">Activités récentes<\/summary>([\s\S]*?)<a href="#\/courses\/historique">/);
   return titles(section?.[1] ?? '');
 };
 describe('dernières sorties de l’accueil', () => {

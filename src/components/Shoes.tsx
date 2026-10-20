@@ -95,7 +95,7 @@ export function ImportShoeSuggestion({ ids }: { ids: string[] }) {
   }, [ids]);
   return data.settings?.mode !== 'automatic' && shoe && recent.length ? <ShoeAttribution key={recent.join('|')} shoes={data.shoes} ids={recent} defaultId={shoe.id} /> : null;
 }
-export function Shoes({ sessions }: { sessions: RunningSession[] }) {
+export function Shoes({ sessions, embedded = false }: { sessions: RunningSession[]; embedded?: boolean }) {
   const data = useShoes();
   const automatic = data.settings?.mode === 'automatic', today = localToday();
   const timeline = shoeTimeline(data.shoes, sessions, today);
@@ -142,7 +142,7 @@ export function Shoes({ sessions }: { sessions: RunningSession[] }) {
     try { await shoeRepository.save({ ...shoe, status: shoe.status === 'active' ? 'archived' : 'active', isDefault: false }, shoe.revision); setError(''); }
     catch (e) { setError(e instanceof Error ? e.message : 'Enregistrement impossible.'); }
   }
-  return <><header className="page-heading"><h1>Mes chaussures</h1><p>Un suivi facultatif, calculé à partir de vos sorties. Votre limite est un repère indicatif, jamais une obligation de remplacement.</p></header>
+  return <>{!embedded && <header className="page-heading"><h1>Mes chaussures</h1><p>Un suivi facultatif, calculé à partir de vos sorties. Votre limite est un repère indicatif, jamais une obligation de remplacement.</p></header>}
     {(data.error || error) && <p role="alert">{data.error || error}</p>}
     {data.loading ? <p role="status">Chargement de vos chaussures…</p> : <>
       {!data.shoes.length && <section className="panel settings-panel shoe-panel"><h2>Votre première paire</h2><p>Ajoutez une paire, puis choisissez les sorties à lui associer. Les dates renseignées ne déclenchent aucune attribution.</p></section>}

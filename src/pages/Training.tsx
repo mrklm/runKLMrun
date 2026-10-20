@@ -22,7 +22,7 @@ function Coverage({ measure, name }: { measure: CoveredMeasure; name: string }) 
     {measure.known < measure.total && <> Mesure partielle : {measure.missing} non renseignées, {measure.invalid} invalides.</>}
   </span>;
 }
-export function Training({ sessions }: { sessions: RunningSession[] }) {
+export function Training({ sessions, embedded = false }: { sessions: RunningSession[]; embedded?: boolean }) {
   const [weeks, setWeeks] = useState<TrainingWeeks>(8);
   const [today, setToday] = useState(localToday);
   useEffect(() => {
@@ -34,9 +34,9 @@ export function Training({ sessions }: { sessions: RunningSession[] }) {
   const comparison = useMemo(() => compareTraining(sessions, weeks, today), [sessions, weeks, today]);
   const data = comparison.current;
   return <>
-    <header className="page-heading"><h1>Coach</h1></header>
-    <CoachV2Experimental />
-    <CoachV2Comparison />
+    {!embedded && <header className="page-heading"><h1>Coach</h1></header>}
+    {!embedded && <CoachV2Experimental />}
+    {!embedded && <CoachV2Comparison />}
     {!coachV2PublicEnabled()&&<CoachPlanning sessions={sessions} />}
     <CoachProfile comparison={comparison}>
 <section className="panel settings-panel training-history" aria-labelledby="training-history-title">

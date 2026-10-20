@@ -10,7 +10,7 @@ export function Home({ sessions }: { sessions: RunningSession[] }) {
   const recent = useMemo(() => [...sessions].filter(s => validSessionDate(s.date))
     .sort((a,b) => (b.startTime ?? b.date).localeCompare(a.startTime ?? a.date)), [sessions]);
   return <>
-    <h1 className="home-title">Accueil</h1>
+    <header className="page-heading"><h1>Accueil</h1></header>
     <section className="panel" aria-labelledby="latest-activity-title">
       <h2 id="latest-activity-title">Dernière sortie</h2>
       {recent.length ? <SessionList sessions={recent.slice(0,1)} /> : <EmptyState title="Votre histoire commence ici">
@@ -20,10 +20,10 @@ export function Home({ sessions }: { sessions: RunningSession[] }) {
       <ShoeAlert sessions={sessions} />
     </section>
     <CoachV2Experimental />
-    <section className="panel" aria-labelledby="activity-title">
-      <h2 id="activity-title">Activités récentes</h2>
+    <details className="panel settings-panel" aria-labelledby="activity-title">
+      <summary id="activity-title">Activités récentes</summary>
       {recent.length ? <SessionList sessions={recent.slice(0,4)} compact /> : <p>Aucune sortie récente enregistrée.</p>}
       <p><a href="#/courses/historique">Voir tout l’historique</a></p>
-    </section>
+    </details>
   </>;
 }

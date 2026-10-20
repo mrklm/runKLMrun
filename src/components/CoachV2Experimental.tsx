@@ -1,11 +1,9 @@
-import { coachV2Perspectives } from '../core/coach/perspectives-v2';
 import { useEffect,useRef,useState,type ReactNode } from 'react';
 import { localToday } from '../core/analysis/statistics-period';
-import { localCoachV2Reference } from '../core/coach/local-reference-v2';
 import { formatCoachDuration } from './coach-planning-display';
-import { reusableActiveOccurrenceV2 } from '../core/coach/presentation-identity-v2';
-import { calculateCoachV2Readonly } from '../storage/coach-v2-readonly';
-import { CoachV2TemperamentChanged,createSuggestionV2Repository,presentCoachV2Selection } from '../storage/coach-suggestions-v2';
+import { readCoachV2Projection } from './coach-v2-projection';
+import { coachV2Perspectives, type CoachV2Perspective } from '../core/coach/perspectives-v2';
+import { CoachV2TemperamentChanged,presentCoachV2Selection } from '../storage/coach-suggestions-v2';
 import { civilDate,ianaTimeZone,instantIso,type PersistableOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
 import type { CoachV2ReadonlyResult } from '../core/coach/application-adapter-v2';
 import { COACH_V2_INTERNAL_COMPARISON_ENABLED,coachV2Enabled } from '../core/coach/activation-v2';
@@ -16,7 +14,7 @@ import { CoachExplanationDetails } from './CoachExplanationDetails';
 export const coachV2InternalEnabled=()=>import.meta.env.DEV&&COACH_V2_INTERNAL_COMPARISON_ENABLED;
 export { coachV2Labels };
 const dateLabel=(value:string)=>value.split('-').reverse().join('/');
-type View={result:CoachV2ReadonlyResult;occurrence?:PersistableOccurrenceV2;freshExplanation?:ReturnType<typeof coachV2Explanation>};
+type View={result:CoachV2ReadonlyResult;occurrence?:PersistableOccurrenceV2;perspectives?:CoachV2Perspective[];freshExplanation?:ReturnType<typeof coachV2Explanation>};
 type CoachSession=Pick<NonNullable<CoachV2ReadonlyResult['candidate']>,'type'|'totalDurationSeconds'|'intensity'|'terrain'>;
 export function CoachSuggestionCard({session,date,label,reasons,limitations,primary=false,instructions}:{session:CoachSession;date:string;label:string;reasons:readonly string[];limitations:readonly string[];primary?:boolean;instructions?:ReactNode}) {
   return <article className={`panel coach-v2-card${primary?' coach-v2-card-primary':''}`}>
@@ -44,9 +42,8 @@ export function CoachV2Experimental() {
     document.addEventListener('visibilitychange',consult);
     return()=>document.removeEventListener('visibilitychange',consult);
   },[enabled]);
-  useEffect(()=>{if(!enabled)return;let active=true;setView(undefined);setLoadError('');const reference=localCoachV2Reference();
-    calculateCoachV2Readonly(reference).then(async result=>{const occurrences=await createSuggestionV2Repository().listAll();
-      if(active)setView({result,occurrence:reusableActiveOccurrenceV2(occurrences,result,reference.date)});})
+  useEffect(()=>{if(!enabled)return;let active=true;setView(undefined);setLoadError('');
+    readCoachV2Projection().then(({result,occurrence,perspectives})=>{if(active)setView({result,occurrence,perspectives});})
       .catch(()=>{if(active)setLoadError('Le Coach ne peut pas préparer de suggestion pour le moment.');});return()=>{active=false;};},[enabled,refresh]);
   const result=view?.result,occurrence=view?.occurrence,session=occurrence?.content??result?.candidate,
     date=occurrence?.opportunity.suggestedFor??result?.selectedDate;
@@ -59,7 +56,7 @@ export function CoachV2Experimental() {
         presentedOn:civilDate(localToday()),timeZone:ianaTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone),utcOffsetMinutes:-now.getTimezoneOffset(),civilDateRule:'device-local-at-presentation'},
         provenance:{engine:'coach-v2',contractVersion:1,referenceConfidence:result.reference.confidence==='confirmed'?'confirmed':'provisional',
           referenceSourceIds:[...result.reference.sourceIds],limitationCodes:[]}}).then(stored=>{
-            if(stillVisible())setView({result,occurrence:stored.occurrence,
+            if(stillVisible())setView({result,occurrence:stored.occurrence,perspectives:coachV2Perspectives(result,stored.occurrence),
               ...(stored.status==='created'?{freshExplanation:coachV2Explanation(result)}:{})});
           }).catch(error=>{
             if(error instanceof CoachV2TemperamentChanged){attemptedRef.current='';setRefresh(value=>value+1);}
@@ -73,7 +70,7 @@ export function CoachV2Experimental() {
   if(!session||!date)return <section className="panel coach-v2-experimental" aria-label="Coach" data-testid="coach-v2-experimental"><h2>Suggestions du Coach</h2>
     <p>{result!.reason==='missing-temporal-anchor'?'Le Coach ne dispose pas encore d’un repère stable pour proposer une séance.':'Aucune suggestion adaptée n’est disponible actuellement.'}</p>
     <CoachExplanationDetails {...coachV2Explanation(result!)}/></section>;
-  const perspectives=coachV2Perspectives(result!,occurrence).slice(1);
+  const perspectives=(view.perspectives??[]).slice(1);
   return <section ref={cardRef} className="panel coach-v2-experimental" aria-label="Coach" data-testid="coach-v2-experimental">
     <h2>Suggestions du Coach</h2>
     <p className="training-coverage">Des idées pour les prochains jours :</p>
