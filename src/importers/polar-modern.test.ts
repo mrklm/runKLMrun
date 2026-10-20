@@ -63,6 +63,10 @@ describe('export Polar à identifiant sportif numérique', () => {
   it('convertit les millisecondes et conserve les mètres et le dénivelé', () => {
     expect(parse()?.session).toMatchObject({ durationSeconds: 600, distanceMeters: 2000, ascentMeters: 20, descentMeters: 15, averagePaceSecondsPerKm: 300 });
   });
+  it('conserve l’instant UTC et utilise le décalage Polar pour la date civile près de minuit', () => {
+    const f = fixture(); f.exercises[0].startTime = '2026-10-18T22:30:00Z'; f.exercises[0].timezoneOffsetMinutes = 120;
+    expect(parse(f)?.session).toMatchObject({ startTime: '2026-10-18T22:30:00Z', date: '2026-10-19' });
+  });
   it('conserve les fractions de seconde', () => { const f = fixture(); f.exercises[0].durationMillis = 1500; expect(parse(f)?.session.durationSeconds).toBe(1.5); });
   it('lit exclusivement les statistiques FC pour les métriques cardiaques', () => {
     expect(parse()?.session).toMatchObject({ averageHeartRate: 140, maximumHeartRate: 170 });

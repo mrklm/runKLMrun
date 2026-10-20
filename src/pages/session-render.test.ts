@@ -14,6 +14,11 @@ describe('fiche de séance', () => {
     const html = renderToStaticMarkup(createElement(SessionInformation, { session: { ...session, maximumHeartRate: 175, heartRateZones: [{ lower: 120 }, { durationSeconds: 0 }] } }));
     for (const text of ['01/01/2026', '175 bpm', 'Charge cardio Polar', 'Running Index', '—', '0 h 0 min 0 s']) expect(html).toContain(text);
   });
+  it('préserve les secondes de l’heure dans la fiche et les minutes dans la liste', () => {
+    const value = { ...session, startTime: '2026-01-01T12:35:42' };
+    expect(renderToStaticMarkup(createElement(SessionInformation, { session: value }))).toContain('12:35:42');
+    expect(renderToStaticMarkup(createElement(History, { sessions: [value] }))).toContain('12:35');
+  });
   it('gère une séance introuvable avec retour vers l’historique', () => {
     const html = renderToStaticMarkup(createElement(Session, {}));
     expect(html).toContain('Séance introuvable'); expect(html).toContain('href="#/courses/historique"');

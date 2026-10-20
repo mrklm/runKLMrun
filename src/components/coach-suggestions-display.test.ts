@@ -12,6 +12,6 @@ it.each([0,1,2,3])('affiche %s cartes sans validation ni écriture au rendu',cou
  const available:Weekday[]=count===0?[]:count===1?['monday']:count===2?['monday','wednesday']:days;
  const proposal=proposeSuggestions({configuration:{goal:{model:'evolving',kind:'endurance'},structuredPlanningPreference:'accepted'},historicalProfile:{goal:{},availability:{days:available,minutesPerSession:90},preferences:{}},sessions,referenceDate:'2026-10-17',policy:productPolicy('endurance')});
  const html=renderToStaticMarkup(createElement(CoachSuggestions,{proposal,context:{sessions}}));
- expect((html.match(/<article /g)??[]).length).toBe(count);expect(html).toContain('Suggestions du Coach');expect(html).not.toContain('<button');
+ expect((html.match(/<article /g)??[]).length).toBe(count);expect(html).toContain('Suggestions du Coach');if(count)expect(html).toContain('Des idées pour les prochains jours :');expect(html).not.toContain('<button');
  expect(html).not.toContain('Terrain libre');expect(html).not.toContain('séance manquée');expect(spy).not.toHaveBeenCalled();spy.mockRestore();
 });

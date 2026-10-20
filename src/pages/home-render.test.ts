@@ -19,6 +19,7 @@ describe('dernières sorties de l’accueil', () => {
     const html = render(Array.from({ length: 8 }, (_, i) => session(i + 1)));
     expect(recentTitles(html)).toEqual([8, 7, 6, 5].map(i => `Sortie synthétique ${i}`));
     expect(html).toContain('Dernière sortie'); expect(html).toContain('Activités récentes');
+    expect(html).toContain('Suggestions du Coach'); expect(html).not.toContain('Suggestion facultative V1');
   });
   it('classe les séances par date puis heure décroissante sans modifier les données reçues', () => {
     const input = [session(2, { id: 'early', title: 'Sortie synthétique matin', startTime: '2025-01-02T08:00:00' }), session(1), session(2, { id: 'late', title: 'Sortie synthétique soir', startTime: '2025-01-02T18:00:00' })];

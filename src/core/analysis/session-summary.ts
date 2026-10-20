@@ -79,6 +79,7 @@ export function statistics(sessions: readonly RunningSession[], year = 'all') {
 }
 export const formatNumber = (value: number) => value.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 export function formatMeasure(measure: Measure, divisor = 1): string { return measure.value === null ? '—' : formatNumber(measure.value / divisor); }
+export const formatAscentMeasure = (measure: Measure): string => measure.value === null ? '—' : Math.round(measure.value).toLocaleString('fr-FR');
 export function coverage(measure: Measure): string {
   return measure.known < measure.total ? `Données disponibles : ${measure.known}/${measure.total} séances` : 'Toutes les séances renseignées';
 }

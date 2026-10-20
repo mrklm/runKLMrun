@@ -8,7 +8,7 @@ export type PresentationKey=string&{readonly __brand:'PresentationKey'};
 export type CivilDate=string&{readonly __brand:'CivilDate'};
 export type InstantIso=string&{readonly __brand:'InstantIso'};
 export type IanaTimeZone=string&{readonly __brand:'IanaTimeZone'};
-export type SessionTypeV2='easy-endurance'|'long-run'|'steady-run'|'intervals'|'hills'|'recovery';
+export type SessionTypeV2='easy-endurance'|'endurance-variations'|'long-run'|'steady-run'|'intervals'|'hills'|'recovery';
 export type IntensityV2='very-easy'|'easy'|'steady'|'controlled-hard';
 export type TerrainV2='flat'|'rolling'|'hills';
 export type PresentationStateV2='active'|'obsolete'|'associated';
@@ -63,12 +63,12 @@ export type ObservePresentationResultV2=
   |{readonly status:'existing';readonly occurrence:PersistableOccurrenceV2}
   |{readonly status:'content-conflict';readonly occurrence:PersistableOccurrenceV2};
 
-const types:readonly SessionTypeV2[]=['easy-endurance','long-run','steady-run','intervals','hills','recovery'];
+const types:readonly SessionTypeV2[]=['easy-endurance','endurance-variations','long-run','steady-run','intervals','hills','recovery'];
 const intensities:readonly IntensityV2[]=['very-easy','easy','steady','controlled-hard'];
 const terrains:readonly TerrainV2[]=['flat','rolling','hills'];
 const weekdays:readonly WeekdayV2[]=['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
 const goals:readonly PrototypeGoal[]=['begin','return','wellbeing','endurance','speed','distance','race'];
-const structuredTypes:readonly SessionTypeV2[]=['steady-run','intervals','hills'];
+const structuredTypes:readonly SessionTypeV2[]=['endurance-variations','steady-run','intervals','hills'];
 export const V2_OPERATIONAL_WINDOW_DAYS=42;
 function fail(message:string):never {throw new Error(`Contrat de persistance V2 invalide : ${message}`);}
 const object=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);

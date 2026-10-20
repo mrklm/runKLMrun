@@ -1,6 +1,7 @@
 import type { RunningSession, Sample, SessionDetails } from '../types/session';
 import { PolarImportError } from './polar-errors';
 import { POLAR_SPORT_IDS, RUNNING_SPORTS } from './polar-sports';
+import { civilDateFromActivityStart } from '../core/analysis/activity-time';
 
 type Obj = Record<string, unknown>;
 export const object = (v: unknown): Obj => v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Obj : {};
@@ -63,7 +64,7 @@ export function parseModernPolar(root: Obj, exercise: Obj, filename: string, kee
   if (timezoneOffsetMinutes !== undefined && !Number.isInteger(timezoneOffsetMinutes)) throw new PolarImportError('invalidNumbers');
   const session: RunningSession = {
     id, polarId, polarSportId: sportId as string, sport, title: 'Course à pied',
-    date: startTime.slice(0, 10), startTime, timezoneOffsetMinutes,
+    date: civilDateFromActivityStart(startTime, timezoneOffsetMinutes), startTime, timezoneOffsetMinutes,
     durationSeconds, distanceMeters, averageHeartRate, maximumHeartRate,
     ascentMeters: numeric(exercise.ascentMeters), descentMeters: numeric(exercise.descentMeters),
     runningIndex: numeric(exercise.runningIndex),

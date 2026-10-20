@@ -29,6 +29,10 @@ describe('lecture TCX', () => {
     expect(result.details.gps?.[0]).toMatchObject({ timeSeconds: 0, latitude: 0, longitude: 0, altitudeMeters: -5 });
     expect(result.details.distance?.[0].value).toBe(10); expect(result.session.id).toMatch(/^tcx:[0-9a-f]{64}$/);
   });
+  it('conserve la date civile explicitement portée par un horodatage zoné', async () => {
+    const text = '<?xml version="1.0"?><TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"><Activities><Activity Sport="Running"><Lap StartTime="2026-10-18T23:30:00+02:00"><TotalTimeSeconds>60</TotalTimeSeconds><DistanceMeters>150</DistanceMeters></Lap></Activity></Activities></TrainingCenterDatabase>';
+    expect((await parseTcx(text, readXml))?.session).toMatchObject({ startTime: '2026-10-18T23:30:00+02:00', date: '2026-10-18' });
+  });
   it('utilise le DOMParser navigateur par défaut', async () => {
     vi.stubGlobal('DOMParser', class { parseFromString(text: string) { return readXml(text); } });
     expect((await parseTcx(tcx()))?.session.sport).toBe('RUNNING');

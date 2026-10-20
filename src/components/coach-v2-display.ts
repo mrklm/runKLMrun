@@ -7,12 +7,12 @@ import type { PersistableOccurrenceV2 } from '../core/coach/persistence-foundati
 import { formatCoachDuration, formatCoachDurationText } from './coach-planning-display';
 import type { CoachV2Reference } from '../core/coach/local-reference-v2';
 
-export const coachV2Labels={type:{'easy-endurance':'Endurance facile','long-run':'Sortie longue','steady-run':'Sortie soutenue',intervals:'Fractionné',hills:'Côtes',recovery:'Récupération'},
+export const coachV2Labels={type:{'easy-endurance':'Endurance facile','endurance-variations':'Endurance à variations modérées','long-run':'Sortie longue','steady-run':'Sortie soutenue',intervals:'Fractionné',hills:'Côtes',recovery:'Récupération'},
   intensity:{'very-easy':'Très facile',easy:'Facile',steady:'Soutenue','controlled-hard':'Effort contrôlé'},terrain:{flat:'Plat',rolling:'Vallonné',hills:'Côtes'}} as const;
 const labels:Record<string,string>={...coachV2Labels.type,...coachV2Labels.intensity,...coachV2Labels.terrain,
   discovery:'Sortie de découverte',endurance:'Sortie d’endurance',selected:'Sélectionnée',
   'not-enabled':'Non activé',possible:'Possible',cautious:'Prudence', 'insufficient-data':'Données insuffisantes',unavailable:'Indisponible',
-  'no-candidate':'Aucune suggestion admissible','recent-activity':'Activité trop récente','recent-presentation':'Suggestion présentée récemment',
+  'no-candidate':'Aucune suggestion admissible','recent-activity':'Activité trop récente','very-hard-recovery':'Récupération après ressenti très difficile','recent-presentation':'Suggestion présentée récemment',
   'catalog-unavailable':'Aucune séance disponible','missing-temporal-anchor':'Repère temporel manquant',
   'no-available-date':'Aucun jour disponible','no-admissible-date':'Aucune date admissible',
   road:'Route',trail:'Chemins',treadmill:'Tapis',none:'Aucune préférence'};
@@ -37,6 +37,15 @@ export function coachV2Explanation(result:CoachV2ReadonlyResult):CoachV2Explanat
     if(reference===result.reference.referenceSeconds)reasons.push(...result.reference.reasons);
   }
   if(result.dailyMaximumSeconds!==null)reasons.push(`Temps disponible ce jour : ${formatCoachDuration(result.dailyMaximumSeconds)} maximum.`);
+  const progressionState=result.catalog.adaptedInput?.progressionState;
+  const progressive=progressionState==='progression-possible'&&reference!=null&&session.type==='easy-endurance'
+    &&session.totalDurationSeconds>reference&&session.changedDimensions.includes('duration');
+  if(progressive)reasons.push(`Durée légèrement augmentée de ${formatCoachDuration(session.totalDurationSeconds-reference)} à partir d’une pratique réelle régulière.`);
+  else if(progressionState==='maintien'&&reference!=null&&session.type==='easy-endurance'&&session.totalDurationSeconds===reference)
+    reasons.push('La durée habituelle est conservée : les preuves actuelles ne justifient pas une progression.');
+  if(progressionState==='recuperation'&&result.reference.confidence==='confirmed'&&result.catalog.adaptedInput?.intervalIntroduction?.eligible)
+    reasons.push('Une activité récente ressentie comme très difficile conduit à conserver une séance facile.');
+  if(session.type==='endurance-variations')reasons.push('Séance d’endurance à allure modulée, sans fractionné rapide.');
   if(!session.structure)reasons.push(...result.catalog.reasons.filter(text=>text.startsWith('Référence provisoire :')||text.startsWith('Débuter :')));
   // Les motifs du candidat sont les seules traces détaillées du type, de l'intensité et du terrain.
   reasons.push(...session.rationale.observedFacts.filter(text=>reference==null||!text.startsWith('Référence fournie : ')),
@@ -62,7 +71,7 @@ export function coachV2PerspectiveExplanation(value:CoachV2Perspective):CoachV2E
   return {
     reasons:coachExplanationLines(['Cette date disponible respecte les espacements avec les activités connues et les séances envisagées précédentes.',
       ...(rationale?[...rationale.observedFacts,...rationale.runnerDeclarations,...rationale.designChoices]:[])]),
-    limitations:coachExplanationLines(['Perspective facultative, susceptible d’évoluer à la prochaine consultation selon les activités réelles.',
+    limitations:coachExplanationLines(['Perspective indicative et révisable : elle n’est pas une activité réalisée.',
       ...(rationale?.uncertainties??[])]),
   };
 }

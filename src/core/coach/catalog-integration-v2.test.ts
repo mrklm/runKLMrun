@@ -85,4 +85,31 @@ describe('raccordement expérimental du catalogue V2',()=>{
     const activities=confirmed(),suggestions=activities.map(stored),copy=structuredClone(suggestions);
     call(activities,config(),suggestions);expect(suggestions).toEqual(copy);
   });
+
+  it('conseille seulement un relief vallonné documenté, sans créer de côtes ni préférence',()=>{
+    const activities=confirmed().map((session,index)=>index===0?{...session,ascentMeters:120}:session);
+    const result=call(activities);
+    expect(result.adaptedInput?.observedTerrain).toBe('rolling');
+    expect(result.sessions[0]).toMatchObject({type:'easy-endurance',terrain:'rolling',intensity:'easy'});
+    expect(result.sessions.some(value=>value.type==='hills')).toBe(false);
+    expect(result.sessions[0].rationale.observedFacts.join(' ')).toContain('Relief positif documenté');
+    expect(result.sessions[0].rationale.runnerDeclarations).toEqual([]);
+  });
+
+  it('écarte le dénivelé absent, incohérent ou TCX partiel',()=>{
+    const base=confirmed();
+    for(const session of [
+      {...base[0],ascentMeters:undefined},
+      {...base[0],ascentMeters:120,ascentEstimate:{method:'hysteresis-3m-v1' as const,quality:'partial' as const,meters:120}},
+      {...base[0],ascentMeters:120,ascentEstimate:{method:'hysteresis-3m-v1' as const,quality:'complete' as const,meters:121}},
+    ]) expect(call([session,...base.slice(1)]).sessions[0].terrain).toBe('flat');
+  });
+
+  it('ne transforme pas la surface déclarée en préférence de relief',()=>{
+    const activities=confirmed().map((session,index)=>index===0?{...session,ascentMeters:120}:session);
+    const result=call(activities);
+    expect(profile.preferences.terrain).toBe('trail');
+    expect(result.sessions[0].terrain).toBe('rolling');
+    expect(result.reasons.join(' ')).toContain('Surface déclarée « trail » conservée comme préférence.');
+  });
 });

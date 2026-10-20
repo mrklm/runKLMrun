@@ -10,11 +10,12 @@ import { prepareSeries } from '../core/analysis/session-detail';
 import { SynchronizedSessionCharts } from '../components/SynchronizedSessionCharts';
 import { EmptyState } from '../components/EmptyState';
 import { CoachV2ActivityAssociation } from '../components/CoachV2ActivityAssociation';
+import { formatActivityTime } from '../core/analysis/activity-time';
 
 export function SessionInformation({ session }: { session: RunningSession }) {
   const fields = [
     ['Date', session.date ? session.date.split('-').reverse().join('/') : '—'],
-    ['Heure', session.startTime?.slice(11, 19) || '—'], ['Durée', duration(session.durationSeconds)],
+    ['Heure', session.startTime ? formatActivityTime(session.startTime, true) : '—'], ['Durée', duration(session.durationSeconds)],
     ['Distance', measure(session.distanceMeters, 'km', 1000)], ['Allure moyenne', pace(session.averagePaceSecondsPerKm)],
     ['Fréquence cardiaque moyenne', heartRate(session.averageHeartRate)], ['Fréquence cardiaque maximale', heartRate(session.maximumHeartRate)],
     [ascentLabel(session.ascentEstimate), ascent(session.ascentMeters)], ['Dénivelé négatif', measure(session.descentMeters, 'm')],

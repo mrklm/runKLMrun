@@ -8,6 +8,9 @@ export interface CoachV2Perspective {
   session:PrototypeSession|PersistableOccurrenceV2['content'];
   indicative:boolean;
 }
+const progressionCandidate=(session:PrototypeSession|PersistableOccurrenceV2['content'],referenceSeconds:number|null)=>
+  session.type==='easy-endurance'&&referenceSeconds!==null&&session.totalDurationSeconds>referenceSeconds
+    &&(!('changedDimensions' in session)||session.changedDimensions.includes('duration'));
 
 /** Projection sans écriture, ancrée sur la proposition effectivement retenue.
  * Les catalogues utilisent uniquement les activités réelles et la même référence.
@@ -18,9 +21,11 @@ export function coachV2Perspectives(result:CoachV2ReadonlyResult,retained?:Persi
   if(!date||!session)return [];
   const values:CoachV2Perspective[]=[{date,session,indicative:false}];
   const envisaged:PresentedSessionEvidence[]=[{date,type:session.type}];
+  let progressionPlanned=progressionCandidate(session,result.reference.referenceSeconds);
   for(const nextDate of Object.keys(result.admissibleSessionsByDate).sort()){
     if(nextDate<=date)continue;
-    const candidates=result.admissibleSessionsByDate[nextDate];
+    const candidates=result.admissibleSessionsByDate[nextDate].filter(candidate=>!progressionPlanned
+      ||!progressionCandidate(candidate,result.reference.referenceSeconds));
     if(!candidates.length)continue;
     const selected=orchestratePrototypeSession({referenceDate:nextDate,
       goal:retained?.opportunity.goal??result.catalog.adaptedInput!.goal,habitualReferenceSeconds:result.reference.referenceSeconds,
@@ -29,6 +34,7 @@ export function coachV2Perspectives(result:CoachV2ReadonlyResult,retained?:Persi
     if(!selected)continue;
     values.push({date:nextDate,session:selected,indicative:true});
     envisaged.push({date:nextDate,type:selected.type});
+    progressionPlanned ||= progressionCandidate(selected,result.reference.referenceSeconds);
   }
   return values;
 }

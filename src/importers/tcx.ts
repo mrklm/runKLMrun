@@ -1,5 +1,6 @@
 import { estimateAscent } from '../core/analysis/ascent';
 import type { RunningSession, Sample, SessionDetails } from '../types/session';
+import { civilDateFromActivityStart } from '../core/analysis/activity-time';
 const TCX = 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2';
 const EXT = 'http://www.garmin.com/xmlschemas/ActivityExtension/v2';
 export const MAX_TCX_BYTES = 16 * 1024 * 1024;
@@ -79,7 +80,7 @@ async function parseContent(text: string, readXml: XmlReader, warn: (message: st
   const averages = lapNodes.map(lap => optionalHeart(lap, 'AverageHeartRateBpm'));
   const maxima = lapNodes.map(lap => optionalHeart(lap, 'MaximumHeartRateBpm'));
   const session: RunningSession = {
-    id: '', source: 'tcx', sport: 'RUNNING', title: 'Course à pied', startTime: start.text, date: start.text.slice(0, 10),
+    id: '', source: 'tcx', sport: 'RUNNING', title: 'Course à pied', startTime: start.text, date: civilDateFromActivityStart(start.text),
     durationSeconds, distanceMeters,
     averagePaceSecondsPerKm: distanceMeters && durationSeconds > 0 ? durationSeconds * 1000 / distanceMeters : undefined,
     averageHeartRate: durationSeconds > 0 && averages.every(v => v !== undefined) ? averages.reduce<number>((sum, v, i) => sum + v! * laps[i].durationSeconds, 0) / durationSeconds : undefined,

@@ -1,5 +1,29 @@
 # Historique des versions
 
+## v0.11.0 — 2026-10-20 — Coach V2 public
+
+- Coach V2 devient le Coach principal en développement comme en production, sans activation locale ; le moteur V1 reste disponible comme secours dans le code.
+- Accueil et entraînement : suppression du double affichage V1/V2 ; le comparateur V1/V2 reste réservé au développement.
+- Calendrier public : les suggestions futures V1 sont masquées, sans suppression des données historiques.
+- Suggestions : présentation unifiée des séances et perspectives révisables, avec trois cartes au fond thématique et une bordure d’accent pour la prochaine séance.
+- Données, associations, sauvegardes et occurrences historiques conservées sans migration.
+
+## v0.10.1 — 2026-10-20 — Horaires et interface
+
+- Activités : affichage local des horodatages zonés, tout en conservant les heures source sans fuseau.
+- Nouveaux imports Polar et TCX : date civile cohérente près de minuit, sans migration des activités existantes.
+- Interface : D+ arrondi à l’affichage, durées du calendrier au format `hh:mm:ss`, résumé des activités enrichi et paramètres simplifiés.
+
+## v0.10.0 — 2026-10-20 — Coach V2 adaptatif
+
+- Type de Coach : sélecteur à trois boutons, accessible et adapté aux écrans mobiles.
+- Coach V2 : récupération renforcée après un ressenti très difficile récent.
+- Coach V2 : relief réel documenté pris en compte de manière qualitative, sans déduire de préférence ni créer de séance de côtes.
+- Coach V2 : ajout d’une endurance à allure modulée, distincte du fractionné rapide.
+- Coach V2 : progression de durée limitée à des preuves d’historique réel régulier, sans cumul automatique.
+- Perspectives V2 : une seule évolution de durée possible sur sept jours, indicatives et révisables selon les activités réelles.
+- Explications V2 : motifs plus clairs pour maintien, récupération, relief, variations et progression.
+
 ## v0.9.0 — 2026-10-18 — Type de Coach et Coach V2
 
 - Accueil : les activités récentes incluent désormais la dernière course enregistrée et conservent l’ordre chronologique.

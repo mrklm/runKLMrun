@@ -29,6 +29,27 @@ describe('prototype V2 de séances différenciées',()=>{
     expect(endurance[0]).toMatchObject({type:'easy-endurance',durationSeconds:2400});
   });
 
+  it('ajoute des variations modérées seulement après une pratique réelle répartie',()=>{
+    const evidence={activityCount:6,activeWeeks:3,spanDays:18,eligible:true};
+    const sessions=selectPrototypeSessions(base({goal:'endurance',intervalIntroduction:evidence}));
+    const variation=sessions.find(value=>value.type==='endurance-variations')!;
+    expect(variation).toMatchObject({intensity:'steady',terrain:'flat',totalDurationSeconds:1800});
+    expect(sessionStructureDurationSeconds(variation.structure!)).toBe(variation.totalDurationSeconds);
+    expect(variation.rationale.designChoices.join(' ')).toMatch(/sans fractionné rapide/i);
+    expect(selectPrototypeSessions(base({goal:'endurance',intervalIntroduction:{...evidence,eligible:false}})).map(value=>value.type))
+      .not.toContain('endurance-variations');
+  });
+
+  it('n’ajoute une durée supérieure qu’en progression possible, avec le palier existant',()=>{
+    const common={goal:'endurance' as const,observedSessionTypes:[] as const,intervalIntroduction:{activityCount:6,activeWeeks:3,spanDays:18,eligible:true}};
+    const durations=(state:'maintien'|'progression-possible'|'recuperation',availability=3600)=>selectPrototypeSessions(base({...common,progressionState:state,availabilitySeconds:availability}))
+      .filter(value=>value.type==='easy-endurance').map(value=>value.totalDurationSeconds);
+    expect(durations('maintien')).toEqual([2400]);expect(durations('recuperation')).toEqual([2400]);
+    expect(durations('progression-possible')).toEqual([2400,2700]);
+    expect(durations('progression-possible',2400)).toEqual([2400]);
+    expect(durations('progression-possible')).toEqual(durations('progression-possible'));
+  });
+
   it('conserve un terrain qualitatif sans dénivelé numérique',()=>{
     const result=selectPrototypeSessions(base({goal:'race',observedSessionTypes:['hills']}));
     expect(result[1]).toMatchObject({type:'hills',terrain:'hills',intensity:'easy'});

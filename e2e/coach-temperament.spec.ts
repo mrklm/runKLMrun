@@ -17,15 +17,15 @@ async function snapshot(page: Page) {
 for(const width of [390,1280]) test('tempérament indépendant, clavier et conservation à '+width+'px',async({page})=>{
   await page.setViewportSize({width,height:900});await seedCoach(page);
   await page.goto('./#/parametres');await expect(page.locator('.splash-screen')).toHaveCount(0);
-  const panel=page.getByRole('region',{name:'Type de Coach',exact:true}),slider=panel.getByRole('slider');
-  await expect(slider).toBeEnabled();await expect(slider).toHaveValue('0');await expect(slider).toHaveAttribute('aria-valuetext','Pas à Pas');
+  const panel=page.getByRole('region',{name:'Type de Coach',exact:true}),buttons=panel.getByRole('button');
+  await expect(buttons).toHaveCount(3);await expect(buttons.nth(0)).toBeEnabled();await expect(buttons.nth(0)).toHaveAttribute('aria-pressed','true');
   const before=await snapshot(page);expect(before.record.coachTemperament).toBeUndefined();
   await expect(panel).toContainText('Ce choix s’applique aux nouveaux calculs du Coach V2.');
-  for(const [key,value,label] of [['ArrowRight','1','Évolution Active'],['End','2','Rentre dedans'],['Home','0','Pas à Pas']] as const){
-    await slider.focus();await page.keyboard.press(key);
+  for(const [index,label] of [[1,'Évolution Active'],[2,'Rentre dedans'],[0,'Pas à Pas']] as const){
+    const button=panel.getByRole('button',{name:new RegExp(label)});await button.focus();await page.keyboard.press('Enter');
     await expect(panel.getByRole('status')).toHaveText('Préférence enregistrée.');
-    await expect(slider).toHaveValue(value);await expect(slider).toHaveAttribute('aria-valuetext',label);
-    await page.reload();await expect(page.locator('.splash-screen')).toHaveCount(0);await expect(slider).toBeEnabled();await expect(slider).toHaveValue(value);
+    await expect(button).toHaveAttribute('aria-pressed','true');
+    await page.reload();await expect(page.locator('.splash-screen')).toHaveCount(0);await expect(panel.getByRole('button',{name:new RegExp(label)})).toHaveAttribute('aria-pressed','true');
   }
   const after=await snapshot(page);
   expect(after.record.configuration).toEqual(before.record.configuration);
@@ -36,8 +36,8 @@ for(const width of [390,1280]) test('tempérament indépendant, clavier et conse
 });
 test('échec d’écriture : choix conservé et reprise explicite',async({page})=>{
   await seedCoach(page);await page.goto('./#/parametres');await expect(page.locator('.splash-screen')).toHaveCount(0);
-  const panel=page.getByRole('region',{name:'Type de Coach',exact:true}),slider=panel.getByRole('slider');
-  await expect(slider).toBeEnabled();const before=await snapshot(page);
+  const panel=page.getByRole('region',{name:'Type de Coach',exact:true});
+  await expect(panel.getByRole('button',{name:/Pas à Pas/})).toBeEnabled();const before=await snapshot(page);
   await page.evaluate(()=>{
     const original=IDBObjectStore.prototype.put;
     IDBObjectStore.prototype.put=function(...args:Parameters<typeof original>){
@@ -45,11 +45,11 @@ test('échec d’écriture : choix conservé et reprise explicite',async({page})
       return original.apply(this,args);
     };
   });
-  await slider.focus();await page.keyboard.press('ArrowRight');
+  await panel.getByRole('button',{name:/Évolution Active/}).click();
   await expect(panel.getByRole('alert')).toContainText('n’a pas pu être enregistré');
   expect(await snapshot(page)).toEqual(before);
-  await page.reload();await expect(page.locator('.splash-screen')).toHaveCount(0);await expect(slider).toBeEnabled();await expect(slider).toHaveValue('0');
-  await slider.focus();await page.keyboard.press('End');
+  await page.reload();await expect(page.locator('.splash-screen')).toHaveCount(0);await expect(panel.getByRole('button',{name:/Pas à Pas/})).toBeEnabled();await expect(panel.getByRole('button',{name:/Pas à Pas/})).toHaveAttribute('aria-pressed','true');
+  await panel.getByRole('button',{name:/Rentre dedans/}).focus();await page.keyboard.press('Enter');
   await expect(panel.getByRole('status')).toHaveText('Préférence enregistrée.');
   expect((await snapshot(page)).record.coachTemperament).toBe('rentre-dedans');
 });

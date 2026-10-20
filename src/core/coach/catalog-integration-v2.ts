@@ -6,6 +6,7 @@ import type { ProposalPolicy } from '../../types/coach-proposal';
 import { matchingDate } from './suggestion-matching';
 import { bootstrapHabitualReference,type ReferenceBootstrapResult } from './reference-bootstrap-v2';
 import { selectPrototypeSessions,validatePrototypeSession,type PrototypeSession,type PrototypeSessionType,type SessionStrategyInput } from './simulation/session-strategies-v2';
+import { coachV2ProgressionState } from './progression-state-v2';
 
 export interface ExperimentalCatalogV2Result {
   mode:'v2-experimental';
@@ -51,6 +52,13 @@ function maximumDocumentedDistance(sessions:readonly RunningSession[]):number|un
     &&session.distanceMeters>0?[session.distanceMeters]:[]);
   return values.length?Math.max(...values):undefined;
 }
+function documentedRollingTerrain(sessions:readonly RunningSession[],referenceDate:string):'rolling'|undefined {
+  return sessions.some(session=>{
+    const date=matchingDate(session),ascent=session.ascentMeters,estimate=session.ascentEstimate;
+    return date!==undefined&&date<=referenceDate&&typeof ascent==='number'&&Number.isFinite(ascent)&&ascent>0
+      &&(estimate===undefined||estimate.quality==='complete'&&estimate.meters===ascent);
+  })?'rolling':undefined;
+}
 
 /** Sortie expérimentale en mémoire uniquement. Aucun objet V1 ou persistant
  * n'est créé et aucun type de séance n'est déduit des imports. */
@@ -64,6 +72,8 @@ export function proposeExperimentalCatalogFromReferenceV2(input:CatalogFromRefer
   if((!reference.available||reference.referenceSeconds===null)&&!beginningWithoutReference)
     return {mode:'v2-experimental',reference,sessions:[],reasons:[...reasons,'Référence V2 indisponible : aucun retour vers V1.']};
   const documentedDistanceMeters=maximumDocumentedDistance(input.sessions);
+  const observedTerrain=documentedRollingTerrain(input.sessions,input.referenceDate);
+  const progression=coachV2ProgressionState({sessions:input.sessions,reference,referenceDate:input.referenceDate});
   const observedSessionTypes=[...new Set(input.sessions.flatMap(session=>{
     const type=input.documentedActivityTypes?.[session.id];
     return type==='long-run'||type==='steady-run'||type==='intervals'||type==='hills'?[type]:[];
@@ -71,6 +81,8 @@ export function proposeExperimentalCatalogFromReferenceV2(input:CatalogFromRefer
   const adaptedInput:SessionStrategyInput={goal:goal.kind,habitualReferenceSeconds:beginningWithoutReference?null:reference.referenceSeconds,
     evidence:reference.confidence==='confirmed'?'documented':'insufficient',experience:experience(input.configuration.experience),
     availabilitySeconds,observedSessionTypes,intervalIntroduction:intervalIntroductionEvidence(input.sessions,input.referenceDate),
+    progressionState:progression.state,
+    ...(observedTerrain===undefined?{}:{observedTerrain}),
     ...((goal.kind==='distance'||goal.kind==='race')?{targetDistanceMeters:goal.distanceMeters}:{}),
     ...(documentedDistanceMeters===undefined?{}:{documentedDistanceMeters}),
     ...(goal.kind==='race'?{eventDate:goal.eventDate}:{}),
@@ -84,8 +96,9 @@ export function proposeExperimentalCatalogFromReferenceV2(input:CatalogFromRefer
     : observedSessionTypes.length?'Référence confirmée avec types documentés fournis explicitement.'
       :'Référence confirmée, sans type de séance observé déduit des imports.');
   const surface=input.historicalProfile?.preferences.terrain;
-  reasons.push(!surface||surface==='none'?'Relief préféré inconnu : aucune surface déclarée n’est convertie en relief.'
-    :`Surface déclarée « ${surface} » non convertie en relief qualitatif.`);
+  reasons.push(surface&&surface!=='none'?`Surface déclarée « ${surface} » conservée comme préférence.`
+    :observedTerrain==='rolling'?'Relief positif fiable observé : terrain vallonné possible, sans préférence déduite.'
+      :'Relief non documenté de façon fiable : terrain plat retenu prudemment.');
   return {mode:'v2-experimental',reference,sessions,reasons,adaptedInput};
 }
 

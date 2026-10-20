@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MonthCalendar } from '../components/MonthCalendar';
 import { StatisticsChart } from '../components/StatisticsChart';
-import { coverage, formatMeasure, validSessionDate } from '../core/analysis/session-summary';
+import { coverage, formatAscentMeasure, formatMeasure, validSessionDate } from '../core/analysis/session-summary';
 import { activatePeriod, localToday, periodStatistics, type PeriodMode } from '../core/analysis/statistics-period';
 import type { RunningSession } from '../types/session';
 export function Statistics({ sessions, embedded = false }: { sessions: RunningSession[]; embedded?: boolean }) {
@@ -28,7 +28,7 @@ export function Statistics({ sessions, embedded = false }: { sessions: RunningSe
     {!!data.excludedDates && <p>{data.excludedDates} séances sans date exploitable {selection.mode === 'all' ? 'sont incluses dans les indicateurs, mais pas dans le calendrier ni les graphiques.' : 'ne peuvent pas être rattachées à cette période.'}</p>}
       <dl className="statistics-metrics">
         <div className="panel"><dt>Nombre de sorties</dt><dd>{data.totals.count}</dd></div>
-        {([{ name: 'Distance totale', measure: data.totals.distance, unit: 'km', divisor: 1000 }, { name: 'Durée totale', measure: data.totals.duration, unit: 'h', divisor: 3600 }, { name: 'Dénivelé positif cumulé', measure: data.totals.ascent, unit: 'm', divisor: 1 }]).map(item => <div className="panel" key={item.name}><dt>{item.name}</dt><dd>{formatMeasure(item.measure, item.divisor)} {item.unit}</dd><dd className="metric-coverage">{coverage(item.measure)}</dd></div>)}
+        {([{ name: 'Distance totale', measure: data.totals.distance, unit: 'km', divisor: 1000 }, { name: 'Durée totale', measure: data.totals.duration, unit: 'h', divisor: 3600 }, { name: 'Dénivelé positif cumulé', measure: data.totals.ascent, unit: 'm', divisor: 1 }]).map(item => <div className="panel" key={item.name}><dt>{item.name}</dt><dd>{item.name === 'Dénivelé positif cumulé' ? formatAscentMeasure(item.measure) : formatMeasure(item.measure, item.divisor)} {item.unit}</dd><dd className="metric-coverage">{coverage(item.measure)}</dd></div>)}
       </dl>
       {data.totals.count === 0 && <p>Aucune séance pour cette période.</p>}
       <MonthCalendar sessions={sessions} today={today} />

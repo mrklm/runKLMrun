@@ -191,6 +191,7 @@ export function adaptCoachV2Readonly(snapshot:CoachV2ApplicationSnapshot,referen
     if(maximumSeconds!==null)catalogForDate(date,maximumSeconds);
   }
   let availableDates=0,cataloguedDates=0;
+  let veryHardRecoveryDate:string|undefined;
   let first:CoachV2ReadonlyResult|undefined;
   // À partir de 18 h locales, seul aujourd'hui est exclu ; la fin de l'horizon reste inchangée.
   for(let offset=minuteOfDay>=18*60?1:0;offset<DATE_SELECTION_HORIZON_DAYS;offset++) {
@@ -203,8 +204,15 @@ export function adaptCoachV2Readonly(snapshot:CoachV2ApplicationSnapshot,referen
     const orchestrated=orchestratePrototypeSession({referenceDate:selectedDate,goal:catalog.adaptedInput.goal,
       habitualReferenceSeconds:catalog.adaptedInput.habitualReferenceSeconds,availabilitySeconds:maximumSeconds,
       candidates:catalog.sessions,activities,presented,coachTemperament:snapshot.coachTemperament});
-    if(orchestrated.selected&&!first)first={...base,catalog,candidate:orchestrated.selected,reason:orchestrated.reason,selectedDate,
+    if(orchestrated.reason==='very-hard-recovery'&&!veryHardRecoveryDate)veryHardRecoveryDate=selectedDate;
+    if(orchestrated.selected&&!first){
+      const candidate=veryHardRecoveryDate?{...orchestrated.selected,rationale:{...orchestrated.selected.rationale,designChoices:[
+        ...orchestrated.selected.rationale.designChoices,
+        `Une séance exigeante n’est pas proposée le ${veryHardRecoveryDate.split('-').reverse().join('/')} après un ressenti très difficile récent ; la prochaine date admissible est retenue.`
+      ]}}:orchestrated.selected;
+      first={...base,catalog,candidate,reason:orchestrated.reason,selectedDate,
       dailyMaximumSeconds:maximumSeconds,temporalAnchor,temporalAnchorReason:null};
+    }
   }
   if(first)return first;
   const reason=availableDates===0?'no-available-date':cataloguedDates===0?'catalog-unavailable':'no-admissible-date';

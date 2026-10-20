@@ -46,12 +46,13 @@ export function CoachTemperamentSettings() {
   }
   return <section className="panel settings-panel coach-temperament" aria-labelledby="coach-temperament-title">
     <h2 id="coach-temperament-title">Type de Coach</h2>
-    <label htmlFor="coach-temperament-slider">Tempérament choisi : <strong>{choices[selected].label}</strong></label>
-    <input id="coach-temperament-slider" type="range" min="0" max="2" step="1" value={selected}
-      disabled={!ready || saving} aria-valuetext={choices[selected].label} aria-describedby="coach-temperament-description coach-temperament-note"
-      onChange={event => { void select(Number(event.target.value)); }} />
-    <div className="coach-temperament-labels" aria-hidden="true">{choices.map((choice,index) =>
-      <span key={choice.value} className={index === selected ? 'selected' : undefined}>{choice.label}</span>)}</div>
+    <p className="coach-temperament-current">Tempérament choisi : <strong>{choices[selected].label}</strong></p>
+    <div className="coach-temperament-choices" role="group" aria-label="Choisir le tempérament du Coach" aria-describedby="coach-temperament-description coach-temperament-note">
+      {choices.map((choice,index) => <button key={choice.value} type="button" className={index === selected ? 'selected' : undefined}
+        disabled={!ready || saving} aria-pressed={index === selected} onClick={() => { void select(index); }}>
+        <strong>{choice.label}</strong><span>{index === 0 ? 'Progression douce' : index === 1 ? 'Progression volontaire' : 'Progression ambitieuse'}</span>
+      </button>)}
+    </div>
     <p id="coach-temperament-description">{choices[selected].description}</p>
     <p id="coach-temperament-note"><small>Ce réglage définit la manière dont le Coach accompagne ta progression, pas ton niveau sportif.</small></p>
     <p><small>Ce choix s’applique aux nouveaux calculs du Coach V2. Une suggestion déjà présentée reste conservée si elle est compatible.</small></p>

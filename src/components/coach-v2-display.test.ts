@@ -26,7 +26,7 @@ it('explique la date admissible, la référence réellement utilisée et le terr
  expect(display.reasons.join(' ')).toContain('19/10/2026');
  expect(display.reasons).toContain('Durée de référence utilisée : 36 min 32 s.');
  expect(display.reasons).toContain('Temps disponible ce jour : 1 h maximum.');
- expect(display.reasons).toContain('Terrain plat retenu prudemment faute de préférence de relief.');
+ expect(display.reasons).toContain('Terrain plat retenu prudemment faute de préférence ou de relief documenté.');
  expect(display.reasons.join(' ')).toContain('sans progression ni structure exigeante');
  expect(display.reasons.join(' ')).not.toMatch(/Terrain préféré|confirmée|fractionné documenté/i);
  expect(display.limitations).toContain('La référence de durée reste provisoire.');
@@ -56,6 +56,22 @@ it('ne justifie pas de date ou de séance quand la sélection est absente',()=>{
  expect(result.candidate).toBeNull();
  expect(coachV2Explanation(result).reasons.join(' ')).not.toMatch(/premier jour disponible|Durée de référence utilisée/);
  expect(coachV2Explanation(result).reasons).toEqual(expect.arrayContaining(result.catalog.reasons));
+});
+it('explique seulement la progression réellement retenue, le maintien et la récupération prouvée',()=>{
+ const base=adaptCoachV2Readonly(snapshot(),date),candidate={...base.candidate!,durationSeconds:2400,totalDurationSeconds:2400,changedDimensions:['duration'] as const};
+ const progressive={...base,reference:{...base.reference,confidence:'confirmed' as const,referenceSeconds:2100},candidate,
+   catalog:{...base.catalog,adaptedInput:{...base.catalog.adaptedInput!,habitualReferenceSeconds:2100,progressionState:'progression-possible' as const}}};
+ expect(coachV2Explanation(progressive).reasons.join(' ')).toContain('augmentée de 5 min');
+ const maintained={...progressive,candidate:{...candidate,durationSeconds:2100,totalDurationSeconds:2100,changedDimensions:[]},
+   catalog:{...progressive.catalog,adaptedInput:{...progressive.catalog.adaptedInput!,progressionState:'maintien' as const}}};
+ expect(coachV2Explanation(maintained).reasons.join(' ')).toContain('durée habituelle est conservée');
+ expect(coachV2Explanation({...maintained,catalog:{...maintained.catalog,adaptedInput:{...maintained.catalog.adaptedInput!,progressionState:'recuperation' as const,
+   intervalIntroduction:{activityCount:6,activeWeeks:3,spanDays:14,eligible:true}}}}).reasons.join(' ')).toContain('ressentie comme très difficile');
+ expect(coachV2Explanation({...progressive,candidate:{...candidate,durationSeconds:2100,totalDurationSeconds:2100}}).reasons.join(' ')).not.toContain('augmentée de');
+});
+it('présente les variations et les perspectives sans les confondre avec du fractionné ou une activité',()=>{
+ const base=adaptCoachV2Readonly(snapshot(),date),variation={...base.candidate!,type:'endurance-variations' as const};
+ expect(coachV2Explanation({...base,candidate:variation}).reasons.join(' ')).toContain('allure modulée, sans fractionné rapide');
 });
 it('ne remplace pas les explications historiques manquantes par un nouveau calcul',()=>{
  const occurrence={opportunity:{suggestedFor:'2026-10-19',availability:{maximumSeconds:1800}},

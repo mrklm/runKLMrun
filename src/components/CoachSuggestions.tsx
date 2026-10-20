@@ -29,7 +29,7 @@ export function CoachSuggestions({proposal,context,emptyMessage}:{proposal:Sugge
   return <section className="panel settings-panel coach-suggestions" aria-labelledby="coach-suggestions-title">
     <h2 id="coach-suggestions-title">Suggestions du Coach</h2>
     {proposal.suggestions.length > 0 ? <>
-      <p className="training-coverage">Des idées pour les prochains jours, à suivre, adapter ou ignorer librement. Vous n’avez rien à confirmer.</p>
+      <p className="training-coverage">Des idées pour les prochains jours :</p>
       <div className="coach-suggestion-list">
         {proposal.suggestions.map(s=><article key={s.id} data-suggestion-id={s.id} ref={element=>{if(element)cards.current.set(s.id,element);else cards.current.delete(s.id);}} className="notice coach-proposal-card" aria-label={`${kindLabel(s.kind)} — ${dateLabel(s.date)}`}>
           <h4>{kindLabel(s.kind)} — {dateLabel(s.date)}</h4>

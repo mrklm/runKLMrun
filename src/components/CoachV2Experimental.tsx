@@ -1,5 +1,5 @@
 import { coachV2Perspectives } from '../core/coach/perspectives-v2';
-import { useEffect,useRef,useState } from 'react';
+import { useEffect,useRef,useState,type ReactNode } from 'react';
 import { localToday } from '../core/analysis/statistics-period';
 import { localCoachV2Reference } from '../core/coach/local-reference-v2';
 import { formatCoachDuration } from './coach-planning-display';
@@ -8,18 +8,27 @@ import { calculateCoachV2Readonly } from '../storage/coach-v2-readonly';
 import { CoachV2TemperamentChanged,createSuggestionV2Repository,presentCoachV2Selection } from '../storage/coach-suggestions-v2';
 import { civilDate,ianaTimeZone,instantIso,type PersistableOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
 import type { CoachV2ReadonlyResult } from '../core/coach/application-adapter-v2';
-import { COACH_V2_INTERNAL_KEY,coachV2Enabled,coachV2ActivationMode } from '../core/coach/activation-v2';
+import { COACH_V2_INTERNAL_COMPARISON_ENABLED,coachV2Enabled } from '../core/coach/activation-v2';
 import { watchSuggestionPresentation } from './suggestion-presentation';
 import { coachV2Labels, coachV2PerspectiveExplanation, coachV2Explanation, storedCoachV2Explanation, coachExplanationText } from './coach-v2-display';
 import { CoachExplanationDetails } from './CoachExplanationDetails';
 
-export { COACH_V2_INTERNAL_KEY };
-export const coachV2InternalEnabled=()=>coachV2ActivationMode()==='internal';
+export const coachV2InternalEnabled=()=>import.meta.env.DEV&&COACH_V2_INTERNAL_COMPARISON_ENABLED;
 export { coachV2Labels };
 const dateLabel=(value:string)=>value.split('-').reverse().join('/');
 type View={result:CoachV2ReadonlyResult;occurrence?:PersistableOccurrenceV2;freshExplanation?:ReturnType<typeof coachV2Explanation>};
+type CoachSession=Pick<NonNullable<CoachV2ReadonlyResult['candidate']>,'type'|'totalDurationSeconds'|'intensity'|'terrain'>;
+export function CoachSuggestionCard({session,date,label,reasons,limitations,primary=false,instructions}:{session:CoachSession;date:string;label:string;reasons:readonly string[];limitations:readonly string[];primary?:boolean;instructions?:ReactNode}) {
+  return <article className={`panel coach-v2-card${primary?' coach-v2-card-primary':''}`}>
+    <p className="training-coverage">{label}</p>
+    <h3 {...(primary?{'data-presentation-title':true}:{})}>{dateLabel(date)} — {coachV2Labels.type[session.type]}</h3>
+    <p {...(primary?{'data-presentation-summary':true}:{})}>{formatCoachDuration(session.totalDurationSeconds)} · {coachV2Labels.intensity[session.intensity]} · {coachV2Labels.terrain[session.terrain]}</p>
+    {instructions}
+    <CoachExplanationDetails reasons={reasons} limitations={limitations}/>
+  </article>;
+}
 
-export function CoachV2Experimental({surface='training'}:{surface?:'training'|'home'}) {
+export function CoachV2Experimental() {
   const enabled=coachV2Enabled(),cardRef=useRef<HTMLElement>(null),attemptedRef=useRef('');
   const [view,setView]=useState<View>(),[loadError,setLoadError]=useState(''),[presentationError,setPresentationError]=useState('');
   const [busy,setBusy]=useState(false),[refresh,setRefresh]=useState(0),[retry,setRetry]=useState(0);
@@ -59,37 +68,27 @@ export function CoachV2Experimental({surface='training'}:{surface?:'training'|'h
     },{title:'[data-presentation-title]',summary:'[data-presentation-summary]'});
   },[enabled,result,session,date,occurrence,presentationKey,retry]);
   if(!enabled)return null;
-  if(loadError)return <section className="panel coach-v2-experimental" aria-label="Coach V2 expérimental" data-testid="coach-v2-experimental"><h2>Coach V2 expérimental</h2><p role="alert">{loadError}</p></section>;
-  if(!view)return <section className="panel coach-v2-experimental" aria-label="Coach V2 expérimental" data-testid="coach-v2-experimental"><h2>Coach V2 expérimental</h2><p role="status">Calcul expérimental en cours…</p></section>;
-  if(!session||!date)return <section className="panel coach-v2-experimental" aria-label="Coach V2 expérimental" data-testid="coach-v2-experimental"><h2>Coach V2 expérimental</h2>
+  if(loadError)return <section className="panel coach-v2-experimental" aria-label="Coach" data-testid="coach-v2-experimental"><h2>Suggestions du Coach</h2><p role="alert">{loadError}</p></section>;
+  if(!view)return <section className="panel coach-v2-experimental" aria-label="Coach" data-testid="coach-v2-experimental"><h2>Suggestions du Coach</h2><p role="status">Calcul en cours…</p></section>;
+  if(!session||!date)return <section className="panel coach-v2-experimental" aria-label="Coach" data-testid="coach-v2-experimental"><h2>Suggestions du Coach</h2>
     <p>{result!.reason==='missing-temporal-anchor'?'Le Coach ne dispose pas encore d’un repère stable pour proposer une séance.':'Aucune suggestion adaptée n’est disponible actuellement.'}</p>
     <CoachExplanationDetails {...coachV2Explanation(result!)}/></section>;
   const perspectives=coachV2Perspectives(result!,occurrence).slice(1);
-  const summary=`${coachV2Labels.type[session.type]} · ${formatCoachDuration(session.totalDurationSeconds)} · ${coachV2Labels.intensity[session.intensity]} · ${coachV2Labels.terrain[session.terrain]}`;
-  return <section ref={cardRef} className="panel coach-v2-experimental" aria-label="Coach V2 expérimental" data-testid="coach-v2-experimental">
-    <p className="training-coverage">Développement uniquement · proposition expérimentale et facultative</p>
-    {surface==='home'?<><h2>Suggestion du Coach</h2><h3 data-presentation-title>{summary}</h3></>:<h2 data-presentation-title>{summary}</h2>}
-    <p>Prochaine séance conseillée</p>
-    <p data-presentation-summary><strong>{dateLabel(date)}</strong> · {coachV2Labels.type[session.type]} · {formatCoachDuration(session.totalDurationSeconds)} · {coachV2Labels.intensity[session.intensity]} · {coachV2Labels.terrain[session.terrain]}</p>
-    {(!!session.optionalInstructions?.length||session.structure)&&<details><summary>Voir les consignes</summary>
-    {!!session.optionalInstructions?.length&&<ul>{session.optionalInstructions.map(value=><li key={value}>{coachExplanationText(value)}</li>)}</ul>}
-    {session.structure&&<ul>
-      {session.structure.warmUp&&<li>Échauffement : {formatCoachDuration(session.structure.warmUp.durationSeconds)} — {session.structure.warmUp.instruction}</li>}
-      {session.structure.efforts.map((block,index)=><li key={`effort-${index}`}>Effort : {block.repetitions&&`${block.repetitions} × `}{formatCoachDuration(block.durationSeconds)} — {block.instruction}</li>)}
-      {session.structure.recoveries?.map((block,index)=><li key={`recovery-${index}`}>Récupération : {block.repetitions&&`${block.repetitions} × `}{formatCoachDuration(block.durationSeconds)} — {block.instruction}</li>)}
-      {session.structure.coolDown&&<li>Retour au calme : {formatCoachDuration(session.structure.coolDown.durationSeconds)} — {session.structure.coolDown.instruction}</li>}
-    </ul>}</details>}
-    <CoachExplanationDetails {...(view.freshExplanation??(occurrence?storedCoachV2Explanation(occurrence):coachV2Explanation(result!)))}/>
-    {perspectives.length>0&&<section aria-label="Perspectives sur 7 jours">
-      <h3>Perspectives des jours suivants</h3>
-      <p>Facultatives et susceptibles d’évoluer selon vos activités réelles.</p>
-      {perspectives.map(value=><article className="notice" key={value.date}>
-        <h4>{dateLabel(value.date)} — {coachV2Labels.type[value.session.type]}</h4>
-        <p>{formatCoachDuration(value.session.totalDurationSeconds)} · {coachV2Labels.intensity[value.session.intensity]} · {coachV2Labels.terrain[value.session.terrain]}</p>
-        <CoachExplanationDetails {...coachV2PerspectiveExplanation(value)}/>
-      </article>)}
-    </section>}
-    {occurrence?<p role="status">Cette suggestion vous est proposée.</p>:busy?<p role="status">Mémorisation de la suggestion…</p>:null}
+  return <section ref={cardRef} className="panel coach-v2-experimental" aria-label="Coach" data-testid="coach-v2-experimental">
+    <h2>Suggestions du Coach</h2>
+    <p className="training-coverage">Des idées pour les prochains jours :</p>
+    <div className="coach-v2-card-list">
+      <CoachSuggestionCard session={session} date={date} label="Prochaine séance conseillée" primary reasons={(view.freshExplanation??(occurrence?storedCoachV2Explanation(occurrence):coachV2Explanation(result!))).reasons} limitations={(view.freshExplanation??(occurrence?storedCoachV2Explanation(occurrence):coachV2Explanation(result!))).limitations} instructions={(!!session.optionalInstructions?.length||session.structure)&&<details><summary>Voir les consignes</summary>
+        {!!session.optionalInstructions?.length&&<ul>{session.optionalInstructions.map(value=><li key={value}>{coachExplanationText(value)}</li>)}</ul>}
+        {session.structure&&<ul>
+          {session.structure.warmUp&&<li>Échauffement : {formatCoachDuration(session.structure.warmUp.durationSeconds)} — {session.structure.warmUp.instruction}</li>}
+          {session.structure.efforts.map((block,index)=><li key={`effort-${index}`}>Effort : {block.repetitions&&`${block.repetitions} × `}{formatCoachDuration(block.durationSeconds)} — {block.instruction}</li>)}
+          {session.structure.recoveries?.map((block,index)=><li key={`recovery-${index}`}>Récupération : {block.repetitions&&`${block.repetitions} × `}{formatCoachDuration(block.durationSeconds)} — {block.instruction}</li>)}
+          {session.structure.coolDown&&<li>Retour au calme : {formatCoachDuration(session.structure.coolDown.durationSeconds)} — {session.structure.coolDown.instruction}</li>}
+        </ul>}</details>}/>
+      {perspectives.map(value=><CoachSuggestionCard key={value.date} session={value.session} date={value.date} label="Perspective susceptible d’évoluer" {...coachV2PerspectiveExplanation(value)}/>) }
+    </div>
+    {busy?<p role="status">Mémorisation de la suggestion…</p>:null}
     {presentationError&&<p role="alert">{presentationError} <button className="button button-secondary" onClick={()=>{setPresentationError('');setRetry(value=>value+1);}}>Réessayer</button></p>}
   </section>;
 }

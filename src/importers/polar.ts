@@ -2,6 +2,7 @@ import type { RunningSession, Sample, SessionDetails } from '../types/session';
 import { PolarImportError } from './polar-errors';
 import { parseModernPolar, polarIdentifier, validStart } from './polar-modern';
 import { RUNNING_SPORTS, OTHER_SPORTS } from './polar-sports';
+import { civilDateFromActivityStart } from '../core/analysis/activity-time';
 export { RUNNING_SPORTS } from './polar-sports';
 
 type Obj = Record<string, unknown>;
@@ -44,7 +45,7 @@ export function parsePolar(text: string, filename: string, strictSport = false, 
   if (duration === undefined || !Number.isFinite(duration)) throw new PolarImportError('invalidNumbers');
   const id = `polar:${origin}`, distance = positive(e.distance), hr = obj(e.heartRate);
   const session: RunningSession = {
-    id, polarId: String(origin), title: 'Course à pied', sport: e.sport, date: start.slice(0, 10), startTime: start,
+    id, polarId: String(origin), title: 'Course à pied', sport: e.sport, date: civilDateFromActivityStart(start), startTime: start,
     durationSeconds: duration, distanceMeters: distance,
     averageHeartRate: positive(hr.average), maximumHeartRate: positive(hr.maximum),
     ascentMeters: positive(e.ascent), descentMeters: positive(e.descent),

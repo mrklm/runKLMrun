@@ -1,5 +1,5 @@
 export type PrototypeGoal='begin'|'return'|'wellbeing'|'endurance'|'speed'|'distance'|'race';
-export type PrototypeSessionType='easy-endurance'|'long-run'|'steady-run'|'intervals'|'hills'|'recovery';
+export type PrototypeSessionType='easy-endurance'|'endurance-variations'|'long-run'|'steady-run'|'intervals'|'hills'|'recovery';
 export type QualitativeIntensity='very-easy'|'easy'|'steady'|'controlled-hard';
 export type QualitativeTerrain='flat'|'rolling'|'hills';
 export type DifficultyDimension='duration'|'intensity'|'terrain';
@@ -33,7 +33,10 @@ export interface SessionStrategyInput {
   evidence:'insufficient'|'documented';
   experience?:'beginner'|'regular'|'experienced';
   availabilitySeconds:number;
+  progressionState?:'maintien'|'progression-possible'|'recuperation';
   preferredTerrain?:QualitativeTerrain;
+  /** Relief positif fiable observé sur une activité réelle ; jamais une préférence utilisateur. */
+  observedTerrain?:'rolling';
   observedSessionTypes:readonly ('long-run'|'steady-run'|'intervals'|'hills')[];
   /** Faits de régularité calculés sur des activités réelles, jamais sur des suggestions. */
   intervalIntroduction?:{activityCount:number;activeWeeks:number;spanDays:number;eligible:boolean};
@@ -60,7 +63,7 @@ export interface PrototypeSession {
 export const SESSION_STRATEGY_EXPERIMENT = Object.freeze({stepSeconds:300,beginningSeconds:1200,cautiousRatio:0.8});
 const floorStep=(seconds:number)=>Math.floor(seconds/SESSION_STRATEGY_EXPERIMENT.stepSeconds)*SESSION_STRATEGY_EXPERIMENT.stepSeconds;
 const duration=(wanted:number,available:number)=>Math.max(0,floorStep(Math.min(wanted,available)));
-const labels:Record<PrototypeSessionType,string>={'easy-endurance':'Endurance facile','long-run':'Sortie longue',
+const labels:Record<PrototypeSessionType,string>={'easy-endurance':'Endurance facile','endurance-variations':'Endurance à variations modérées','long-run':'Sortie longue',
   'steady-run':'Sortie soutenue',intervals:'Fractionné',hills:'Côtes',recovery:'Récupération'};
 const intensityLabels:Record<QualitativeIntensity,string>={'very-easy':'Très facile',easy:'Facile',steady:'Soutenue','controlled-hard':'Effort contrôlé'};
 const terrainLabels:Record<QualitativeTerrain,string>={flat:'Plat',rolling:'Vallonné',hills:'Côtes'};
@@ -85,6 +88,9 @@ const hillsStructure=(total:number):SessionStructure=>({warmUp:block(600,'easy',
   coolDown:block(total-1320,'easy','Retour au calme.')});
 const steadyStructure=(total:number):SessionStructure=>({warmUp:block(600,'easy','Échauffement facile.'),
   efforts:[block(total-900,'steady','Passage continu soutenu et maîtrisé.')],coolDown:block(300,'easy','Retour au calme.')});
+const variationsStructure=(total:number):SessionStructure=>({warmUp:block(600,'easy','Échauffement facile.'),
+  efforts:[block(120,'steady','Variation d’allure modérée et contrôlée.',3)],recoveries:[block(120,'easy','Retour à une allure confortable.',2)],
+  coolDown:block(total-1200,'easy','Retour au calme.')});
 
 export function sessionStructureDurationSeconds(structure:SessionStructure):number {
   const value=(entry:SessionBlock|undefined)=>entry?(entry.repetitions??1)*entry.durationSeconds:0;
@@ -99,7 +105,7 @@ export function validatePrototypeSession(value:PrototypeSession):void {
   if(blocks.some(entry=>!Number.isSafeInteger(entry.durationSeconds)||entry.durationSeconds<=0
     ||entry.repetitions!==undefined&&(!Number.isSafeInteger(entry.repetitions)||entry.repetitions<=0)))
     throw new Error('Bloc de séance V2 invalide.');
-  const requiresStructure=value.type==='intervals'||value.type==='hills'||value.type==='steady-run';
+  const requiresStructure=value.type==='intervals'||value.type==='hills'||value.type==='steady-run'||value.type==='endurance-variations';
   if(requiresStructure&&!value.structure) throw new Error('Structure requise pour cette séance V2.');
   if(!requiresStructure&&value.structure) throw new Error('Une séance libre ne doit pas contenir de blocs.');
   if(value.structure&&sessionStructureDurationSeconds(value.structure)!==value.totalDurationSeconds)
@@ -122,9 +128,13 @@ export function selectPrototypeSessions(input:SessionStrategyInput):PrototypeSes
   const cautious=input.evidence==='insufficient'&&!['endurance','distance','race'].includes(input.goal);
   const baseDuration=duration(cautious?reference*SESSION_STRATEGY_EXPERIMENT.cautiousRatio:reference,input.availabilitySeconds);
   if(baseDuration<SESSION_STRATEGY_EXPERIMENT.stepSeconds) return [];
-  const easyTerrain=input.preferredTerrain??'flat';
+  const easyTerrain=input.preferredTerrain??input.observedTerrain??'flat';
   const terrainDeclarations=input.preferredTerrain===undefined?[]:[`Terrain préféré : ${terrainLabels[input.preferredTerrain]}.`];
-  const terrainChoices=input.preferredTerrain===undefined?['Terrain plat retenu prudemment faute de préférence de relief.']:['Aucune progression obligatoire.'];
+  const terrainFacts=input.preferredTerrain===undefined&&input.observedTerrain==='rolling'
+    ?['Relief positif documenté sur au moins une activité réelle.']:[];
+  const terrainChoices=input.preferredTerrain!==undefined?['Aucune progression obligatoire.']
+    :input.observedTerrain==='rolling'?['Terrain vallonné retenu sans créer de séance de côtes.']
+      :['Terrain plat retenu prudemment faute de préférence ou de relief documenté.'];
   if(input.goal==='begin') return [session('easy-endurance',baseDuration,'easy','flat',[],
     rationale([],['Objectif débuter.'],['Amorçage facile sans séance exigeante.'],['Capacité actuelle non établie.']),
     {optionalInstructions:['Restez à une allure confortable.']})];
@@ -142,7 +152,7 @@ export function selectPrototypeSessions(input:SessionStrategyInput):PrototypeSes
   const uncertainties=measurableComplete?[]:['Informations mesurables incomplètes : aucune valeur n’est inventée.'];
 
   const easy=session('easy-endurance',baseDuration,'easy',easyTerrain,[],
-    rationale(input.habitualReferenceSeconds===null?[]:[`Référence fournie : ${input.habitualReferenceSeconds} s.`],
+    rationale([...terrainFacts,...(input.habitualReferenceSeconds===null?[]:[`Référence fournie : ${input.habitualReferenceSeconds} s.`])],
       terrainDeclarations,terrainChoices,uncertainties),
     objectiveContext?{objectiveContext}:{});
   const discoveryEligible=input.goal==='speed'&&input.intervalIntroduction?.eligible
@@ -153,6 +163,16 @@ export function selectPrototypeSessions(input:SessionStrategyInput):PrototypeSes
   const canStructure=(input.experience==='regular'||input.experience==='experienced')&&input.evidence==='documented';
   const observed=(type:SessionStrategyInput['observedSessionTypes'][number])=>input.observedSessionTypes.includes(type);
   const shorter=duration(reference*SESSION_STRATEGY_EXPERIMENT.cautiousRatio,input.availabilitySeconds);
+  const progressed=duration(reference+SESSION_STRATEGY_EXPERIMENT.stepSeconds,input.availabilitySeconds);
+  if(input.progressionState==='progression-possible'&&progressed>reference)proposals.push(session('easy-endurance',progressed,'easy',easyTerrain,['duration'],
+    rationale([`Référence confirmée : ${input.habitualReferenceSeconds} s.`],[],['Durée légèrement supérieure proposée à partir de la pratique réelle régulière.'])));
+
+  const variationsEligible=['endurance','distance','race'].includes(input.goal)&&canStructure&&shorter>=1800
+    &&input.intervalIntroduction?.eligible;
+  if(variationsEligible) proposals.push(session('endurance-variations',shorter,'steady','flat',['intensity'],
+    rationale([`${input.intervalIntroduction!.activityCount} sorties réelles sur 28 jours, réparties sur ${input.intervalIntroduction!.activeWeeks} semaines.`],
+      ['Objectif endurance.'],['Variations d’allure modérées, sans fractionné rapide ni objectif de vitesse.'],['Le seuil de pratique régulière est expérimental.']),
+    {structure:variationsStructure(shorter),optionalInstructions:['Gardez chaque variation contrôlée ; revenez à une allure confortable entre elles.']}));
 
   if((input.goal==='endurance'||input.goal==='distance'||input.goal==='race')&&observed('long-run')) {
     const longer=duration(reference+SESSION_STRATEGY_EXPERIMENT.stepSeconds,input.availabilitySeconds);

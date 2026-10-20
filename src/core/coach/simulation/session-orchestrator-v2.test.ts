@@ -156,8 +156,17 @@ describe('préférence temporaire issue du ressenti réel',()=>{
     expect(orchestratePrototypeSession(input({activities,availabilitySeconds:1})).selected).toBeNull();
     expect(orchestratePrototypeSession(input({activities,candidates:[]})).selected).toBeNull();
     const candidates=catalog().filter(value=>value.type==='intervals');
-    // Sans alternative facile admissible, cette préférence n'invente aucun candidat.
+    // hard reste une préférence ; very-hard protège aussi sans alternative facile.
     expect(orchestratePrototypeSession(input({activities,candidates})).selected?.type).toBe('intervals');
+    expect(orchestratePrototypeSession(input({activities:[{date:'2026-01-17',effort:'very-hard'}],candidates})))
+      .toEqual({selected:null,reason:'very-hard-recovery'});
+  });
+  it.each(['pas-a-pas','evolution-active','rentre-dedans'] as const)('%s bloque une option exigeante seule après very-hard récent',coachTemperament=>{
+    const demanding=catalog().filter(value=>value.type==='intervals');
+    expect(orchestratePrototypeSession(input({coachTemperament,activities:[{date:'2026-01-17',effort:'very-hard'}],candidates:demanding})))
+      .toEqual({selected:null,reason:'very-hard-recovery'});
+    expect(orchestratePrototypeSession(input({coachTemperament,activities:[{date:'2026-01-13',effort:'very-hard'}],candidates:demanding})).selected?.type)
+      .toBe('intervals');
   });
   it('ne justifie rien par le ressenti si une contrainte sportive imposait déjà le facile',()=>{
     const activity:RecordedActivityEvidence={date:'2026-01-17',documentedType:'intervals',effort:'hard'};
@@ -172,6 +181,18 @@ describe('préférence temporaire issue du ressenti réel',()=>{
 });
 
 describe('classement des tempéraments après admissibilité',()=>{
+  it('classe une durée progressive déjà admissible sans changer les protections',()=>{
+    const habitual=catalog('endurance')[0],progressed={...habitual,totalDurationSeconds:habitual.totalDurationSeconds+300,durationSeconds:habitual.durationSeconds+300,
+      changedDimensions:['duration'] as const};
+    expect(orchestratePrototypeSession(input({goal:'endurance',candidates:[habitual,progressed],coachTemperament:'pas-a-pas'})).selected?.totalDurationSeconds)
+      .toBe(habitual.totalDurationSeconds);
+    const activity={date:'2026-01-17',documentedType:'easy-endurance' as const};
+    const active=orchestratePrototypeSession(input({goal:'endurance',candidates:[habitual,progressed],coachTemperament:'evolution-active',activities:[activity]}));
+    expect(active.selected?.totalDurationSeconds).toBe(progressed.totalDurationSeconds);
+    expect(active.selected?.rationale.designChoices.join(' ')).toContain('pratique réelle régulière');
+    expect(orchestratePrototypeSession(input({goal:'endurance',candidates:[habitual,progressed],coachTemperament:'rentre-dedans'})).selected?.totalDurationSeconds)
+      .toBe(progressed.totalDurationSeconds);
+  });
   it.each([
     ['pas-a-pas','easy-endurance'],['evolution-active','intervals'],['rentre-dedans','intervals'],
   ] as const)('%s choisit %s sans modifier le catalogue', (coachTemperament,type)=>{

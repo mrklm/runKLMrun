@@ -31,7 +31,7 @@ export interface SessionOrchestratorInput {
 }
 export interface SessionOrchestratorResult {
   selected:PrototypeSession|null;
-  reason:'selected'|'no-candidate'|'recent-activity';
+  reason:'selected'|'no-candidate'|'recent-activity'|'very-hard-recovery';
 }
 
 /** Choix éditoriaux expérimentaux, sans valeur physiologique universelle. */
@@ -44,7 +44,7 @@ export const SESSION_ORCHESTRATOR_EXPERIMENT:Readonly<SessionOrchestratorPolicy>
 export const FEELING_PREFERENCE_WINDOW_DAYS=7;
 const DAY=86400000;
 const day=(value:string)=>Date.parse(`${value}T00:00:00Z`)/DAY;
-const structured=(type:PrototypeSessionType)=>type==='intervals'||type==='steady-run'||type==='hills';
+const structured=(type:PrototypeSessionType)=>type==='intervals'||type==='steady-run'||type==='hills'||type==='endurance-variations';
 const latestDate=(values:readonly {date:string}[],referenceDate:string,predicate:((value:any)=>boolean)=()=>true)=>
   values.filter(value=>value.date<=referenceDate&&predicate(value)).map(value=>day(value.date)).sort((a,b)=>b-a)[0];
 const tooRecent=(latest:number|undefined,today:number,gap:number)=>latest!==undefined&&today-latest<gap;
@@ -74,6 +74,12 @@ export function orchestratePrototypeSession(input:SessionOrchestratorInput):Sess
     : value.type==='long-run'?!tooRecent(latestLong,today,policy.longActivityGapDays)
       &&!tooRecent(latestDate(envisaged,input.referenceDate,value=>value.type==='long-run'),today,policy.longActivityGapDays):false);
   const easy=candidates.find(value=>!structured(value.type)&&value.type!=='long-run');
+  const veryHard=input.activities.filter(value=>value.effort==='very-hard'
+    &&value.date<=input.referenceDate&&today-day(value.date)<FEELING_PREFERENCE_WINDOW_DAYS)
+    .sort((a,b)=>b.date.localeCompare(a.date))[0];
+  // Même fenêtre que la préférence de ressenti existante : une activité réelle
+  // très difficile ne permet pas de conserver une option exigeante faute de facile.
+  if(veryHard&&!easy)return {selected:null,reason:'very-hard-recovery'};
   // Classement après les filtres sportifs communs ; aucun candidat supplémentaire.
   const admissible=candidates.filter(value=>specialized.includes(value)||!structured(value.type)&&value.type!=='long-run');
   const baseline=easy??specialized[0]??null;
@@ -83,7 +89,7 @@ export function orchestratePrototypeSession(input:SessionOrchestratorInput):Sess
     const previous=[...input.activities.map(value=>({date:value.date,type:value.documentedType})),...envisaged]
       .filter(value=>value.date<=input.referenceDate)
       .sort((a,b)=>b.date.localeCompare(a.date)||(a.type??'').localeCompare(b.type??''))[0];
-    if(previous?.type)selected=[...admissible].filter(value=>value.type!==previous.type)
+    if(previous?.type)selected=[...admissible].filter(value=>value.type!==previous.type||value.changedDimensions.includes('duration'))
       .sort((a,b)=>a.totalDurationSeconds-b.totalDurationSeconds)[0]??baseline;
   }else if(temperament==='rentre-dedans'){
     selected=[...(specialized.length?specialized:admissible)]
@@ -102,7 +108,9 @@ export function orchestratePrototypeSession(input:SessionOrchestratorInput):Sess
   }
   if(selected&&selected!==baseline){
     const explanation=temperament==='evolution-active'
-      ? 'Évolution Active : une alternative admissible est privilégiée pour varier le type de séance, avec la durée la plus mesurée parmi ces alternatives.'
+      ? selected.type===baseline?.type&&selected.changedDimensions.includes('duration')
+        ? 'Évolution Active : une durée supérieure déjà admissible est privilégiée à partir de la pratique réelle régulière.'
+        : 'Évolution Active : une alternative admissible est privilégiée pour varier le type de séance, avec la durée la plus mesurée parmi ces alternatives.'
       : specialized.length
         ? 'Rentre dedans : priorité à une option exigeante admissible, puis à la durée la plus haute parmi les options retenues.'
         : 'Rentre dedans : durée la plus haute parmi les séances admissibles.';

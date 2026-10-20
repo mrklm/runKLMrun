@@ -5,4 +5,4 @@ export const measure = (value: number | undefined, unit = '', divisor = 1) => va
 /** Arrondi de présentation uniquement ; les valeurs source restent intactes. */
 const displayNumber = (value: number | undefined, digits: number, unit: string) => value === undefined || !Number.isFinite(value) ? '—' : `${value.toLocaleString('fr-FR', { maximumFractionDigits: digits })} ${unit}`;
 export const heartRate = (value?: number) => displayNumber(value, 0, 'bpm');
-export const ascent = (value?: number) => displayNumber(value, 3, 'm');
+export const ascent = (value?: number) => displayNumber(value, 0, 'm');

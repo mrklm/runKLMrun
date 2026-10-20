@@ -23,7 +23,7 @@ export function CoachV2ActivityAssociation({session}:{session:RunningSession}) {
     expectedRevision:candidate.occurrence.revision,activityId:session.id,updatedAt:instantIso(new Date().toISOString())});await refresh();}
     catch{setError('L’association n’a pas pu être enregistrée. Les données ont peut-être changé.');}finally{setBusy('');}};
   return <section className="panel coach-v2-experimental" aria-labelledby="coach-v2-association-title" data-testid="coach-v2-association">
-    <p className="training-coverage">Développement uniquement</p><h2 id="coach-v2-association-title">Suggestion V2 et activité</h2>
+    <h2 id="coach-v2-association-title">Suggestion du Coach et activité</h2>
     {error&&<p role="alert">{error}</p>}
     {candidates.map(candidate=><div key={candidate.occurrence.id} className="coach-v2-association-candidate">
       <p><strong>{coachV2Labels.type[candidate.occurrence.content.type]}</strong> · {formatCoachDuration(candidate.occurrence.content.totalDurationSeconds)}</p>

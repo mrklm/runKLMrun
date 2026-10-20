@@ -20,7 +20,7 @@ export function ShoeAlert({ sessions }: { sessions: RunningSession[] }) {
   const associations = automatic ? timeline.assignments : data.shoeAssignments;
   return <>{candidates.map(shoe => {
     const usage = shoeMileage(shoe, sessions, associations);
-    return usage.state === 'normal' ? null : <aside className="notice" key={shoe.id}><a href="#/chaussures">{shoe.name} : {labels[usage.state]}</a><p>{number(usage.km)} km sur votre repère de {number(shoe.limitKm)} km. Ce repère n’impose pas de remplacer votre paire.</p></aside>;
+    return usage.state === 'normal' ? null : <aside className="notice" key={shoe.id}><a href="#/chaussures">{shoe.name} : {labels[usage.state]}</a><p>{number(usage.km)} km sur votre repère de {number(shoe.limitKm)} km.</p></aside>;
   })}</>;
 }
 export function SessionShoes({ sessionId, session }: { sessionId: string; session?: RunningSession }) {

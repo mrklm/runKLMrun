@@ -34,6 +34,29 @@ describe('perspectives V2 sur sept jours, sans activité fictive',()=>{
     expect(result.facts.sessionIds).toEqual(snapshot.sessions.map(value=>value.id));
     expect(coachV2Perspectives(adaptCoachV2Readonly(snapshot,date))).toEqual(plan);
   });
+  it('propage les variations modérées aux perspectives sans les traiter comme des activités',async()=>{
+    const occurrence=await stored(snapshot);
+    const input={...snapshot,coachTemperament:'rentre-dedans' as const,occurrences:[{...occurrence,
+      provenance:{...occurrence.provenance,referenceConfidence:'confirmed' as const}}]},before=structuredClone(input);
+    const result=adaptCoachV2Readonly(input,date),plan=coachV2Perspectives(result);
+    expect(plan[0].session).toMatchObject({type:'endurance-variations',intensity:'steady'});
+    expect(plan[0].session.structure).toBeDefined();
+    expect(plan.slice(1).every(value=>value.session.type!=='endurance-variations')).toBe(true);
+    expect(input).toEqual(before);
+  });
+  it('ne cumule pas la durée progressive dans les perspectives',async()=>{
+    const occurrence=await stored(snapshot);
+    const sessions=snapshot.sessions.map(session=>({...session,durationSeconds:2100}));
+    const input={...snapshot,sessions,coachTemperament:'evolution-active' as const,occurrences:[{...occurrence,
+      provenance:{...occurrence.provenance,referenceConfidence:'confirmed' as const}}],
+      documentedActivityTypes:Object.fromEntries(sessions.map(session=>[session.id,'easy-endurance' as const]))};
+    const before=structuredClone(input),result=adaptCoachV2Readonly(input,date),plan=coachV2Perspectives(result);
+    expect(plan.map(value=>value.session.totalDurationSeconds)).toEqual([2400,2100,2100]);
+    expect(plan.filter(value=>value.session.totalDurationSeconds>2100)).toHaveLength(1);
+    expect(coachV2Perspectives(adaptCoachV2Readonly(input,date))).toEqual(plan);
+    expect(compareCoachVersionsReadonly(input,date).v1).toEqual(compareCoachVersionsReadonly({...input,coachTemperament:'pas-a-pas'},date).v1);
+    expect(input).toEqual(before);
+  });
   it.each([{days:['monday'] as const},{days:[] as const}])('ne remplit pas artificiellement les jours : $days',({days})=>{
     const input={...snapshot,profile:{...snapshot.profile!,availability:{days:[...days],minutesPerSession:45}}};
     expect(coachV2Perspectives(adaptCoachV2Readonly(input,date))).toHaveLength(days.length);
@@ -103,17 +126,18 @@ describe('ressenti dans le pipeline V2',()=>{
     ]);
   });
   const withFeeling={...speed,sessions:speed.sessions.map((session,index)=>index===5?{...session,feeling:{effort:'hard' as const}}:session)};
-  it('transmet le ressenti réel aux perspectives et laisse V1 inchangé',()=>{
-    const before=structuredClone(withFeeling),result=adaptCoachV2Readonly(withFeeling,date);
-    expect(result.activityEvidence.at(-1)).toMatchObject({date:'2026-10-15',effort:'hard'});
+  const veryHardFeeling={...speed,sessions:speed.sessions.map((session,index)=>index===5?{...session,feeling:{effort:'very-hard' as const}}:session)};
+  it('transmet very-hard aux perspectives, privilégie le facile et laisse V1 inchangé',()=>{
+    const before=structuredClone(veryHardFeeling),result=adaptCoachV2Readonly(veryHardFeeling,date);
+    expect(result.activityEvidence.at(-1)).toMatchObject({date:'2026-10-15',effort:'very-hard'});
     expect(result.candidate?.type).toBe('easy-endurance');
+    expect(result.candidate?.rationale.designChoices.join(' ')).toContain('ressentie');
     const plan=coachV2Perspectives(result);
     expect(plan.map(value=>value.session.type)).toEqual(['easy-endurance','easy-endurance','intervals']);
-    expect('rationale' in plan[1].session&&plan[1].session.rationale.designChoices.join(' ')).toContain('ressentie');
     expect('rationale' in plan[2].session&&plan[2].session.rationale.designChoices.join(' ')).not.toContain('ressentie');
-    expect(compareCoachVersionsReadonly(withFeeling,date).v1).toEqual(compareCoachVersionsReadonly(speed,date).v1);
-    expect(withFeeling).toEqual(before);
-    expect(adaptCoachV2Readonly(withFeeling,date)).toEqual(result);
+    expect(compareCoachVersionsReadonly(veryHardFeeling,date).v1).toEqual(compareCoachVersionsReadonly(speed,date).v1);
+    expect(veryHardFeeling).toEqual(before);
+    expect(adaptCoachV2Readonly(veryHardFeeling,date)).toEqual(result);
   });
   it('conserve sans réécriture une occurrence déjà présentée et compatible',async()=>{
     const occurrence=await stored(speed),input={...withFeeling,occurrences:[occurrence]},before=structuredClone(input);
