@@ -61,6 +61,8 @@ export interface PrototypeSession {
 
 /** Choix éditoriaux du prototype, à tester et non validés scientifiquement. */
 export const SESSION_STRATEGY_EXPERIMENT = Object.freeze({stepSeconds:300,beginningSeconds:1200,cautiousRatio:0.8});
+const VARIATIONS_MINIMUM_SECONDS=1800;
+const VARIATIONS_NEAR_MINIMUM_SECONDS=1740;
 const floorStep=(seconds:number)=>Math.floor(seconds/SESSION_STRATEGY_EXPERIMENT.stepSeconds)*SESSION_STRATEGY_EXPERIMENT.stepSeconds;
 const duration=(wanted:number,available:number)=>Math.max(0,floorStep(Math.min(wanted,available)));
 const labels:Record<PrototypeSessionType,string>={'easy-endurance':'Endurance facile','endurance-variations':'Endurance à variations modérées','long-run':'Sortie longue',
@@ -163,16 +165,25 @@ export function selectPrototypeSessions(input:SessionStrategyInput):PrototypeSes
   const canStructure=(input.experience==='regular'||input.experience==='experienced')&&input.evidence==='documented';
   const observed=(type:SessionStrategyInput['observedSessionTypes'][number])=>input.observedSessionTypes.includes(type);
   const shorter=duration(reference*SESSION_STRATEGY_EXPERIMENT.cautiousRatio,input.availabilitySeconds);
+  const variationsRawBudget=Math.min(reference,input.availabilitySeconds)*SESSION_STRATEGY_EXPERIMENT.cautiousRatio;
+  const variationsDuration=shorter>=VARIATIONS_MINIMUM_SECONDS?shorter
+    :input.availabilitySeconds>=VARIATIONS_MINIMUM_SECONDS&&variationsRawBudget>=VARIATIONS_NEAR_MINIMUM_SECONDS
+      &&variationsRawBudget<VARIATIONS_MINIMUM_SECONDS?VARIATIONS_MINIMUM_SECONDS:null;
   const progressed=duration(reference+SESSION_STRATEGY_EXPERIMENT.stepSeconds,input.availabilitySeconds);
   if(input.progressionState==='progression-possible'&&progressed>reference)proposals.push(session('easy-endurance',progressed,'easy',easyTerrain,['duration'],
     rationale([`Référence confirmée : ${input.habitualReferenceSeconds} s.`],[],['Durée légèrement supérieure proposée à partir de la pratique réelle régulière.'])));
 
-  const variationsEligible=['endurance','distance','race'].includes(input.goal)&&canStructure&&shorter>=1800
+  const variationsEligible=['endurance','distance','race'].includes(input.goal)&&canStructure&&variationsDuration!==null
     &&input.intervalIntroduction?.eligible;
-  if(variationsEligible) proposals.push(session('endurance-variations',shorter,'steady','flat',['intensity'],
+  // Le minimum de 30 minutes ne relève pas automatiquement le budget calculé.
+  // Une durée inférieure à la référence ne prouve pas la tolérance à l'intensité.
+  if(['endurance','distance','race'].includes(input.goal)&&canStructure&&input.intervalIntroduction?.eligible&&variationsDuration===null)
+    easy.rationale.uncertainties.push(`Variations modérées non proposées : le budget de durée après réduction et arrondi, limité par la disponibilité, est de ${shorter/60} min, sous le minimum de 30 min du modèle. Ce calcul expérimental ne mesure pas la tolérance à l’intensité.`);
+  if(variationsEligible&&variationsDuration!==null) proposals.push(session('endurance-variations',variationsDuration,'steady','flat',['intensity'],
     rationale([`${input.intervalIntroduction!.activityCount} sorties réelles sur 28 jours, réparties sur ${input.intervalIntroduction!.activeWeeks} semaines.`],
-      ['Objectif endurance.'],['Variations d’allure modérées, sans fractionné rapide ni objectif de vitesse.'],['Le seuil de pratique régulière est expérimental.']),
-    {structure:variationsStructure(shorter),optionalInstructions:['Gardez chaque variation contrôlée ; revenez à une allure confortable entre elles.']}));
+      ['Objectif endurance.'],['Variations d’allure modérées, sans fractionné rapide ni objectif de vitesse.',
+        `10 min d’échauffement facile, 3 variations modérées de 2 min séparées par 2 récupérations faciles de 2 min, puis ${(variationsDuration-1200)/60} min de retour au calme facile.`],['Le seuil de pratique régulière est expérimental.']),
+    {structure:variationsStructure(variationsDuration),optionalInstructions:['Gardez chaque variation contrôlée ; revenez à une allure confortable entre elles.']}));
 
   if((input.goal==='endurance'||input.goal==='distance'||input.goal==='race')&&observed('long-run')) {
     const longer=duration(reference+SESSION_STRATEGY_EXPERIMENT.stepSeconds,input.availabilitySeconds);
@@ -180,17 +191,26 @@ export function selectPrototypeSessions(input:SessionStrategyInput):PrototypeSes
       rationale(['Sorties longues documentées.'],[],['Seule la durée augmente.']),objectiveContext?{objectiveContext}:{}));
   }
   const experiencedEnough=input.experience==='regular'||input.experience==='experienced';
-  if(input.goal==='speed'&&experiencedEnough&&shorter>=1800) {
+  if((input.goal==='speed'||input.goal==='endurance')&&experiencedEnough&&shorter>=1800) {
     if(canStructure&&observed('intervals')) proposals.push(session('intervals',shorter,'controlled-hard','flat',['intensity'],
       rationale(['Fractionné documenté.'],[],['Seule l’intensité augmente.']),
       {structure:intervalsStructure(shorter),optionalInstructions:['Effectuez les efforts de façon maîtrisée.']}));
-    else if(canStructure&&observed('steady-run')) proposals.push(session('steady-run',shorter,'steady','flat',['intensity'],
+    else if(input.goal==='speed'&&canStructure&&observed('steady-run')) proposals.push(session('steady-run',shorter,'steady','flat',['intensity'],
       rationale(['Sortie soutenue documentée.'],[],['Seule l’intensité augmente.']),{structure:steadyStructure(shorter)}));
-    else if(input.intervalIntroduction?.eligible) proposals.push(session('intervals',shorter,'controlled-hard','flat',['intensity'],
+    else if(input.goal==='speed'&&input.intervalIntroduction?.eligible) proposals.push(session('intervals',shorter,'controlled-hard','flat',['intensity'],
       rationale([`${input.intervalIntroduction.activityCount} sorties réelles sur 28 jours, réparties sur ${input.intervalIntroduction.activeWeeks} semaines.`],
         ['Objectif améliorer la vitesse.'],['Première séance de fractionné accessible ; aucune pratique antérieure de fractionné n’est supposée.'],
         ['Le seuil de six sorties est expérimental.']),
       {structure:discoveryIntervalsStructure(shorter),optionalInstructions:['Restez dynamique et maîtrisé, sans sprint maximal.']}));
+  }
+  // L'endurance peut utiliser des méthodes complémentaires déjà documentées.
+  // L'expérience ou le relief seuls ne prouvent jamais leur pratique.
+  if(input.goal==='endurance'&&canStructure&&shorter>=1800) {
+    if(observed('steady-run')) proposals.push(session('steady-run',shorter,'steady','flat',['intensity'],
+      rationale(['Sortie soutenue documentée.'],[],['Seule l’intensité augmente.']),{structure:steadyStructure(shorter)}));
+    if(observed('hills')) proposals.push(session('hills',shorter,'easy','hills',['terrain'],
+      rationale(['Séance de côtes documentée.'],[],['Seul le terrain devient plus exigeant.']),
+      {structure:hillsStructure(shorter),optionalInstructions:['Gardez les montées maîtrisées.']}));
   }
   if(input.goal==='race'&&canStructure&&shorter>=1800) {
     if(observed('hills')) proposals.push(session('hills',shorter,'easy','hills',['terrain'],
@@ -198,6 +218,17 @@ export function selectPrototypeSessions(input:SessionStrategyInput):PrototypeSes
       {structure:hillsStructure(shorter),optionalInstructions:['Gardez les montées maîtrisées.'],objectiveContext}));
     else if(observed('steady-run')) proposals.push(session('steady-run',shorter,'steady','flat',['intensity'],
       rationale(['Sortie soutenue documentée.'],[],['Seule l’intensité augmente.']),{structure:steadyStructure(shorter),objectiveContext}));
+  }
+  if(['endurance','distance','race'].includes(input.goal)&&input.preferredTerrain===undefined&&input.observedTerrain==='rolling') {
+    // Le relief observé décrit une possibilité ; une alternative libre conserve
+    // exactement la même charge sans transformer le terrain en prescription.
+    proposals.push(session('easy-endurance',baseDuration,'easy','flat',['terrain'],
+      rationale([...terrainFacts],[],['Alternative de terrain libre, à durée et intensité identiques.'],uncertainties)));
+    const easyShorter=duration(baseDuration-SESSION_STRATEGY_EXPERIMENT.stepSeconds,input.availabilitySeconds);
+    if(easyShorter>=SESSION_STRATEGY_EXPERIMENT.stepSeconds&&easyShorter<baseDuration) {
+      proposals.push(session('easy-endurance',easyShorter,'easy',easyTerrain,['duration'],
+        rationale([],[],['Alternative facile limitée à un palier sous la durée habituelle.'],uncertainties)));
+    }
   }
   proposals.forEach(validatePrototypeSession);
   return proposals;

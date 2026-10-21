@@ -55,11 +55,52 @@ describe('adaptateur applicatif V2 en lecture seule',()=>{
       temporalAnchor:{kind:'presentation',id:'occurrence',date:'2026-10-14'}});
   });
 
-  it('distingue référence provisoire et indisponible sans suggestions V1',()=>{
+  it('confirme un historique réel suffisant sans provenance V2 préexistante',()=>{
     const provisional=adaptCoachV2Readonly({sessions:[-8,-7,-6,-5].map((offset,index)=>run(`p-${index}`,offset)),occurrences:[],configuration:config(),profile},today);
-    expect(provisional.reference.confidence).toBe('provisional');expect(provisional.candidate?.type).toBe('easy-endurance');
+    expect(provisional.reference.confidence).toBe('confirmed');expect(provisional.candidate?.type).toBe('easy-endurance');
     const unavailable=adaptCoachV2Readonly({sessions:[run('only',-5)],occurrences:[],configuration:config(),profile},today);
     expect(unavailable).toMatchObject({reference:{confidence:'unavailable'},candidate:null,reason:'catalog-unavailable'});
+  });
+
+  it('conserve la médiane exacte des imports sans ressenti, indépendamment de leur ordre',()=>{
+    const sessions=[2100,2190,2196,2196,2400,2400].map((seconds,index)=>({
+      ...run(`import-${index}`,-12+index),durationSeconds:seconds,source:'tcx' as const}));
+    const input={sessions,occurrences:[]},before=structuredClone(input);
+    const result=habitualReferenceFromOccurrencesV2(input,today);
+    expect(result).toMatchObject({confidence:'confirmed',referenceSeconds:2196});
+    expect(habitualReferenceFromOccurrencesV2({...input,sessions:[...sessions].reverse()},today)).toEqual(result);
+    expect(input).toEqual(before);
+  });
+
+  it.each([
+    {label:'insuffisant',offsets:[-8,-6,-4],minutes:[40,40,40]},
+    {label:'ancien',offsets:[-50,-49,-48,-43],minutes:[40,40,40,40]},
+    {label:'interruption supérieure à 42 jours',offsets:[-60,-59,-58,-57,-3],minutes:[40,40,40,40,40]},
+    {label:'dispersé',offsets:[-8,-6,-4,-2],minutes:[20,40,40,60]},
+  ])('ne confirme pas un épisode $label',({offsets,minutes})=>{
+    const sessions=offsets.map((offset,index)=>run(`invalid-${index}`,offset,minutes[index]));
+    expect(habitualReferenceFromOccurrencesV2({sessions,occurrences:[]},today).available).toBe(false);
+  });
+
+  it('ignore les activités hors épisode et les entrées non admissibles',()=>{
+    const sessions=[run('old',-60,90),...[-8,-6,-4,-2].map((offset,index)=>run(`recent-${index}`,offset)),
+      run('future',1,90),{...run('bike',-3,90),sport:'CYCLING'},
+      {...run('bad-date',-3,90),date:'2026-10-99'},{...run('bad-duration',-3),durationSeconds:0}];
+    expect(habitualReferenceFromOccurrencesV2({sessions,occurrences:[]},today))
+      .toMatchObject({confidence:'confirmed',referenceSeconds:2400,sourceIds:['recent-0','recent-1','recent-2','recent-3']});
+  });
+
+  it('ne compte ni les suggestions non réalisées ni les activités ambiguës',async()=>{
+    const suggestion=await occurrence([],'2026-10-14','provisional');
+    expect(habitualReferenceFromOccurrencesV2({sessions:[],occurrences:[suggestion]},today).available).toBe(false);
+    const sessions=[-8,-6,-4,-2].map((offset,index)=>run(`ambiguous-${index}`,offset));
+    expect(habitualReferenceFromOccurrencesV2({sessions,occurrences:[suggestion]},today).available).toBe(false);
+  });
+
+  it('ne confirme pas une association incorrecte même hors de la date conseillée',async()=>{
+    const sessions=[-8,-7,-6,-5].map((offset,index)=>run(`wrong-${index}`,offset));
+    const suggestion={...await occurrence([],'2026-10-14','provisional'),state:'associated' as const,activityId:sessions[0].id};
+    expect(habitualReferenceFromOccurrencesV2({sessions,occurrences:[suggestion]},today).confidence).toBe('provisional');
   });
 
   it('n’invente aucun type à partir des activités et bloque les candidats structurés',async()=>{
@@ -67,6 +108,25 @@ describe('adaptateur applicatif V2 en lecture seule',()=>{
     const result=adaptCoachV2Readonly({sessions,occurrences:[stored],configuration:config('speed'),profile},today);
     expect(result.catalog.adaptedInput?.observedSessionTypes).toEqual([]);
     expect(result.catalog.sessions.map(value=>value.type)).toEqual(['easy-endurance']);
+  });
+
+  it('transmet seulement le type explicitement déclaré par une activité réelle',()=>{
+    const sessions=[-8,-7,-6,-5].map((offset,index)=>({...run(`typed-${index}`,offset),
+      ...(index===3?{trainingType:'intervals' as const}:{})}));
+    const result=adaptCoachV2Readonly({coachTemperament:'rentre-dedans',sessions,occurrences:[],configuration:config('speed'),profile},today);
+    expect(result.catalog.adaptedInput?.observedSessionTypes).toEqual(['intervals']);
+    expect(result.activityEvidence.find(value=>value.date===sessions[3].date)).toMatchObject({documentedType:'intervals'});
+    const untypedSessions:RunningSession[]=sessions.map(session=>{const copy:RunningSession={...session};delete copy.trainingType;return copy;});
+    const untyped=adaptCoachV2Readonly({coachTemperament:'rentre-dedans',sessions:untypedSessions,
+      occurrences:[],configuration:config('speed'),profile},today);
+    expect(untyped.catalog.adaptedInput?.observedSessionTypes).toEqual([]);
+  });
+
+  it('n’utilise pas une qualification déclarée sur une activité future',()=>{
+    const sessions=[-8,-7,-6,-5].map((offset,index)=>run(`past-${index}`,offset));
+    sessions.push({...run('future-type',1),trainingType:'intervals'});
+    const result=adaptCoachV2Readonly({sessions,occurrences:[],configuration:config('speed'),profile},today);
+    expect(result.catalog.adaptedInput?.observedSessionTypes).toEqual([]);
   });
 
   it('utilise les présentations V2 existantes sans en créer une nouvelle',async()=>{

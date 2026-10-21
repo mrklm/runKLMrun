@@ -33,28 +33,59 @@ test.describe('consultation V2',()=>{
   const prepare=async(page:Page,time:string)=>{
     await page.clock.install({time:new Date(time)});
     await page.goto('./#/entrainement');await seed(page);
-    await page.evaluate(()=>localStorage.setItem('runklmrun:coach-v2-internal','enabled'));await page.reload();
+    await page.reload();
     const panel=page.getByTestId('coach-v2-experimental');await panel.scrollIntoViewIfNeeded();
-    await expect(panel.getByRole('status')).toContainText('vous est proposée');
+    await expect(panel).toContainText('Prochaine séance conseillée');
+    await expect.poll(()=>count(page)).toBe(1);
     return panel;
   };
 
   test('conserve demain puis aujourd’hui après 18 h entre consultations et ouvertures',async({page})=>{
     const panel=await prepare(page,'2026-10-18T10:00:00Z'),initial=await occurrences(page);
     expect(initial).toHaveLength(1);expect(initial[0].opportunity.suggestedFor).toBe('2026-10-19');
-    const perspectives=panel.getByRole('region',{name:'Perspectives sur 7 jours'});
-    await expect(perspectives.getByRole('article')).toHaveCount(2);
-    await expect(perspectives).toContainText('21/10/2026');
-    await expect(perspectives).toContainText('23/10/2026');
-    await expect(page.getByTestId('coach-v2-comparison')).toContainText('Perspective facultative et révisable');
+    await expect(panel.locator('.coach-v2-card')).toHaveCount(3);
+    await expect(panel).toContainText('21/10/2026');
+    await expect(panel).toContainText('23/10/2026');
+    await expect(panel).toContainText('Perspective susceptible d’évoluer');
     for(let index=0;index<2;index++){
-      await returnToTab(page);await expect(panel.getByRole('status')).toContainText('vous est proposée');
+      await returnToTab(page);await expect(panel).toContainText('Prochaine séance conseillée');
       expect(await occurrences(page)).toEqual(initial);
     }
     await page.clock.setSystemTime(new Date('2026-10-19T18:01:00Z'));
     await returnToTab(page);await expect(panel).toContainText('19/10/2026');
-    await expect(panel.getByRole('status')).toContainText('vous est proposée');
-    await page.reload();await expect(panel.getByRole('status')).toContainText('vous est proposée');
+    await expect(panel).toContainText('Prochaine séance conseillée');
+    await page.reload();await expect(panel).toContainText('Prochaine séance conseillée');
+    expect(await occurrences(page)).toEqual(initial);
+  });
+
+  test('Accueil et Calendrier partagent les perspectives sans les persister',async({page})=>{
+    await page.clock.setFixedTime(new Date('2026-10-18T10:00:00Z'));
+    await page.goto('./#/entrainement');await seed(page);
+    await page.evaluate(async modules=>{
+      const {calculateCoachV2Readonly}=await import(/* @vite-ignore */ modules+'storage/coach-v2-readonly.ts');
+      const {presentCoachV2Selection}=await import(/* @vite-ignore */ modules+'storage/coach-suggestions-v2.ts');
+      const result=await calculateCoachV2Readonly('2026-10-18');
+      await presentCoachV2Selection({result,referenceDate:'2026-10-18',moment:{presentedOn:'2026-10-18',
+        presentedAt:'2026-10-18T10:00:00.000Z',timeZone:'Europe/Paris',utcOffsetMinutes:120,civilDateRule:'device-local-at-presentation'},
+        provenance:{engine:'coach-v2',contractVersion:1,referenceConfidence:'provisional',
+          referenceSourceIds:result.reference.sourceIds,limitationCodes:[]}});
+    },modules);
+    await page.goto('./#/');
+    const panel=page.getByTestId('coach-v2-experimental');
+    await expect(panel.getByRole('article')).toHaveCount(3);
+    await expect.poll(()=>count(page)).toBe(1);
+    const initial=await occurrences(page);
+    const plan=await page.evaluate(async modules=>{
+      const {readCoachV2Projection}=await import(/* @vite-ignore */ modules+'components/coach-v2-projection.ts');
+      return (await readCoachV2Projection()).perspectives;
+    },modules);
+    expect(plan.map(value=>value.date)).toEqual(['2026-10-19','2026-10-21','2026-10-23']);
+    await page.goto('./#/courses');
+    await expect(page.getByTestId('calendar-suggestion-v2')).toHaveCount(plan.length);
+    for(const item of plan){
+      const cell=page.getByRole('listitem',{name:item.date.split('-').reverse().join('/'),exact:true});
+      await expect(cell.getByTestId('calendar-suggestion-v2')).toContainText('Endurance facile');
+    }
     expect(await occurrences(page)).toEqual(initial);
   });
 
@@ -74,11 +105,12 @@ test.describe('consultation V2',()=>{
     await expect(panel).toContainText('19/10/2026');expect(await occurrences(page)).toEqual(initial);
     await returnToTab(page);
     await expect(panel).toContainText('23/10/2026');
-    await expect(panel.getByRole('status')).toContainText('vous est proposée');
+    await expect(panel).toContainText('Prochaine séance conseillée');
+    await panel.scrollIntoViewIfNeeded();await expect.poll(()=>count(page)).toBe(2);
     const renewed=await occurrences(page);expect(renewed).toHaveLength(2);
     expect(renewed.find(value=>value.id===initial[0].id)).toEqual(initial[0]);
     expect(renewed.every(value=>value.state==='active'&&!value.activityId)).toBe(true);
-    await returnToTab(page);await expect(panel.getByRole('status')).toContainText('vous est proposée');
+    await returnToTab(page);await expect(panel).toContainText('Prochaine séance conseillée');
     expect(await occurrences(page)).toEqual(renewed);
   });
 });
@@ -88,12 +120,9 @@ for(const route of ['entrainement','#/entrainement']) {
     await page.goto(`./${route}`);await seed(page,false);await page.reload();
     await expect(page.getByRole('heading',{name:'Coach',exact:true})).toBeVisible();
     await expect(page.getByTestId('coach-v2-comparison')).toHaveCount(0);
-    await page.evaluate(()=>localStorage.setItem('runklmrun:coach-v2-internal','enabled'));await page.reload();
+    await page.reload();
     await expect(page.getByTestId('coach-v2-experimental')).toBeVisible();
-    const comparison=page.getByTestId('coach-v2-comparison');
-    await expect(comparison).toContainText('Développement uniquement · lecture seule');
-    await expect(comparison.getByRole('heading',{name:'Coach V1',exact:true})).toBeVisible();
-    await expect(comparison.getByRole('heading',{name:'Coach V2',exact:true})).toBeVisible();
+    await expect(page.getByTestId('coach-v2-comparison')).toHaveCount(0);
     expect(await count(page)).toBe(0);
     await page.getByRole('link',{name:'Accueil',exact:true}).click();
     await expect(page.getByTestId('coach-v2-comparison')).toHaveCount(0);
@@ -104,53 +133,45 @@ for(const route of ['entrainement','#/entrainement']) {
 test('présentation V2 interne visible, réaffichage et sauvegarde V6',async({page,context})=>{
   await page.goto('./#/entrainement');await seed(page);
   await page.reload();
-  await expect(page.getByTestId('coach-v2-experimental')).toHaveCount(0);expect(await count(page)).toBe(0);
-  await page.goto('./#/');await expect(page.getByTestId('coach-v2-experimental')).toHaveCount(0);
-  await page.goto('./#/courses');await expect(page.getByTestId('calendar-suggestion-v2')).toHaveCount(0);
-  await page.goto('./#/entrainement');
-
-  await page.evaluate(()=>localStorage.setItem('runklmrun:coach-v2-internal','enabled'));await page.reload();
-  const panel=page.getByTestId('coach-v2-experimental');await expect(panel).toContainText('Développement uniquement');
+  const panel=page.getByTestId('coach-v2-experimental');await expect(panel).toContainText('Des idées pour les prochains jours');
   await expect(panel).toContainText('Endurance facile');await panel.scrollIntoViewIfNeeded();
-  await expect(panel.getByRole('status')).toContainText('vous est proposée');expect(await count(page)).toBe(1);
-  const comparison=page.getByTestId('coach-v2-comparison');await expect(comparison).toContainText('Comparaison Coach V1 / V2');
-  await expect(comparison.getByRole('heading',{name:'Coach V1',exact:true})).toBeVisible();
-  await expect(comparison.getByRole('heading',{name:'Coach V2',exact:true})).toBeVisible();expect(await count(page)).toBe(1);
+  await expect.poll(()=>count(page)).toBe(1);
+  await expect(page.getByTestId('coach-v2-comparison')).toHaveCount(0);
   await page.goto('./#/');
-  await expect(page.getByTestId('coach-v2-experimental')).toContainText('Suggestion du Coach');
+  await expect(page.getByTestId('coach-v2-experimental')).toContainText('Suggestions du Coach');
   await page.setViewportSize({width:390,height:844});
   const mobileBox=await page.getByTestId('coach-v2-experimental').boundingBox();
   expect(mobileBox).not.toBeNull();expect(mobileBox!.x).toBeGreaterThanOrEqual(0);expect(mobileBox!.x+mobileBox!.width).toBeLessThanOrEqual(390);
   expect(await count(page)).toBe(1);
   await page.goto('./#/courses');
-  await expect(page.getByTestId('calendar-suggestion-v2')).toHaveCount(1);
-  await expect(page.getByTestId('calendar-suggestion-v2')).toContainText('Suggestion V2 expérimentale');
+  await expect(page.getByTestId('calendar-suggestion-v2')).toHaveCount(2);
+  await expect(page.getByTestId('calendar-suggestion-v2').first()).toContainText('Suggestion du Coach');
   const backup=await page.evaluate(async input=>{const {readBackupSnapshot}=await import(/* @vite-ignore */ input.modules+'storage/backup.ts');
     const {createBackup}=await import(/* @vite-ignore */ input.modules+'backup/format.ts');return createBackup(await readBackupSnapshot(),'0.7.0','2026-10-18T10:00:00.000Z');},{modules});
   expect(backup.formatVersion).toBe(6);expect(backup.data.coachSuggestionsV2).toHaveLength(1);
 
   const other=await context.newPage();await other.goto('./#/entrainement');
-  await expect(other.getByTestId('coach-v2-experimental').getByRole('status')).toContainText('vous est proposée');
+  await expect(other.getByTestId('coach-v2-experimental')).toContainText('Prochaine séance conseillée');
   expect(await count(other)).toBe(1);
 });
 
 test('association V2 explicitement confirmée depuis une activité compatible',async({page})=>{
-  await page.goto('./#/entrainement');await seed(page);await page.evaluate(()=>localStorage.setItem('runklmrun:coach-v2-internal','enabled'));await page.reload();
+  await page.goto('./#/entrainement');await seed(page);await page.reload();
   await page.getByTestId('coach-v2-experimental').scrollIntoViewIfNeeded();
-  await expect(page.getByTestId('coach-v2-experimental').getByRole('status')).toContainText('vous est proposée');
+  await expect.poll(()=>count(page)).toBe(1);
   await page.evaluate(async input=>{const {openDatabase}=await import(/* @vite-ignore */ input.modules+'storage/database-connection.ts');
     const db=await openDatabase(),occurrence=(await db.getAll('coachSuggestionsV2'))[0];
     await db.put('sessions',{id:'compatible-run',title:'Sortie compatible',sport:'RUNNING',date:occurrence.opportunity.suggestedFor,durationSeconds:2700});db.close();
   },{modules});
   await page.goto('./#/seance/compatible-run');await page.reload();
   const association=page.getByTestId('coach-v2-association');
-  await expect(association).toContainText('Suggestion V2 et activité');
+  await expect(association).toContainText('Suggestion du Coach et activité');
   await association.getByRole('button',{name:'Associer explicitement à cette activité'}).click();
   await expect(association.getByRole('status')).toContainText('Association confirmée');
 });
 
 test('activation interne sans suggestion admissible ne crée rien',async({page})=>{
-  await page.goto('./#/entrainement');await seed(page,false);await page.evaluate(()=>localStorage.setItem('runklmrun:coach-v2-internal','enabled'));await page.reload();
+  await page.goto('./#/entrainement');await seed(page,false);await page.reload();
   await expect(page.getByTestId('coach-v2-experimental')).toContainText('Aucune suggestion adaptée n’est disponible actuellement.');
   expect(await count(page)).toBe(0);
 });
@@ -166,11 +187,11 @@ test('amorçage débutant stable entre deux onglets sans activité fictive',asyn
       configuration:{goal:{model:'evolving',kind:'begin'},experience:'beginner',structuredPlanningPreference:'accepted'}});
     await tx.done;db.close();
   },{modules});
-  await page.evaluate(()=>localStorage.setItem('runklmrun:coach-v2-internal','enabled'));await page.reload();
+  await page.reload();
   const panel=page.getByTestId('coach-v2-experimental');await expect(panel).toContainText('Endurance facile');await expect(panel).toContainText('15 min');
-  await panel.scrollIntoViewIfNeeded();await expect(panel.getByRole('status')).toContainText('vous est proposée');expect(await count(page)).toBe(1);
+  await panel.scrollIntoViewIfNeeded();await expect.poll(()=>count(page)).toBe(1);
   const other=await context.newPage();await other.goto('./#/entrainement');await expect(other.getByTestId('coach-v2-experimental')).toContainText('15 min');
-  await expect(other.getByTestId('coach-v2-experimental').getByRole('status')).toContainText('vous est proposée');expect(await count(other)).toBe(1);
+  await expect(other.getByTestId('coach-v2-experimental')).toContainText('Prochaine séance conseillée');expect(await count(other)).toBe(1);
 });
 
 test('erreur de mémorisation puis nouvel essai sans doublon',async({page})=>{
@@ -185,7 +206,7 @@ test('erreur de mémorisation puis nouvel essai sans doublon',async({page})=>{
   const panel=page.getByTestId('coach-v2-experimental');await panel.scrollIntoViewIfNeeded();
   await expect(panel.getByRole('alert')).toContainText('n’a pas pu être mémorisée');expect(await count(page)).toBe(0);
   await panel.getByRole('button',{name:'Réessayer'}).click();
-  await expect(panel.getByRole('status')).toContainText('vous est proposée');expect(await count(page)).toBe(1);
+  await expect.poll(()=>count(page)).toBe(1);
 });
 
 test('ressenti difficile : explication réelle conservée pendant la présentation',async({page})=>{
@@ -205,10 +226,10 @@ test('ressenti difficile : explication réelle conservée pendant la présentati
   },modules);
   await page.reload();
   const panel=page.getByTestId('coach-v2-experimental');await panel.scrollIntoViewIfNeeded();
-  await expect(panel.getByRole('status')).toContainText('vous est proposée');
+  await expect(panel).toContainText('Prochaine séance conseillée');
   await expect(panel.locator('[data-presentation-title]')).toContainText('Endurance facile');
   await expect(panel).toContainText('la course du 15/10/2026 a été ressentie comme difficile');
-  expect(await count(page)).toBe(1);
-  await page.reload();await expect(panel.getByRole('status')).toContainText('vous est proposée');
+  await expect.poll(()=>count(page)).toBe(1);
+  await page.reload();await expect(panel).toContainText('Prochaine séance conseillée');
   expect(await count(page)).toBe(1);
 });

@@ -75,8 +75,8 @@ export function proposeExperimentalCatalogFromReferenceV2(input:CatalogFromRefer
   const observedTerrain=documentedRollingTerrain(input.sessions,input.referenceDate);
   const progression=coachV2ProgressionState({sessions:input.sessions,reference,referenceDate:input.referenceDate});
   const observedSessionTypes=[...new Set(input.sessions.flatMap(session=>{
-    const type=input.documentedActivityTypes?.[session.id];
-    return type==='long-run'||type==='steady-run'||type==='intervals'||type==='hills'?[type]:[];
+    const type=input.documentedActivityTypes?.[session.id],date=matchingDate(session);
+    return date!==undefined&&date<=input.referenceDate&&(type==='long-run'||type==='steady-run'||type==='intervals'||type==='hills')?[type]:[];
   }))];
   const adaptedInput:SessionStrategyInput={goal:goal.kind,habitualReferenceSeconds:beginningWithoutReference?null:reference.referenceSeconds,
     evidence:reference.confidence==='confirmed'?'documented':'insufficient',experience:experience(input.configuration.experience),

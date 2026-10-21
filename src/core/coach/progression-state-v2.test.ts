@@ -13,10 +13,11 @@ const state=(sessions:RunningSession[],reference=confirmed)=>coachV2ProgressionS
 describe('état de progression V2',()=>{
   it('reste au maintien sans référence confirmée ou pratique régulière',()=>{
     expect(state(regular(),{...confirmed,confidence:'provisional'}).state).toBe('maintien');
-    expect(state(regular().slice(0,5)).state).toBe('maintien');
+    expect(state(regular().slice(0,5).map(value=>({...value,feeling:{effort:'easy' as const}}))).state).toBe('maintien');
   });
-  it('autorise une progression possible sans exiger une progression déjà observée',()=>{
-    const result=state(regular());
+  it('autorise une progression possible avec régularité et ressentis favorables sur deux semaines, sans exiger une progression déjà observée',()=>{
+    const result=state(regular().map((value,index)=>({...value,
+      feeling:{effort:index%2?'moderate' as const:'easy' as const}})));
     expect(result.state).toBe('progression-possible');expect(result.observedDurationProgression).toBe(false);
   });
   it('signale une progression observée comme preuve additionnelle',()=>{
@@ -24,10 +25,15 @@ describe('état de progression V2',()=>{
       .concat([-15,-10,-5,-1].map((offset,index)=>run(`up-${index}`,offset,2400)));
     expect(state(sessions).observedDurationProgression).toBe(true);
   });
-  it('privilégie la récupération après very-hard récent, sans interpréter les autres ressentis',()=>{
-    expect(state([{...run('hard',-1),feeling:{effort:'very-hard'}}]).state).toBe('recuperation');
-    for(const effort of [undefined,'easy','moderate','hard'] as const)
-      expect(state([{...run('feeling',-1),...(effort?{feeling:{effort}}:{})}]).state).toBe('maintien');
+  it('distingue les tolérances documentées sans faire d’un ressenti isolé une preuve',()=>{
+    expect(state([{...run('hard',-1),feeling:{effort:'very-hard'}}])).toMatchObject({state:'recuperation',tolerance:'defavorable-documentee'});
+    expect(state([{...run('easy',-1),feeling:{effort:'easy'}}])).toMatchObject({state:'maintien',tolerance:'insuffisamment-documentee'});
+    expect(state(regular().map(value=>({...value,trainingType:'intervals' as const,feeling:{effort:'moderate' as const}})))).toMatchObject({state:'progression-possible',tolerance:'favorable-documentee'});
+    expect(state(regular().map(value=>({...value,feeling:{effort:'moderate' as const}}))).tolerance).toBe('favorable-documentee');
+    expect(state(regular().map((value,index)=>index===5?{...value,trainingType:'hills' as const,feeling:{effort:'hard' as const}}:value)).tolerance).toBe('defavorable-documentee');
+  });
+  it('laisse la tolérance inconnue sans ressenti, même pour une séance structurée déclarée',()=>{
+    expect(state(regular().map(value=>({...value,trainingType:'intervals' as const}))).tolerance).toBe('insuffisamment-documentee');
   });
   it('revient au maintien après la fenêtre D3 ou une interruption',()=>{
     expect(state([{...run('old-feeling',-7),feeling:{effort:'very-hard'}}]).state).toBe('maintien');
@@ -35,6 +41,6 @@ describe('état de progression V2',()=>{
   });
   it('ne reçoit ni suggestion ni tempérament : seuls les faits réels déterminent le même état',()=>{
     const first=state(regular()),second=state(structuredClone(regular()));
-    expect(first).toEqual(second);expect(first.state).toBe('progression-possible');
+    expect(first).toEqual(second);expect(first.state).toBe('maintien');
   });
 });

@@ -87,7 +87,8 @@ describe('orchestrateur temporel expérimental des séances V2',()=>{
   });
 
   it.each(['intervals','hills','steady-run','long-run'] as const)('conserve le délai sportif après une activité %s documentée',type=>{
-    const candidates=catalog(type==='long-run'?'endurance':'speed');
+    const candidates=catalog(type==='long-run'?'endurance':'speed')
+      .filter(value=>type!=='long-run'||value.type==='easy-endurance'||value.type==='long-run');
     const gap=type==='long-run'?10:14;
     const activities=[{date:'2026-01-08',documentedType:type}];
     const date=(offset:number)=>new Date(Date.parse('2026-01-08T00:00:00Z')+offset*86400000).toISOString().slice(0,10);
@@ -100,7 +101,8 @@ describe('orchestrateur temporel expérimental des séances V2',()=>{
   });
 
   it.each(['intervals','hills','steady-run','long-run'] as const)('espace les intentions %s séparément des activités',type=>{
-    const candidates=catalog(type==='long-run'?'endurance':'speed'),gap=type==='long-run'?10:14;
+    const candidates=catalog(type==='long-run'?'endurance':'speed')
+      .filter(value=>type!=='long-run'||value.type==='easy-endurance'||value.type==='long-run'),gap=type==='long-run'?10:14;
     const date=(offset:number)=>new Date(Date.parse('2026-01-08T00:00:00Z')+offset*86400000).toISOString().slice(0,10);
     const source=input({candidates,activities:[],presented:[],envisaged:[{date:'2026-01-08',type}]});
     const before=structuredClone(source);
@@ -181,6 +183,22 @@ describe('préférence temporaire issue du ressenti réel',()=>{
 });
 
 describe('classement des tempéraments après admissibilité',()=>{
+  it.each([
+    ['pas-a-pas','endurance','easy-endurance'],['pas-a-pas','speed','easy-endurance'],
+    ['evolution-active','endurance','endurance-variations'],['evolution-active','speed','intervals'],
+    ['rentre-dedans','endurance','endurance-variations'],['rentre-dedans','speed','intervals'],
+  ] as const)('%s classe les mêmes candidats pour %s : %s',(coachTemperament,goal,expected)=>{
+    const candidates=selectPrototypeSessions({goal:'endurance',habitualReferenceSeconds:2400,evidence:'documented',
+      experience:'experienced',availabilitySeconds:2700,observedSessionTypes:['intervals','steady-run','hills'],
+      intervalIntroduction:{activityCount:6,activeWeeks:3,spanDays:18,eligible:true}});
+    const source=input({goal,coachTemperament,candidates,activities:[{date:'2026-01-17',documentedType:'easy-endurance'}]}),before=structuredClone(source);
+    expect(orchestratePrototypeSession(source).selected?.type).toBe(expected);
+    expect(orchestratePrototypeSession(source)).toEqual(orchestratePrototypeSession(source));
+    for(const effort of ['hard','very-hard'] as const)
+      expect(orchestratePrototypeSession({...source,activities:[{date:'2026-01-17',effort}]}).selected?.type).toBe('easy-endurance');
+    expect(orchestratePrototypeSession({...source,activities:[{date:'2026-01-17',documentedType:'hills'}]}).selected?.type).toBe('easy-endurance');
+    expect(source).toEqual(before);
+  });
   it('classe une durée progressive déjà admissible sans changer les protections',()=>{
     const habitual=catalog('endurance')[0],progressed={...habitual,totalDurationSeconds:habitual.totalDurationSeconds+300,durationSeconds:habitual.durationSeconds+300,
       changedDimensions:['duration'] as const};
@@ -205,9 +223,16 @@ describe('classement des tempéraments après admissibilité',()=>{
     const source=input({coachTemperament:'evolution-active',activities:[{date:'2026-01-17'}]});
     expect(orchestratePrototypeSession(source)).toEqual(orchestratePrototypeSession({...source,coachTemperament:'pas-a-pas'}));
   });
-  it('Rentre dedans préfère la durée haute admissible, sans créer ni agrandir de séance',()=>{
+  it('Rentre dedans retient les variations admissibles au palier de 36 min 36 s',()=>{
+    const candidates=selectPrototypeSessions({goal:'endurance',habitualReferenceSeconds:2196,evidence:'documented',experience:'experienced',
+      availabilitySeconds:2700,observedSessionTypes:[],intervalIntroduction:{activityCount:6,activeWeeks:3,spanDays:18,eligible:true}});
+    expect(candidates.map(value=>value.type)).toEqual(['easy-endurance','endurance-variations']);
+    expect(orchestratePrototypeSession(input({goal:'endurance',habitualReferenceSeconds:2196,availabilitySeconds:2700,candidates})).selected)
+      .toMatchObject({type:'endurance-variations',totalDurationSeconds:1800});
+  });
+  it('Rentre dedans privilégie l’objectif puis la durée, sans créer ni agrandir de séance',()=>{
     const first=catalog()[1],longer=catalog('endurance').find(value=>value.type==='long-run')!;
-    const source=input({coachTemperament:'rentre-dedans',candidates:[catalog()[0],first,longer]});
+    const source=input({goal:'endurance',coachTemperament:'rentre-dedans',candidates:[catalog()[0],first,longer]});
     expect(orchestratePrototypeSession(source).selected?.totalDurationSeconds).toBe(3000);
     expect(orchestratePrototypeSession({...source,availabilitySeconds:2400}).selected?.type).toBe('intervals');
   });
@@ -223,7 +248,8 @@ describe('classement des tempéraments après admissibilité',()=>{
 
 it.each(['pas-a-pas','evolution-active','rentre-dedans'] as const)('les exclusions structurées restent communes à %s',coachTemperament=>{
   for(const type of ['intervals','long-run'] as const){
-    const candidates=catalog(type==='long-run'?'endurance':'speed');
+    const candidates=catalog(type==='long-run'?'endurance':'speed')
+      .filter(value=>type!=='long-run'||value.type==='easy-endurance'||value.type==='long-run');
     const source=input({coachTemperament,candidates,activities:[{date:'2026-01-17',documentedType:type}]});
     expect(orchestratePrototypeSession(source).selected?.type).toBe('easy-endurance');
     expect(orchestratePrototypeSession({...source,candidates:candidates.filter(value=>value.type===type)}).selected).toBeNull();

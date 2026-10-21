@@ -8,6 +8,17 @@ import { ComparisonSuggestions } from './CoachV2Comparison';
 import { coachComparisonDisplay,coachExplanationLines,coachValueLabel,coachV2Explanation,storedCoachV2Explanation } from './coach-v2-display';
 
 const date='2026-10-18';
+it('n’explique plus un blocage de durée à 36:36 lorsque les variations sont admises',()=>{
+ const source=snapshot();
+ source.sessions=['2026-09-27','2026-10-01','2026-10-05','2026-10-09','2026-10-12','2026-10-15']
+  .map((date,index)=>({id:`variation-${index}`,date,title:'Course',sport:'RUNNING',durationSeconds:2196}));
+ source.coachTemperament='rentre-dedans';
+ source.profile!.availability.minutesPerSession=45;
+ const result=adaptCoachV2Readonly(source,date),display=coachV2Explanation(result);
+ expect(result.reference.confidence).toBe('confirmed');
+ expect(result.catalog.sessions.some(value=>value.type==='endurance-variations')).toBe(true);
+ expect(display.limitations.join(' ')).not.toContain('25 min, sous le minimum de 30 min');
+});
 function snapshot():CoachV2ApplicationSnapshot {
  return {sessions:['2026-10-10','2026-10-11','2026-10-12','2026-10-13'].map((date,i)=>({id:String(i),date,title:'Course',sport:'RUNNING',durationSeconds:2192})),
   occurrences:[],configuration:{goal:{model:'evolving',kind:'endurance'},experience:'experienced',structuredPlanningPreference:'accepted'},
@@ -27,9 +38,9 @@ it('explique la date admissible, la référence réellement utilisée et le terr
  expect(display.reasons).toContain('Durée de référence utilisée : 36 min 32 s.');
  expect(display.reasons).toContain('Temps disponible ce jour : 1 h maximum.');
  expect(display.reasons).toContain('Terrain plat retenu prudemment faute de préférence ou de relief documenté.');
- expect(display.reasons.join(' ')).toContain('sans progression ni structure exigeante');
- expect(display.reasons.join(' ')).not.toMatch(/Terrain préféré|confirmée|fractionné documenté/i);
- expect(display.limitations).toContain('La référence de durée reste provisoire.');
+ expect(display.reasons.join(' ')).toContain('Référence initiale confirmée');
+ expect(display.reasons.join(' ')).not.toMatch(/Terrain préféré|fractionné documenté/i);
+ expect(display.limitations).not.toContain('La référence de durée reste provisoire.');
  expect(display.limitations).toEqual(expect.arrayContaining(result.uncertainties));
  expect(result).toEqual(before);
 });

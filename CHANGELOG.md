@@ -1,5 +1,13 @@
 # Historique des versions
 
+## v0.13.0 — 2026-10-21 — Coach V2 adaptatif
+
+- Coach V2 : suggestions adaptées à l’objectif, au tempérament et aux activités réellement effectuées ; les protections de récupération et les espacements restent inchangés.
+- Coach V2 : confirmation de la durée habituelle depuis un historique réel admissible, reconnaissance encadrée de la progression et types complémentaires pour l’objectif endurance.
+- Variations modérées : correction du seuil voisin de 30 min, sans modifier le coefficient, les autres types de séance ni la disponibilité déclarée.
+- Activités : champ facultatif « Type d’entraînement » modifiable sur les séances existantes ; six types déclaratifs, conservés dans les sauvegardes et compatibles avec les anciennes données, sans qualification GPS automatique.
+- Perspectives : diversité selon les séances admissibles, indicatives et révisables, sans assimilation à des activités réalisées ni nouvelle persistance ; cohérence Accueil / Calendrier.
+
 ## v0.12.0 — 2026-10-20 — Suggestions et paramètres
 
 - Coach : calendrier synchronisé avec la suggestion V2 courante et ses perspectives révisables, sans écriture supplémentaire.

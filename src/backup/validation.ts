@@ -5,6 +5,7 @@ import { validateCoachPlanning } from '../core/coach/planning';
 import { validateEvolvingCoachRecord } from '../core/coach/configuration';
 import { validateShoe } from '../core/shoes/shoes';
 import type { RunningSession } from '../types/session';
+import { isDocumentedActivityType } from '../types/session';
 import type { CoachProfile } from '../types/coach-profile';
 import type { BackupData, BackupDocument, BackupSourceData } from '../types/backup';
 import { validSessionDate } from '../core/analysis/session-summary';
@@ -43,9 +44,10 @@ export function validateBackupData(value: unknown, source = false): asserts valu
   array(value.sessions); array(value.details);
   const sessions = new Set<string>(), details = new Set<string>();
   for (const s of value.sessions) {
-    fields(s, 'id title date startTime polarId source sport polarSportId timezoneOffsetMinutes distanceMeters durationSeconds averageHeartRate maximumHeartRate ascentMeters ascentEstimate descentMeters averagePaceSecondsPerKm heartRateZones runningIndex cardioLoad feeling');
+    fields(s, 'id title date startTime polarId source sport polarSportId timezoneOffsetMinutes distanceMeters durationSeconds averageHeartRate maximumHeartRate ascentMeters ascentEstimate descentMeters averagePaceSecondsPerKm heartRateZones runningIndex cardioLoad feeling trainingType');
     if (!id(s.id) || !text(s.title) || !(text(s.date) || (source && s.date === undefined)) || !number(s.durationSeconds)) fail();
     if (s.feeling !== undefined) validateFeeling(s.feeling);
+    if(s.trainingType!==undefined&&!isDocumentedActivityType(s.trainingType))fail();
     if (sessions.has(s.id)) fail('La sauvegarde contient des identifiants de séances dupliqués.');
     sessions.add(s.id);
     for (const key of ['polarId', 'sport', 'polarSportId']) if (s[key] !== undefined && !text(s[key])) fail();

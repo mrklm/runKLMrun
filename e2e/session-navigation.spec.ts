@@ -41,14 +41,30 @@ for (const origin of ['Accueil', 'Historique']) {
   });
   test(`ouvre la carte en cliquant sur ses informations depuis ${origin}`, async ({ page }) => {
     if (origin === 'Historique') { await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click(); await page.getByText('Historique des courses', { exact: true }).click(); }
-    await page.locator('.session-card').filter({ hasText: 'Sortie synthétique complète' }).getByText('0 h 10 min 0 s').click();
+    await page.locator('.session-card').filter({ hasText: 'Sortie synthétique complète' }).first().getByText('0 h 10 min 0 s').click();
     await expect(page.getByRole('heading', { level: 1, name: 'Sortie synthétique complète', exact: true })).toBeVisible();
   });
 }
 test('ouvre une séance sans détails et permet le retour', async ({ page }) => {
-  await page.getByRole('link', { name: 'Sortie synthétique sans détails' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click();
+  await page.getByText('Historique des courses', { exact: true }).click();
+  await page.getByRole('link', { name: 'Sortie synthétique sans détails', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Détails indisponibles' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Informations générales' })).toBeVisible();
   await page.getByRole('link', { name: 'Revenir à l’historique' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Courses' })).toBeVisible();
+});
+
+test('déclare, modifie puis retire un type d’entraînement',async({page})=>{
+  await page.getByRole('link',{name:'Sortie synthétique complète',exact:true}).click();
+  const panel=page.getByRole('region',{name:'Type d’entraînement'});
+  await expect(panel).toContainText('Non renseigné');
+  await panel.getByRole('button',{name:'Ajouter un type d’entraînement'}).click();
+  await panel.locator('select').selectOption('hills');
+  await panel.getByRole('button',{name:'Enregistrer le type'}).click();
+  await expect(panel).toContainText('Côtes');
+  await panel.getByRole('button',{name:'Modifier le type d’entraînement'}).click();
+  await panel.locator('select').selectOption('');
+  await panel.getByRole('button',{name:'Enregistrer le type'}).click();
+  await expect(panel).toContainText('Non renseigné');
 });

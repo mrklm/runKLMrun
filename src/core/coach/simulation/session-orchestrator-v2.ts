@@ -26,6 +26,8 @@ export interface SessionOrchestratorInput {
   presented:readonly PresentedSessionEvidence[];
   /** Intentions de ce calcul uniquement : aucune preuve d'activité ni progression acquise. */
   envisaged?:readonly PresentedSessionEvidence[];
+  /** Classement des perspectives uniquement ; ne fournit aucune preuve sportive. */
+  complementaryTo?:readonly Pick<PrototypeSession,'type'|'totalDurationSeconds'|'intensity'|'terrain'>[];
   coachTemperament?:CoachTemperament;
   policy?:SessionOrchestratorPolicy;
 }
@@ -45,6 +47,15 @@ export const FEELING_PREFERENCE_WINDOW_DAYS=7;
 const DAY=86400000;
 const day=(value:string)=>Date.parse(`${value}T00:00:00Z`)/DAY;
 const structured=(type:PrototypeSessionType)=>type==='intervals'||type==='steady-run'||type==='hills'||type==='endurance-variations';
+// Pertinence éditoriale uniquement : aucun effet sur les preuves ou les filtres.
+const goalPriority=(goal:PrototypeGoal,type:PrototypeSessionType)=>{
+  const order:readonly PrototypeSessionType[]=goal==='speed'
+    ? ['intervals','steady-run','endurance-variations','hills','long-run']
+    : goal==='race'?['long-run','hills','steady-run','endurance-variations','intervals']
+      : ['long-run','endurance-variations','steady-run','intervals','hills'];
+  const index=order.indexOf(type);
+  return index<0?order.length:index;
+};
 const latestDate=(values:readonly {date:string}[],referenceDate:string,predicate:((value:any)=>boolean)=()=>true)=>
   values.filter(value=>value.date<=referenceDate&&predicate(value)).map(value=>day(value.date)).sort((a,b)=>b-a)[0];
 const tooRecent=(latest:number|undefined,today:number,gap:number)=>latest!==undefined&&today-latest<gap;
@@ -90,10 +101,17 @@ export function orchestratePrototypeSession(input:SessionOrchestratorInput):Sess
       .filter(value=>value.date<=input.referenceDate)
       .sort((a,b)=>b.date.localeCompare(a.date)||(a.type??'').localeCompare(b.type??''))[0];
     if(previous?.type)selected=[...admissible].filter(value=>value.type!==previous.type||value.changedDimensions.includes('duration'))
-      .sort((a,b)=>a.totalDurationSeconds-b.totalDurationSeconds)[0]??baseline;
+      .sort((a,b)=>a.totalDurationSeconds-b.totalDurationSeconds
+        ||goalPriority(input.goal,a.type)-goalPriority(input.goal,b.type))[0]??baseline;
   }else if(temperament==='rentre-dedans'){
+    const history=input.complementaryTo??[];
+    const repeatedType=(value:PrototypeSession)=>Number(history.some(previous=>previous.type===value.type));
+    const repeatedVariant=(value:PrototypeSession)=>Number(history.some(previous=>previous.type===value.type
+      &&previous.totalDurationSeconds===value.totalDurationSeconds&&previous.intensity===value.intensity&&previous.terrain===value.terrain));
     selected=[...(specialized.length?specialized:admissible)]
-      .sort((a,b)=>b.totalDurationSeconds-a.totalDurationSeconds)[0]??null;
+      .sort((a,b)=>repeatedType(a)-repeatedType(b)||repeatedVariant(a)-repeatedVariant(b)
+        ||goalPriority(input.goal,a.type)-goalPriority(input.goal,b.type)
+        ||b.totalDurationSeconds-a.totalDurationSeconds)[0]??null;
   }
   const difficult=input.activities.filter(value=>(value.effort==='hard'||value.effort==='very-hard')
     &&value.date<=input.referenceDate&&today-day(value.date)<FEELING_PREFERENCE_WINDOW_DAYS)
@@ -110,9 +128,11 @@ export function orchestratePrototypeSession(input:SessionOrchestratorInput):Sess
     const explanation=temperament==='evolution-active'
       ? selected.type===baseline?.type&&selected.changedDimensions.includes('duration')
         ? 'Évolution Active : une durée supérieure déjà admissible est privilégiée à partir de la pratique réelle régulière.'
-        : 'Évolution Active : une alternative admissible est privilégiée pour varier le type de séance, avec la durée la plus mesurée parmi ces alternatives.'
-      : specialized.length
-        ? 'Rentre dedans : priorité à une option exigeante admissible, puis à la durée la plus haute parmi les options retenues.'
+        : 'Évolution Active : une alternative admissible est privilégiée pour varier le type de séance, avec la durée la plus mesurée, puis la priorité liée à l’objectif.'
+      : input.complementaryTo?.length
+        ? 'Rentre dedans : priorité aux options stimulantes admissibles, puis à un type ou une variante absent des intentions précédentes, puis à la pertinence pour l’objectif et à la durée la plus haute.'
+        : specialized.length
+        ? 'Rentre dedans : priorité à une option exigeante admissible, puis à la pertinence pour l’objectif et à la durée la plus haute parmi les options retenues.'
         : 'Rentre dedans : durée la plus haute parmi les séances admissibles.';
     selected={...selected,rationale:{...selected.rationale,designChoices:[...selected.rationale.designChoices,explanation]}};
   }

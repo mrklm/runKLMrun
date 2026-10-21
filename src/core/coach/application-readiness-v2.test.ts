@@ -53,14 +53,14 @@ describe('préparation globale du pipeline applicatif Coach V2 sur douze semaine
     expect(new Set(results.regular.suggestions.filter((value):value is number=>value!==null))).toEqual(new Set([40*60]));
   });
 
-  it('différencie prudemment endurance et vitesse avec une référence provisoire',()=>{
+  it('différencie prudemment endurance et vitesse avec une référence confirmée par l’historique réel',()=>{
     const sessions=stableHistory('typed',40),documentedActivityTypes=Object.fromEntries(sessions.map(value=>[value.id,'steady-run' as const]));
     const base={sessions,occurrences:[],profile:profile(60),documentedActivityTypes};
     const endurance=adaptCoachV2Readonly({...base,configuration:configuration('endurance')},date(0));
     const speed=adaptCoachV2Readonly({...base,configuration:configuration('speed')},date(0));
-    expect(endurance.reference.confidence).toBe('provisional');expect(speed.reference.confidence).toBe('provisional');
+    expect(endurance.reference.confidence).toBe('confirmed');expect(speed.reference.confidence).toBe('confirmed');
     expect(endurance.candidate).toMatchObject({type:'easy-endurance',totalDurationSeconds:2400,intensity:'easy'});
-    expect(speed.candidate).toMatchObject({type:'easy-endurance',totalDurationSeconds:1800,intensity:'easy'});
+    expect(speed.candidate).toMatchObject({type:'easy-endurance',totalDurationSeconds:2400,intensity:'easy'});
     const withoutRoles=adaptCoachV2Readonly({sessions,occurrences:[],profile:profile(60),configuration:configuration('speed')},date(0));
     expect(withoutRoles.catalog.sessions.every(value=>value.type==='easy-endurance')).toBe(true);
   });

@@ -1,4 +1,5 @@
 import { SessionFeeling } from '../components/SessionFeeling';
+import { SessionTrainingType } from '../components/SessionTrainingType';
 import { ascentLabel } from '../core/analysis/ascent';
 import { SessionShoes } from '../components/Shoes';
 import { useEffect, useMemo, useState } from 'react';
@@ -49,6 +50,7 @@ export function Session({ session }: { session?: RunningSession }) {
       {state.status === 'error' && <section className="panel settings-panel" role="alert"><h2>Stockage local indisponible</h2><p>Les détails n’ont pas pu être chargés. Vous pouvez réessayer.</p><button className="button" onClick={() => setAttempt(v => v + 1)}>Réessayer</button></section>}
       {state.status === 'ready' && <SessionCurves details={state.details} />}
       <SessionFeeling key={session.id} id={session.id} />
+      <SessionTrainingType key={session.id} id={session.id} />
       <SessionShoes sessionId={session.id} session={session} />
       <CoachV2ActivityAssociation session={session} />
     </>}

@@ -8,13 +8,76 @@ const base=(overrides:Partial<SessionStrategyInput>={}):SessionStrategyInput=>({
   documentedDistanceMeters:8000,eventDate:'2026-12-01',...overrides});
 
 describe('prototype V2 de séances différenciées',()=>{
+  it.each([
+    {reference:2196,available:2700,evidence:'documented' as const,regular:true,expected:true},
+    {reference:2400,available:2700,evidence:'insufficient' as const,regular:true,expected:false},
+    {reference:2400,available:2700,evidence:'documented' as const,regular:false,expected:false},
+    {reference:2400,available:1799,evidence:'documented' as const,regular:true,expected:false},
+    {reference:1500,available:2700,evidence:'documented' as const,regular:true,expected:false},
+    {reference:2250,available:2700,evidence:'documented' as const,regular:true,expected:true},
+    {reference:3000,available:2700,evidence:'documented' as const,regular:true,expected:true},
+  ])('conserve le budget des variations et leurs phases : %j',({reference,available,evidence,regular,expected})=>{
+    const input=base({habitualReferenceSeconds:reference,availabilitySeconds:available,evidence,observedSessionTypes:[],
+      intervalIntroduction:{activityCount:6,activeWeeks:3,spanDays:18,eligible:regular}});
+    const candidates=selectPrototypeSessions(input),variation=candidates.find(value=>value.type==='endurance-variations');
+    expect(Boolean(variation)).toBe(expected);
+    expect(selectPrototypeSessions(input)).toEqual(candidates);
+    if(!variation)return;
+    const structure=variation.structure!;
+    expect(structure.warmUp).toMatchObject({durationSeconds:600,intensity:'easy'});
+    expect(structure.efforts).toMatchObject([{durationSeconds:120,repetitions:3,intensity:'steady'}]);
+    expect(structure.recoveries).toMatchObject([{durationSeconds:120,repetitions:2,intensity:'easy'}]);
+    expect(structure.coolDown?.durationSeconds).toBeGreaterThanOrEqual(600);
+    expect(structure.coolDown?.intensity).toBe('easy');
+    expect(sessionStructureDurationSeconds(structure)).toBe(variation.totalDurationSeconds);
+    expect(variation.totalDurationSeconds-360).toBeGreaterThan(variation.totalDurationSeconds/2);
+    expect(variation.totalDurationSeconds).toBe(reference===2196?1800:Math.floor(Math.min(reference*0.8,available)/300)*300);
+    validatePrototypeSession(variation);
+  });
+  it.each([
+    [2100,2700,false], [2175,2700,true], [2196,2700,true], [2249,2700,true], [2250,2700,true],
+    [2196,1740,false], [2196,1800,false],
+  ] as const)('applique seulement aux variations le palier expérimental %i s / %i s', (reference,availability,expected)=>{
+    const variation=selectPrototypeSessions(base({habitualReferenceSeconds:reference,availabilitySeconds:availability,observedSessionTypes:[],
+      intervalIntroduction:{activityCount:6,activeWeeks:3,spanDays:18,eligible:true}})).find(value=>value.type==='endurance-variations');
+    expect(Boolean(variation)).toBe(expected);
+    if(variation)expect(variation.totalDurationSeconds).toBe(1800);
+  });
+  it('ne relève pas les autres séances structurées au palier des variations',()=>{
+    const candidates=selectPrototypeSessions(base({habitualReferenceSeconds:2196,availabilitySeconds:2700,intervalIntroduction:{activityCount:6,activeWeeks:3,spanDays:18,eligible:true}}));
+    expect(candidates.map(value=>value.type)).toEqual(['easy-endurance','endurance-variations','long-run']);
+  });
   it('différencie réellement endurance et vitesse avec le même profil',()=>{
     const endurance=selectPrototypeSessions(base({goal:'endurance'}));
     const speed=selectPrototypeSessions(base({goal:'speed'}));
-    expect(endurance.map(value=>value.type)).toEqual(['easy-endurance','long-run']);
+    expect(endurance.map(value=>value.type)).toEqual(['easy-endurance','long-run','intervals','steady-run','hills']);
     expect(speed.map(value=>value.type)).toEqual(['easy-endurance','intervals']);
     expect(endurance[1]).toMatchObject({durationSeconds:2700,intensity:'easy',terrain:'flat'});
     expect(speed[1]).toMatchObject({durationSeconds:1800,intensity:'controlled-hard',terrain:'flat'});
+  });
+
+  it('ouvre les méthodes documentées en endurance sans modifier leurs blocs',()=>{
+    const candidates=selectPrototypeSessions(base({intervalIntroduction:{activityCount:6,activeWeeks:3,spanDays:18,eligible:true}}));
+    expect(candidates.map(value=>value.type)).toEqual(['easy-endurance','endurance-variations','long-run','intervals','steady-run','hills']);
+    for(const type of ['intervals','steady-run','hills'] as const){
+      const session=candidates.find(value=>value.type===type)!;
+      const previous=selectPrototypeSessions(base({goal:type==='hills'?'race':'speed',observedSessionTypes:[type]})).find(value=>value.type===type)!;
+      expect(session.structure).toEqual(previous.structure);
+      expect(session.totalDurationSeconds).toBe(previous.totalDurationSeconds);
+      validatePrototypeSession(session);
+    }
+  });
+
+  it.each([
+    {evidence:'insufficient' as const}, {experience:'beginner' as const},
+    {habitualReferenceSeconds:2196}, {availabilitySeconds:1500}, {observedSessionTypes:[]},
+  ])('ne débloque pas les méthodes structurées sans leurs preuves : %j',overrides=>{
+    const types=selectPrototypeSessions(base({...overrides,intervalIntroduction:{activityCount:6,activeWeeks:3,spanDays:18,eligible:true}})).map(value=>value.type);
+    expect(types).not.toContain('intervals');expect(types).not.toContain('steady-run');expect(types).not.toContain('hills');
+  });
+
+  it('conserve la reprise prudente malgré toutes les preuves disponibles',()=>{
+    expect(selectPrototypeSessions(base({goal:'return'})).map(value=>value.type)).toEqual(['recovery']);
   });
 
   it('ne propose aucune séance exigeante à un débutant',()=>{
@@ -54,6 +117,14 @@ describe('prototype V2 de séances différenciées',()=>{
     const result=selectPrototypeSessions(base({goal:'race',observedSessionTypes:['hills']}));
     expect(result[1]).toMatchObject({type:'hills',terrain:'hills',intensity:'easy'});
     expect(result[1]).not.toHaveProperty('ascentMeters');expect(Object.keys(result[1])).not.toContain('gradient');
+  });
+
+  it('ajoute des variantes faciles de 35 et 30 min lorsque le relief est seulement observé',()=>{
+    const variants=selectPrototypeSessions(base({goal:'endurance',habitualReferenceSeconds:2196,availabilitySeconds:2700,
+      preferredTerrain:undefined,observedTerrain:'rolling',observedSessionTypes:[]})).filter(value=>value.type==='easy-endurance');
+    expect(variants.map(value=>[value.totalDurationSeconds,value.terrain,value.intensity])).toEqual([
+      [2100,'rolling','easy'],[2100,'flat','easy'],[1800,'rolling','easy']]);
+    expect(variants.every(value=>value.totalDurationSeconds<=2700)).toBe(true);
   });
 
   it('une sortie longue reste facile et n’augmente que la durée',()=>{

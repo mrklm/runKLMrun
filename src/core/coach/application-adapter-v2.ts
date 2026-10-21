@@ -54,7 +54,8 @@ const unavailable=(reason:string,sourceIds:string[]=[],freshness:ReferenceBootst
     reasons:[reason],excluded:[],artificialDecreaseRisk:false});
 
 /** Référence hybride fondée uniquement sur des activités et occurrences V2.
- * Une provenance V2 confirmée est la seule preuve admise d'indépendance. */
+ * Une provenance confirmée conserve le repère existant ; un épisode réel
+ * cohérent sans lien avec des suggestions peut confirmer le repère initial. */
 export function habitualReferenceFromOccurrencesV2(snapshot:CoachV2ApplicationSnapshot,referenceDate:string):ReferenceBootstrapResult {
   if(!validSessionDate(referenceDate))throw new Error('Date de référence V2 invalide.');
   snapshot.occurrences.forEach(validateOccurrenceShapeV2);
@@ -102,8 +103,14 @@ export function habitualReferenceFromOccurrencesV2(snapshot:CoachV2ApplicationSn
   const value=median(episode.map(session=>session.durationSeconds));
   const spread=(Math.max(...episode.map(session=>session.durationSeconds))-Math.min(...episode.map(session=>session.durationSeconds)))/value;
   if(spread>0.5)return unavailable('Les durées réelles admissibles sont trop dispersées.',ids);
-  return {policy:'hybrid',available:true,confidence:'provisional',freshness:'current',referenceSeconds:value,sourceIds:ids,
-    reasons:['Estimation provisoire issue de durées réelles cohérentes ; leur indépendance historique n’est pas établie.'],
+  // Ne promouvoir que les courses réelles sans suggestion à leur date et sans
+  // association déclarée, même si cette association est devenue incorrecte.
+  // Les contrôles d'épisode ci-dessus et la médiane restent identiques.
+  const associatedIds=new Set(snapshot.occurrences.flatMap(occurrence=>occurrence.activityId?[occurrence.activityId]:[]));
+  const initialConfirmation=episode.every(session=>unknown.includes(session)&&!associatedIds.has(session.id));
+  return {policy:'hybrid',available:true,confidence:initialConfirmation?'confirmed':'provisional',freshness:'current',referenceSeconds:value,sourceIds:ids,
+    reasons:[initialConfirmation?'Référence initiale confirmée par un épisode de courses réelles cohérentes, récentes et sans lien avec une suggestion connue.'
+      :'Estimation provisoire issue de durées réelles cohérentes ; leur indépendance historique n’est pas établie.'],
     excluded:exclusions,artificialDecreaseRisk:false};
 }
 
@@ -145,15 +152,19 @@ export function adaptCoachV2Readonly(snapshot:CoachV2ApplicationSnapshot,referen
   const {date:referenceDate,minuteOfDay}=resolveCoachV2Reference(referenceTime);
   const reference=habitualReferenceFromOccurrencesV2(snapshot,referenceDate);
   // Une association établit un lien, jamais la réalisation du type conseillé.
-  const activityType=(id:string)=>snapshot.documentedActivityTypes?.[id];
-  const reliableActivityTypes=Object.fromEntries(snapshot.sessions.flatMap(session=>{const type=activityType(session.id);return type?[[session.id,type]]:[];}));
+  const reliableActivityTypes=Object.fromEntries(snapshot.sessions.flatMap(session=>{
+    const date=matchingDate(session),type=session.trainingType??snapshot.documentedActivityTypes?.[session.id];
+    return date!==undefined&&date<=referenceDate&&type?[[session.id,type]]:[];
+  }));
+  const activityType=(id:string)=>reliableActivityTypes[id];
   let catalog=proposeExperimentalCatalogFromReferenceV2({sessions:snapshot.sessions,reference,
     referenceDate,configuration:snapshot.configuration,historicalProfile:snapshot.profile,documentedActivityTypes:reliableActivityTypes});
   const facts={sessionIds:snapshot.sessions.flatMap(session=>matchingDate(session)?[session.id]:[]),
     occurrenceIds:snapshot.occurrences.map(value=>value.id)};
   const declarations={goal:snapshot.configuration?.goal??null,availability:snapshot.profile?.availability??null};
   const uncertainties=['Une sélection calculée ne constitue ni une consultation enregistrée ni une présentation effective.'];
-  if(!snapshot.documentedActivityTypes)uncertainties.push('Aucun type de séance fiable n’est fourni par le stockage actuel.');
+  if(!snapshot.sessions.some(session=>session.trainingType!==undefined)&&!snapshot.documentedActivityTypes)
+    uncertainties.push('Aucun type de séance fiable n’est renseigné sur les activités réelles.');
   const activities:RecordedActivityEvidence[]=snapshot.sessions.flatMap(session=>{
     const date=matchingDate(session);if(!date)return [];
     const documentedType=activityType(session.id);

@@ -1,10 +1,19 @@
 import type { OptionalSessionFeeling } from './evolving-coach';
 import type { AscentEstimate } from '../core/analysis/ascent';
+export type DocumentedActivityType='easy-endurance'|'endurance-variations'|'long-run'|'steady-run'|'intervals'|'hills';
+export const documentedActivityTypeLabels:Readonly<Record<DocumentedActivityType,string>>={
+  'easy-endurance':'Endurance facile','endurance-variations':'Variations modérées','long-run':'Sortie longue',
+  'steady-run':'Séance soutenue',intervals:'Fractionné',hills:'Côtes',
+};
+export const isDocumentedActivityType=(value:unknown):value is DocumentedActivityType=>
+  typeof value==='string'&&Object.hasOwn(documentedActivityTypeLabels,value);
 /** Résumé léger. Distances/altitudes en m, durées en s, FC en bpm. */
 export interface RunningSession {
   id: string;
   /** Annotation personnelle facultative, jamais déduite des mesures. */
   feeling?: OptionalSessionFeeling;
+  /** Déclaration facultative du coureur ; jamais déduite des mesures ou suggestions. */
+  trainingType?: DocumentedActivityType;
   title: string;
   date: string;
   startTime?: string;
