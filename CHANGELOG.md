@@ -1,5 +1,11 @@
 # Historique des versions
 
+## v0.13.1 — 2026-10-21 — Identité visuelle
+
+- Accueil : icône remplacée par le coureur, affiché à deux fois la taille précédente.
+- Version centrée sous le titre avec une opacité de 20 %, sans décaler la mise en page.
+- Pied de page : nom de l’application et version centrés ensemble.
+
 ## v0.13.0 — 2026-10-21 — Coach V2 adaptatif
 
 - Coach V2 : suggestions adaptées à l’objectif, au tempérament et aux activités réellement effectuées ; les protections de récupération et les espacements restent inchangés.

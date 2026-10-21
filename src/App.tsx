@@ -2,7 +2,7 @@ import { Shoes } from './components/Shoes';
 import { retentionService } from './storage/detail-retention';
 import { subscribeStorage } from './storage/changes';
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Branding, SplashScreen } from './components/Branding';
+import { appVersion, Branding, SplashScreen } from './components/Branding';
 import { Home } from './pages/Home';
 import { Courses } from './pages/Courses';
 import { Training } from './pages/Training';
@@ -99,7 +99,7 @@ export function App() {
         <Branding />
       </header>
       <nav className="navigation" aria-label="Navigation principale">
-        {navigation.map((item) => <a key={item.path} href={`#${item.path}`} aria-current={path === item.path ? 'page' : undefined}><span aria-hidden="true">{item.symbol}</span>{item.label}</a>)}
+        {navigation.map((item) => <a key={item.path} href={`#${item.path}`} aria-current={path === item.path ? 'page' : undefined}>{item.path === '/' ? <img className="navigation-home-icon" src={`${import.meta.env.BASE_URL}images/coureur.png`} alt="" /> : <span aria-hidden="true">{item.symbol}</span>}{item.label}</a>)}
       </nav>
       <main id="main-content" ref={mainRef} tabIndex={-1}>
         {needsData && data.status === 'loading' && <div className="panel status" role="status">Ouverture de votre espace local…</div>}
@@ -112,7 +112,7 @@ export function App() {
         <div hidden={path !== '/parametres'}><Settings active={path === '/parametres'} sessions={data.status === 'ready' ? data.sessions : []} /></div>
         {!currentPage && !isSession && <section className="panel status"><h1>Page introuvable</h1><p>Cette page n’existe pas.</p><a className="button" href="#/">Revenir à l’accueil</a></section>}
       </main>
-      <footer><span>runKLMrun</span></footer>
+      <footer><span>runKLMrun</span><span>{appVersion}</span></footer>
     </div>
     </>
   );

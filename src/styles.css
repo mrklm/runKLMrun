@@ -149,6 +149,12 @@ p {
   line-height:1;
 }
 
+.navigation-home-icon {
+  width:2.4rem;
+  height:2.4rem;
+  object-fit:contain;
+}
+
 .navigation a[aria-current=page] {
   background:var(--accent);
   color:var(--accent-fg);
@@ -390,7 +396,8 @@ main:focus {
 footer {
   border-top:1px solid var(--border);
   display:flex;
-  justify-content:space-between;
+  justify-content:center;
+  align-items:center;
   gap:16px;
   padding:22px 0 30px;
   font-size:.75rem;
@@ -477,7 +484,6 @@ footer>span:first-child {
     padding:24px;
   }
   footer {
-    flex-direction:column;
     gap:5px;
   }
   .page-heading {
@@ -677,7 +683,7 @@ summary { cursor:pointer; }
 
 .site-header { position:relative; }
 .site-header .brand { position:absolute; left:50%; transform:translateX(-50%); }
-.site-header .brand-version { position:absolute; left:100%; }
+.site-header .brand-version { position:absolute; top:calc(100% - 9px); left:50%; transform:translateX(-50%); line-height:1; opacity:.2; }
 .site-header .local-label { position:absolute; right:0; bottom:4px; }
 
 .profile-fields { border:0; padding:0; margin:16px 0; min-width:0; }
