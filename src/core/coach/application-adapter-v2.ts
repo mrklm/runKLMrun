@@ -81,7 +81,7 @@ export function habitualReferenceFromOccurrencesV2(snapshot:CoachV2ApplicationSn
   const validity=habitualReferenceValidityV2(bounded,referenceDate);
   const exclusions=observations.filter(value=>value.role==='ambiguous').map(value=>({entity:'session' as const,id:value.id,reason:'ambiguous-association' as const}));
   if(validity.referenceSeconds!==null&&(validity.validity==='valid-revisable'||validity.validity==='valid-retained'))return {
-    policy:'hybrid',available:true,confidence:'confirmed',freshness:'current',referenceSeconds:validity.referenceSeconds,
+    policy:'hybrid',available:true,confidence:'confirmed',freshness:'current',referenceSeconds:Math.round(validity.referenceSeconds),
     sourceIds:[...validity.sourceIds],reasons:[validity.validity==='valid-retained'
       ?'Référence confirmée conservée par des activités associées fiables, sans révision automatique.'
       :'Référence confirmée par les provenances V2 persistées.'],excluded:exclusions,artificialDecreaseRisk:false,
@@ -100,9 +100,10 @@ export function habitualReferenceFromOccurrencesV2(snapshot:CoachV2ApplicationSn
     return unavailable('Les durées réelles admissibles sont trop anciennes.',ids,'expired');
   if(episode.length<EXPERIMENTAL_REFERENCE_PARAMETERS.confirmationCount)
     return unavailable('Le nombre de durées réelles admissibles est insuffisant.',ids);
-  const value=median(episode.map(session=>session.durationSeconds));
-  const spread=(Math.max(...episode.map(session=>session.durationSeconds))-Math.min(...episode.map(session=>session.durationSeconds)))/value;
+  const medianValue=median(episode.map(session=>session.durationSeconds));
+  const spread=(Math.max(...episode.map(session=>session.durationSeconds))-Math.min(...episode.map(session=>session.durationSeconds)))/medianValue;
   if(spread>0.5)return unavailable('Les durées réelles admissibles sont trop dispersées.',ids);
+  const value=Math.round(medianValue);
   // Ne promouvoir que les courses réelles sans suggestion à leur date et sans
   // association déclarée, même si cette association est devenue incorrecte.
   // Les contrôles d'épisode ci-dessus et la médiane restent identiques.

@@ -1,5 +1,9 @@
 # Historique des versions
 
+## v0.13.2 — 2026-10-22 — Coach V2
+
+- Coach V2 : durée de référence habituelle arrondie à la seconde pour la stratégie, y compris après confirmation ; les calculs de validité conservent la médiane exacte.
+
 ## v0.13.1 — 2026-10-21 — Identité visuelle
 
 - Accueil : icône remplacée par le coureur, affiché à deux fois la taille précédente.

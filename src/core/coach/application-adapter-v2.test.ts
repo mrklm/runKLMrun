@@ -72,6 +72,30 @@ describe('adaptateur applicatif V2 en lecture seule',()=>{
     expect(input).toEqual(before);
   });
 
+  it('arrondit la médiane fractionnaire des imports avant le recalcul du Coach',()=>{
+    const sessions=[2100,2100,2101,2101].map((seconds,index)=>({...run(`fractional-${index}`,-8+index),durationSeconds:seconds,source:'tcx' as const}));
+    const input={sessions,occurrences:[],configuration:config(),profile};
+    const result=adaptCoachV2Readonly(input,today);
+    expect(result.reference.referenceSeconds).toBe(2101);
+    expect(result.candidate).not.toBeNull();
+    const reordered=adaptCoachV2Readonly({...input,sessions:[...sessions].reverse()},today);
+    expect(reordered.reference.referenceSeconds).toBe(result.reference.referenceSeconds);
+    expect(reordered.candidate).toEqual(result.candidate);
+  });
+
+  it('arrondit la médiane fractionnaire d’une référence confirmée avant la stratégie',async()=>{
+    const sessions=[2100,2100,2101,2101].map((seconds,index)=>({...run(`confirmed-fractional-${index}`,-8+index),durationSeconds:seconds}));
+    const confirmed=await occurrence(sessions.map(session=>session.id),'2026-10-14','confirmed','confirmed-fractional');
+    const result=adaptCoachV2Readonly({sessions,occurrences:[confirmed],configuration:config(),profile},today);
+    expect(result.reference).toMatchObject({confidence:'confirmed',referenceSeconds:2101});
+    expect(result.candidate).not.toBeNull();
+  });
+
+  it('conserve la médiane entière d’un nombre impair d’imports',()=>{
+    const sessions=[2100,2101,2102,2103,2104].map((seconds,index)=>({...run(`odd-${index}`,-9+index),durationSeconds:seconds,source:'tcx' as const}));
+    expect(habitualReferenceFromOccurrencesV2({sessions,occurrences:[]},today).referenceSeconds).toBe(2102);
+  });
+
   it.each([
     {label:'insuffisant',offsets:[-8,-6,-4],minutes:[40,40,40]},
     {label:'ancien',offsets:[-50,-49,-48,-43],minutes:[40,40,40,40]},
