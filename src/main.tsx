@@ -1,5 +1,5 @@
 import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot,type Root } from 'react-dom/client';
 import { App } from './App';
 import './styles.css';
 import { themeStore } from './themes/theme-store';
@@ -10,6 +10,8 @@ themeStore.initialize();
 const stopReconciliation = startSuggestionReconciliation();
 if (import.meta.hot) import.meta.hot.dispose(stopReconciliation);
 
-createRoot(document.getElementById('root')!).render(
+const container=document.getElementById('root')! as HTMLElement&{runklmrunRoot?:Root};
+const root=container.runklmrunRoot??=createRoot(container);
+root.render(
   <StrictMode><App /></StrictMode>,
 );

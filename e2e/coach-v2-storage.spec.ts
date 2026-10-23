@@ -63,24 +63,38 @@ test('transactions V2 concurrentes dans deux onglets et réouverture',async({pag
 
 test('identité applicative V2 concurrente dans deux onglets',async({page,context})=>{
   const database=`browser-v2-identity-${Date.now()}`;await page.goto('./');const other=await context.newPage();await other.goto('./');
+  await page.evaluate(async input=>{
+    const {openDatabase}=await import(/* @vite-ignore */ input.modules+'storage/database-connection.ts');
+    const db=await openDatabase(input.database),tx=db.transaction(['sessions','coachProfile','evolvingCoach'],'readwrite');
+    const metadata={id:'local',revision:1,createdAt:'2026-10-01T08:00:00.000Z',updatedAt:'2026-10-01T08:00:00.000Z'};
+    for(const [index,date] of ['2026-10-10','2026-10-11','2026-10-12','2026-10-13'].entries())
+      await tx.objectStore('sessions').put({id:`run-${index}`,title:'Course',sport:'RUNNING',date,durationSeconds:2400});
+    await tx.objectStore('coachProfile').put({...metadata,goal:{kind:'endurance'},availability:{sessionsPerWeek:3,
+      days:['monday','wednesday','friday'],minutesPerSession:60},preferences:{terrain:'road'},accompanimentMode:'advisor'});
+    await tx.objectStore('evolvingCoach').put({...metadata,configuration:{goal:{model:'evolving',kind:'endurance'},
+      experience:'experienced',structuredPlanningPreference:'accepted'}});
+    await tx.done;db.close();
+  },{modules,database});
   const present=async(target:Page,id:string)=>target.evaluate(async input=>{
-    const adapter=await import(/* @vite-ignore */ input.modules+'core/coach/application-adapter-v2.ts');
+    const {calculateCoachV2Readonly}=await import(/* @vite-ignore */ input.modules+'storage/coach-v2-readonly.ts');
     const core=await import(/* @vite-ignore */ input.modules+'core/coach/persistence-foundations-v2.ts');
     const storage=await import(/* @vite-ignore */ input.modules+'storage/coach-suggestions-v2.ts');
-    const sessions=['2026-10-10','2026-10-11','2026-10-12','2026-10-13'].map((date,index)=>
-      ({id:`run-${index}`,title:'Course',sport:'RUNNING',date,durationSeconds:2400}));
-    const result=adapter.adaptCoachV2Readonly({sessions,occurrences:[],configuration:{goal:{model:'evolving',kind:'endurance'},
-      experience:'experienced',structuredPlanningPreference:'accepted'},profile:{goal:{kind:'endurance'},availability:{sessionsPerWeek:3,
-      days:['monday','wednesday','friday'],minutesPerSession:60},preferences:{terrain:'road'},accompanimentMode:'advisor'}},'2026-10-18');
+    const result=await calculateCoachV2Readonly('2026-10-18',input.database);
     return storage.presentCoachV2Selection({result,referenceDate:'2026-10-18',moment:{presentedAt:core.instantIso('2026-10-18T08:00:00.000Z'),
       presentedOn:core.civilDate('2026-10-18'),timeZone:core.ianaTimeZone('Europe/Paris'),utcOffsetMinutes:120,
       civilDateRule:'device-local-at-presentation'},provenance:{engine:'coach-v2',contractVersion:1,referenceConfidence:'provisional',
-      referenceSourceIds:sessions.map(value=>value.id),limitationCodes:[]},createId:()=>input.id},input.database);
+      referenceSourceIds:result.reference.sourceIds,limitationCodes:[]},createId:()=>input.id},input.database);
   },{modules,database,id});
   const [left,right]=await Promise.all([present(page,'left'),present(other,'right')]);
   expect([left.status,right.status].filter(value=>value==='created')).toHaveLength(1);
-  expect([left.status,right.status].filter(value=>value==='existing'||value==='reused-active')).toHaveLength(1);
+  expect([left.status,right.status].filter(value=>value==='reused-active')).toHaveLength(1);
   expect(left.occurrence.id).toBe(right.occurrence.id);expect(left.occurrence.opportunity.generation).toBe(1);
+  expect(left.occurrence).toEqual(right.occurrence);
+  const stored=await page.evaluate(async input=>{
+    const {createSuggestionV2Repository}=await import(/* @vite-ignore */ input.modules+'storage/coach-suggestions-v2.ts');
+    return createSuggestionV2Repository(input.database).listAll();
+  },{modules,database});
+  expect(stored).toEqual([left.occurrence]);
 });
 
 test('cycle V6 réel et restauration ancienne sans association orpheline',async({page})=>{

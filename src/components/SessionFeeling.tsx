@@ -41,7 +41,7 @@ export function SessionFeeling({ id }: { id: string }) {
     } catch (cause) { if (current === generation.current) setError(cause instanceof Error ? cause.message : 'L’enregistrement a échoué. Vos saisies sont conservées.'); }
     finally { running.current = false; setBusy(false); }
   }
-  return <section className="panel settings-panel" aria-labelledby="feeling-title">
+  return <section className="panel settings-panel" aria-labelledby="feeling-title" data-testid="session-feeling">
     <h2 id="feeling-title">Votre ressenti</h2>
     <p>Facultatif : votre effort perçu, indépendant de l’intensité proposée par le Coach.</p>
     {!ready && !error && <p role="status">Chargement du ressenti…</p>}

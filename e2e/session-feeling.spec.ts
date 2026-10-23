@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 for (const width of [390,1280]) test(`ressenti facultatif, persistance et concurrence à ${width}px`,async({page,context})=>{
+ const duplicateKeyWarnings:string[]=[];
+ page.on('console',message=>{if(message.text().includes('Encountered two children with the same key'))duplicateKeyWarnings.push(message.text());});
  await page.setViewportSize({width,height:900});await page.goto('./#/historique');await expect(page.locator('.splash-screen')).toHaveCount(0);
  await page.getByText('Ajouter une sortie manuellement',{exact:true}).click();
  const manual=page.getByRole('form',{name:'Ajouter une sortie manuellement'});
@@ -7,7 +9,18 @@ for (const width of [390,1280]) test(`ressenti facultatif, persistance et concur
  await manual.getByLabel('Commentaire personnel (facultatif)').fill('Commentaire seul');
  await manual.getByRole('button',{name:'Enregistrer la sortie'}).click();await manual.getByRole('link',{name:'Consulter la sortie'}).click();
  const region=page.getByRole('region',{name:'Votre ressenti',exact:true});await expect(region.getByText('Commentaire seul',{exact:true})).toBeVisible();
- const url=page.url();await page.reload();await expect(page.locator('.splash-screen')).toHaveCount(0);await expect(region.getByText('Commentaire seul',{exact:true})).toBeVisible();
+ const url=page.url();await expect(page.getByTestId('session-feeling')).toHaveCount(1);
+ await page.getByRole('navigation').getByRole('link',{name:'Accueil',exact:true}).click();await expect(page.getByTestId('session-feeling')).toHaveCount(0);
+ await page.goto(url);await expect(page.getByTestId('session-feeling')).toHaveCount(1);
+ for(let visit=0;visit<3;visit++) {
+ await expect(page.getByText('Chargement des détails de votre séance…',{exact:true})).toHaveCount(0);
+ await expect(region.getByText('Commentaire seul',{exact:true})).toBeVisible();
+ await expect(page.getByTestId('session-feeling')).toHaveCount(1);
+ await page.getByRole('link',{name:'Revenir à l’historique',exact:true}).click();
+ await expect(page.getByTestId('session-feeling')).toHaveCount(0);
+ await page.goto(url);
+ }
+ await page.reload();await expect(page.locator('.splash-screen')).toHaveCount(0);await expect(region.getByText('Commentaire seul',{exact:true})).toBeVisible();
  await region.getByRole('button',{name:'Modifier le ressenti ou le commentaire'}).click();
  await region.getByLabel('Effort perçu (facultatif)').selectOption('easy');
  await region.getByRole('button',{name:'Enregistrer le ressenti'}).focus();await page.keyboard.press('Enter');await expect(region.getByText('Facile',{exact:true})).toBeVisible();
@@ -23,4 +36,5 @@ for (const width of [390,1280]) test(`ressenti facultatif, persistance et concur
  await page.getByRole('navigation').getByRole('link',{name:'Paramètres'}).click();await page.getByRole('combobox',{name:'Thème',exact:true}).selectOption({label:theme});await page.goto(url);await expect(region.getByRole('button',{name:'Ajouter un ressenti ou un commentaire'})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  }
  await other.close();
+ expect(duplicateKeyWarnings).toEqual([]);
 });

@@ -1,5 +1,13 @@
 # Historique des versions
 
+## v0.13.3 — 2026-10-23 — Fiabilité des séances et des tests
+
+- Séances : clés React distinctes pour le ressenti et le type d’entraînement, afin d’éviter l’accumulation des formulaires « Votre ressenti » lors des navigations.
+- Initialisation React : réutilisation de la racine existante lors d’une réévaluation du module d’entrée.
+- Tests : contrôle de l’unicité du formulaire après plusieurs navigations et de l’absence d’avertissement de clés dupliquées.
+- Coach V2 : scénario de calendrier à date et fuseau fixes ; test de présentation concurrente initialisé dans une base dédiée, avec vérification d’une seule occurrence persistée.
+- Tests : maintien du rejet des entrées invalides de la stratégie V2, notamment des références non entières.
+
 ## v0.13.2 — 2026-10-22 — Coach V2
 
 - Coach V2 : durée de référence habituelle arrondie à la seconde pour la stratégie, y compris après confirmation ; les calculs de validité conservent la médiane exacte.

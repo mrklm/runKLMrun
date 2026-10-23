@@ -8,6 +8,10 @@ const base=(overrides:Partial<SessionStrategyInput>={}):SessionStrategyInput=>({
   documentedDistanceMeters:8000,eventDate:'2026-12-01',...overrides});
 
 describe('prototype V2 de séances différenciées',()=>{
+  it.each([{availabilitySeconds:0},{habitualReferenceSeconds:2100.5},{targetDistanceMeters:0},{documentedDistanceMeters:NaN},{eventDate:'invalid'}])
+    ('conserve le rejet des autres entrées invalides : %j',overrides=>{
+      expect(()=>selectPrototypeSessions(base(overrides))).toThrow('Entrée de stratégie V2 invalide.');
+    });
   it.each([
     {reference:2196,available:2700,evidence:'documented' as const,regular:true,expected:true},
     {reference:2400,available:2700,evidence:'insufficient' as const,regular:true,expected:false},

@@ -130,7 +130,11 @@ for(const route of ['entrainement','#/entrainement']) {
   });
 }
 
+test.describe('présentation V2 à date fixe',()=>{
+test.use({timezoneId:'Europe/Paris'});
 test('présentation V2 interne visible, réaffichage et sauvegarde V6',async({page,context})=>{
+  const consultation=new Date('2026-10-23T10:00:00+02:00');
+  await page.clock.setFixedTime(consultation);
   await page.goto('./#/entrainement');await seed(page);
   await page.reload();
   const panel=page.getByTestId('coach-v2-experimental');await expect(panel).toContainText('Des idées pour les prochains jours');
@@ -144,15 +148,21 @@ test('présentation V2 interne visible, réaffichage et sauvegarde V6',async({pa
   expect(mobileBox).not.toBeNull();expect(mobileBox!.x).toBeGreaterThanOrEqual(0);expect(mobileBox!.x+mobileBox!.width).toBeLessThanOrEqual(390);
   expect(await count(page)).toBe(1);
   await page.goto('./#/courses');
-  await expect(page.getByTestId('calendar-suggestion-v2')).toHaveCount(2);
-  await expect(page.getByTestId('calendar-suggestion-v2').first()).toContainText('Suggestion du Coach');
+  await expect(page.getByTestId('calendar-suggestion-v2')).toHaveCount(3);
+  for(const date of ['23/10/2026','26/10/2026','28/10/2026']) {
+    const suggestion=page.getByRole('listitem',{name:date,exact:true}).getByTestId('calendar-suggestion-v2');
+    await expect(suggestion).toHaveCount(1);
+    await expect(suggestion).toContainText('Suggestion du Coach');
+    await expect(suggestion).toContainText('Endurance facile · 00:40:00');
+  }
   const backup=await page.evaluate(async input=>{const {readBackupSnapshot}=await import(/* @vite-ignore */ input.modules+'storage/backup.ts');
-    const {createBackup}=await import(/* @vite-ignore */ input.modules+'backup/format.ts');return createBackup(await readBackupSnapshot(),'0.7.0','2026-10-18T10:00:00.000Z');},{modules});
+    const {createBackup}=await import(/* @vite-ignore */ input.modules+'backup/format.ts');return createBackup(await readBackupSnapshot(),'0.7.0',input.createdAt);},{modules,createdAt:consultation.toISOString()});
   expect(backup.formatVersion).toBe(6);expect(backup.data.coachSuggestionsV2).toHaveLength(1);
 
-  const other=await context.newPage();await other.goto('./#/entrainement');
+  const other=await context.newPage();await other.clock.setFixedTime(consultation);await other.goto('./#/entrainement');
   await expect(other.getByTestId('coach-v2-experimental')).toContainText('Prochaine séance conseillée');
   expect(await count(other)).toBe(1);
+});
 });
 
 test('association V2 explicitement confirmée depuis une activité compatible',async({page})=>{
