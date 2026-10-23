@@ -1,4 +1,5 @@
 import { SessionFeeling } from '../components/SessionFeeling';
+import { SessionRoute } from '../components/SessionRoute';
 import { SessionTrainingType } from '../components/SessionTrainingType';
 import { ascentLabel } from '../core/analysis/ascent';
 import { SessionShoes } from '../components/Shoes';
@@ -46,6 +47,7 @@ export function Session({ session }: { session?: RunningSession }) {
     <header className="session-heading"><h1>{session?.title ?? 'Séance introuvable'}</h1></header>
     {!session ? <section className="panel settings-panel"><p>Cette séance n’est pas disponible sur cet appareil.</p></section> : <>
       <SessionInformation session={session} />
+      <SessionRoute key={`route:${session.id}`} state={state} />
       {state.status === 'loading' && <p role="status">Chargement des détails de votre séance…</p>}
       {state.status === 'error' && <section className="panel settings-panel" role="alert"><h2>Stockage local indisponible</h2><p>Les détails n’ont pas pu être chargés. Vous pouvez réessayer.</p><button className="button" onClick={() => setAttempt(v => v + 1)}>Réessayer</button></section>}
       {state.status === 'ready' && <SessionCurves details={state.details} />}

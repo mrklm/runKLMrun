@@ -1,5 +1,21 @@
 # Historique des versions
 
+## v0.14.0 — 2026-10-23 — Cartographie des parcours GPS
+
+### Nouvelle fonctionnalité
+
+- Visualisation des parcours GPS sur fond OpenStreetMap, affichée automatiquement dans les fiches séances disposant de coordonnées exploitables.
+- Marqueurs de départ et d’arrivée, cadrage automatique du parcours et affichage adapté aux écrans mobiles.
+- Respect des interruptions GPS et séparation du tracé au franchissement de l’antiméridien ; affichage de la position lorsqu’un seul point est disponible.
+
+### Améliorations techniques
+
+- Chargement différé de Leaflet uniquement lorsqu’une carte est nécessaire ; attribution OpenStreetMap conservée.
+- Coordonnées GPS conservées localement, sans envoi du parcours à une API externe ; seules les tuiles cartographiques sont chargées auprès du fournisseur.
+- Messages adaptés aux séances sans données GPS exploitables et aux fonds cartographiques indisponibles.
+- Tests unitaires de préparation des parcours et tests Playwright de la cartographie, des écrans mobiles, de la navigation et de la stabilité de la carte pendant les interactions avec les formulaires.
+- Politique de conservation des détails inchangée : 30 jours, sans migration des données existantes.
+
 ## v0.13.3 — 2026-10-23 — Fiabilité des séances et des tests
 
 - Séances : clés React distinctes pour le ressenti et le type d’entraînement, afin d’éviter l’accumulation des formulaires « Votre ressenti » lors des navigations.

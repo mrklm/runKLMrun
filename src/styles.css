@@ -792,3 +792,14 @@ summary { cursor:pointer; }
 .coach-temperament-choices button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 .coach-temperament-choices button:disabled { cursor:wait; opacity:.7; }
 @media (max-width:600px) { .coach-temperament-choices { grid-template-columns:1fr; } }
+
+.session-route-panel { min-width:0; }
+.session-map-frame { width:100%; min-width:0; position:relative; z-index:0; }
+.session-map { width:100%; height:clamp(300px,50vh,480px); border:1px solid var(--border); border-radius:8px; background:#e8ebed; color:#17212b; color-scheme:light; }
+.session-map .leaflet-control-attribution { color:#222; background:rgba(255,255,255,.95); font-size:12px; max-width:100%; }
+.session-map .leaflet-control-attribution a { color:#075580; }
+.session-map .leaflet-control-zoom a { width:44px; height:44px; line-height:44px; color:#17212b; background:#fff; }
+.session-map .leaflet-control a:focus-visible, .session-map-marker:focus-visible { outline:3px solid #1166cc; outline-offset:2px; }
+.session-map .session-map-marker { display:grid; place-items:center; border:2px solid #fff; border-radius:50%; color:#fff; font:bold 15px/1 system-ui,sans-serif; box-shadow:0 1px 5px #0008; }
+.session-map-start { background:#176636; }
+.session-map-end { background:#a52720; }
