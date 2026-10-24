@@ -1,5 +1,9 @@
 # Historique des versions
 
+## v0.14.1 — 2026-10-24 — Aide
+
+- Aide : nouvel onglet expliquant l’enregistrement et l’import des séances, les sauvegardes, le Coach, la carte GPS et le fonctionnement local de l’application.
+
 ## v0.14.0 — 2026-10-23 — Cartographie des parcours GPS
 
 ### Nouvelle fonctionnalité

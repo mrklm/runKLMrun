@@ -350,6 +350,9 @@ main:focus {
   margin-bottom:0;
 }
 
+.help-content ul, .help-content ol { margin:0 0 1.1rem; padding-left:1.3rem; }
+.help-content li + li { margin-top:.55rem; }
+
 .notice {
   padding:18px 20px;
   background:var(--field);

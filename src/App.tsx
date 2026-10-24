@@ -7,6 +7,7 @@ import { Home } from './pages/Home';
 import { Courses } from './pages/Courses';
 import { Training } from './pages/Training';
 import { Settings } from './pages/Settings';
+import { Help } from './pages/Help';
 import { StorageBlockedError } from './storage/database-connection';
 import { sessionRepository } from './storage/database';
 import { sessionIdFromPath } from './core/analysis/session-detail';
@@ -21,6 +22,7 @@ const pages = [
   { path: '/entrainement', label: 'Coach', symbol: '↗' },
   { path: '/chaussures', label: 'Mes chaussures', symbol: '◒' },
   { path: '/parametres', label: 'Paramètres', symbol: '⚙' },
+  { path: '/aide', label: 'Aide', symbol: '?' },
 ];
 
 const navigation = pages.filter(item => item.path !== '/entrainement' && item.path !== '/chaussures');
@@ -110,6 +112,7 @@ export function App() {
         {path === '/chaussures' && data.status === 'ready' && <Shoes sessions={data.sessions} />}
         {path === '/entrainement' && data.status === 'ready' && <Training sessions={data.sessions} />}
         <div hidden={path !== '/parametres'}><Settings active={path === '/parametres'} sessions={data.status === 'ready' ? data.sessions : []} /></div>
+        {path === '/aide' && <Help />}
         {!currentPage && !isSession && <section className="panel status"><h1>Page introuvable</h1><p>Cette page n’existe pas.</p><a className="button" href="#/">Revenir à l’accueil</a></section>}
       </main>
       <footer><span>runKLMrun</span><span>{appVersion}</span></footer>
