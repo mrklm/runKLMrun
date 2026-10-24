@@ -1,5 +1,10 @@
 # Historique des versions
 
+## v0.14.2 — 2026-10-24 — Parcours GPS
+
+- Parcours GPS : section dépliable, ouverte automatiquement lorsqu’un parcours est disponible et repliée avec l’indication « Parcours GPS · Indisponible » sans coordonnées.
+- Carte : chargée seulement à l’ouverture ; Leaflet est démonté à la fermeture. En-tête accessible au clavier et adapté au mobile.
+
 ## v0.14.1 — 2026-10-24 — Aide
 
 - Aide : nouvel onglet expliquant l’enregistrement et l’import des séances, les sauvegardes, le Coach, la carte GPS et le fonctionnement local de l’application.

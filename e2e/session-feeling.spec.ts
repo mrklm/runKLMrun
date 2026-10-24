@@ -9,15 +9,15 @@ for (const width of [390,1280]) test(`ressenti facultatif, persistance et concur
  await manual.getByLabel('Commentaire personnel (facultatif)').fill('Commentaire seul');
  await manual.getByRole('button',{name:'Enregistrer la sortie'}).click();await manual.getByRole('link',{name:'Consulter la sortie'}).click();
  const region=page.getByRole('region',{name:'Votre ressenti',exact:true});await expect(region.getByText('Commentaire seul',{exact:true})).toBeVisible();
- const url=page.url();await expect(page.getByTestId('session-feeling')).toHaveCount(1);
- await page.getByRole('navigation').getByRole('link',{name:'Accueil',exact:true}).click();await expect(page.getByTestId('session-feeling')).toHaveCount(0);
- await page.goto(url);await expect(page.getByTestId('session-feeling')).toHaveCount(1);
+ const url=page.url();await expect(page.getByRole('region',{name:'Votre ressenti',exact:true})).toHaveCount(1);
+ await page.getByRole('navigation').getByRole('link',{name:'Accueil',exact:true}).click();await expect(page.getByRole('region',{name:'Votre ressenti',exact:true})).toHaveCount(0);
+ await page.goto(url);await expect(page.getByRole('region',{name:'Votre ressenti',exact:true})).toHaveCount(1);
  for(let visit=0;visit<3;visit++) {
  await expect(page.getByText('Chargement des détails de votre séance…',{exact:true})).toHaveCount(0);
  await expect(region.getByText('Commentaire seul',{exact:true})).toBeVisible();
- await expect(page.getByTestId('session-feeling')).toHaveCount(1);
+ await expect(page.getByRole('region',{name:'Votre ressenti',exact:true})).toHaveCount(1);
  await page.getByRole('link',{name:'Revenir à l’historique',exact:true}).click();
- await expect(page.getByTestId('session-feeling')).toHaveCount(0);
+ await expect(page.getByRole('region',{name:'Votre ressenti',exact:true})).toHaveCount(0);
  await page.goto(url);
  }
  await page.reload();await expect(page.locator('.splash-screen')).toHaveCount(0);await expect(region.getByText('Commentaire seul',{exact:true})).toBeVisible();

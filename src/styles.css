@@ -797,6 +797,8 @@ summary { cursor:pointer; }
 @media (max-width:600px) { .coach-temperament-choices { grid-template-columns:1fr; } }
 
 .session-route-panel { min-width:0; }
+.session-route-toggle { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:44px; padding:8px 0; border:0; background:transparent; color:inherit; font:inherit; font-weight:inherit; text-align:left; cursor:pointer; }
+.session-route-toggle:focus-visible { outline:3px solid var(--panel-link); outline-offset:3px; border-radius:4px; }
 .session-map-frame { width:100%; min-width:0; position:relative; z-index:0; }
 .session-map { width:100%; height:clamp(300px,50vh,480px); border:1px solid var(--border); border-radius:8px; background:#e8ebed; color:#17212b; color-scheme:light; }
 .session-map .leaflet-control-attribution { color:#222; background:rgba(255,255,255,.95); font-size:12px; max-width:100%; }

@@ -40,7 +40,6 @@ for (const width of [390, 1280]) test(`carte automatique, segments, formulaires 
   await page.goto('./#/seance/map-route');
   const panel = page.getByRole('region', { name: 'Parcours GPS', exact: true });
   await expect(panel.getByRole('heading', { name: 'Parcours GPS' })).toBeVisible();
-  await expect(panel.getByRole('button', { name: 'Afficher la carte' })).toHaveCount(0);
   await expect(panel).not.toContainText('Votre tracé reste sur cet appareil');
   await expect(panel).not.toContainText('D : premier point GPS disponible');
   const map = page.getByTestId('session-map');
@@ -57,7 +56,7 @@ for (const width of [390, 1280]) test(`carte automatique, segments, formulaires 
     expect(box.y).toBeGreaterThanOrEqual(frame.y); expect(box.y + box.height).toBeLessThanOrEqual(frame.y + frame.height);
   }
   const original = (await map.locator('.leaflet-container').elementHandle())!;
-  const feeling = page.getByTestId('session-feeling');
+  const feeling = page.getByRole('region', { name: 'Votre ressenti', exact: true });
   await feeling.getByRole('button', { name: 'Ajouter un ressenti ou un commentaire' }).click();
   await feeling.getByLabel('Effort perçu (facultatif)').selectOption('easy');
   await feeling.getByRole('button', { name: 'Enregistrer le ressenti' }).click();
@@ -70,14 +69,25 @@ for (const width of [390, 1280]) test(`carte automatique, segments, formulaires 
   expect(await original.evaluate(node => node.isConnected && node === document.querySelector('.leaflet-container'))).toBe(true);
   await expect(page.locator('.recharts-surface')).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const toggle = panel.getByRole('button', { name: 'Parcours GPS', exact: true });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await toggle.click(); await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByTestId('session-map')).toHaveCount(0);
+  const requestsWhenClosed = tileRequests.length;
+  await feeling.getByRole('button', { name: 'Modifier le ressenti ou le commentaire' }).click();
+  await feeling.getByRole('button', { name: 'Annuler' }).click();
+  await expect(page.getByTestId('session-map')).toHaveCount(0);
+  expect(tileRequests).toHaveLength(requestsWhenClosed);
+  await toggle.focus(); await page.keyboard.press('Enter');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.leaflet-container')).toHaveCount(1);
   for (let visit = 0; visit < 3; visit++) {
     await page.getByRole('navigation').getByRole('link', { name: 'Accueil', exact: true }).click();
     await expect(page.locator('.leaflet-container')).toHaveCount(0);
-    await expect(page.getByTestId('session-feeling')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Votre ressenti', exact: true })).toHaveCount(0);
     await page.goto('./#/seance/map-route');
-    await expect(page.getByRole('button', { name: 'Afficher la carte' })).toHaveCount(0);
     await expect(page.locator('.leaflet-container')).toHaveCount(1);
-    await expect(page.getByTestId('session-feeling')).toHaveCount(1);
+    await expect(page.getByRole('region', { name: 'Votre ressenti', exact: true })).toHaveCount(1);
     await page.goto('./#/seance/map-point');
     await expect(page.getByRole('heading', { name: 'map-point', exact: true })).toBeVisible();
     await expect(page.locator('.leaflet-container')).toHaveCount(1);
@@ -88,13 +98,17 @@ for (const width of [390, 1280]) test(`carte automatique, segments, formulaires 
 
 test('coordonnées absentes et point unique sans parcours inventé', async ({ page }) => {
   await page.goto('./#/seance/map-empty');
-  const panel = page.getByRole('region', { name: 'Parcours GPS', exact: true });
+  const panel = page.getByRole('region', { name: 'Parcours GPS · Indisponible', exact: true });
+  const toggle = panel.getByRole('button', { name: 'Parcours GPS · Indisponible', exact: true });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click(); await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await expect(panel).toContainText('Coordonnées GPS indisponibles');
-  await expect(panel.getByRole('button', { name: 'Afficher la carte' })).toHaveCount(0);
   await expect(page.getByTestId('session-map')).toHaveCount(0);
   expect(tileRequests).toHaveLength(0); expect(mapModules).toHaveLength(0);
   await page.goto('./#/seance/map-point');
-  await expect(panel).toContainText('Un seul point GPS disponible');
+  const pointPanel = page.getByRole('region', { name: 'Parcours GPS', exact: true });
+  await expect(pointPanel.getByRole('button', { name: 'Parcours GPS', exact: true })).toHaveAttribute('aria-expanded', 'true');
+  await expect(pointPanel).toContainText('Un seul point GPS disponible');
   await expect(page.getByTestId('session-map')).toBeVisible();
   await expect(page.locator('path.session-map-route')).toHaveCount(0);
   await expect(page.locator('.leaflet-marker-icon')).toHaveCount(2);

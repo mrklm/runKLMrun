@@ -8,16 +8,20 @@ vi.mock('./SessionMap', () => ({ default: () => null }));
 
 const render = (state: DetailsState) => renderToStaticMarkup(createElement(SessionRoute, { state }));
 it('distingue chargement, erreur de lecture et coordonnées indisponibles', () => {
-  expect(render({ status: 'loading' })).toContain('Chargement des coordonnées GPS');
-  expect(render({ status: 'error' })).toContain('Les coordonnées GPS n’ont pas pu être lues');
+  expect(render({ status: 'loading' })).toContain('aria-expanded="false"');
+  expect(render({ status: 'loading' })).not.toContain('Chargement des coordonnées GPS');
+  expect(render({ status: 'error' })).not.toContain('Les coordonnées GPS n’ont pas pu être lues');
   for (const details of [undefined, { id: 'empty' }, { id: 'invalid', gps: [{ timeSeconds: 0, latitude: null, longitude: null }] }]) {
     const html = render({ status: 'ready', details });
-    expect(html).toContain('Coordonnées GPS indisponibles');
+    expect(html).toContain('Parcours GPS · Indisponible');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain('Coordonnées GPS indisponibles');
     expect(html).not.toContain('Afficher la carte');
   }
 });
 it('déclenche le chargement différé automatiquement, même avec un point à zéro', () => {
   const html = render({ status: 'ready', details: { id: 'one', gps: [{ timeSeconds: 0, latitude: 0, longitude: 0 }] } });
+  expect(html).toContain('aria-expanded="true"');
   expect(html).not.toContain('Afficher la carte');
   expect(html).toContain('Chargement de la carte'); expect(html).toContain('Un seul point GPS disponible');
   expect(html).not.toContain('Votre tracé reste sur cet appareil');
