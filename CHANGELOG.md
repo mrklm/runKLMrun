@@ -1,5 +1,9 @@
 # Historique des versions
 
+## v0.14.3 — 2026-10-25 — Identité graphique
+
+- Identité graphique : nouveau titre et photographie de démarrage ; numéros de version repositionnés et plus lisibles.
+
 ## v0.14.2 — 2026-10-24 — Parcours GPS
 
 - Parcours GPS : section dépliable, ouverte automatiquement lorsqu’un parcours est disponible et repliée avec l’indication « Parcours GPS · Indisponible » sans coordonnées.

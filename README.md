@@ -439,7 +439,7 @@ et smartphone, avec des données synthétiques dans un navigateur isolé.
 
 ### Identité graphique et écran de lancement
 
-Les originaux `logo.png`, `titre.png` et `splash.png` sont copiés sans modification
+Les originaux `titre.png` et `logo.jpg` sont copiés sans modification
 sous `public/images/`. L'en-tête affiche uniquement le titre graphique centré, agrandi de 5 %,
 sur fond transparent sans ombre ni filtre ; leur lien revient à l'Accueil.
 Les dimensions s'adaptent au mobile en conservant les proportions.
