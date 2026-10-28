@@ -45,7 +45,7 @@ export function Help() {
 
       <h2>Utiliser le Coach</h2>
       <p>Le Coach s’appuie uniquement sur les séances enregistrées et sur les informations que vous choisissez de renseigner. Il propose des séances : il ne remplace ni votre jugement, ni un avis médical, ni l’adaptation nécessaire à votre état de forme.</p>
-      <p>Pour commencer, ouvrez l’onglet <em>Coach</em> et complétez votre profil :</p>
+      <p>Pour commencer, ouvrez <em>Paramètres</em>, puis dépliez la section <em>Configurer le Coach</em> et complétez votre profil :</p>
       <ul>
         <li>votre objectif ;</li>
         <li>votre niveau ou votre expérience ;</li>

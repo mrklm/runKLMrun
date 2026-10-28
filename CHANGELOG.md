@@ -1,5 +1,23 @@
 # Historique des versions
 
+## v0.15.0 — 2026-10-28 — Profils multiples et Coach V2
+
+### Ajouté
+
+- Gestion locale de plusieurs profils coureurs, avec isolation des données sportives.
+- Tests d’isolation, de changement de profil et de suppression sécurisée des données.
+
+### Modifié
+
+- Le Coach V2 devient l’unique interface publique de recommandations.
+- Les anciennes suggestions du Coach V1 ne sont plus actualisées automatiquement.
+- Calendrier, sauvegardes et tests E2E adaptés à l’architecture multiprofils.
+
+### Sécurité
+
+- La suppression des profils reste désactivée dans l’interface publique.
+- Les données historiques restent prises en charge lors des migrations et restaurations.
+
 ## v0.14.3 — 2026-10-25 — Identité graphique
 
 - Identité graphique : nouveau titre et photographie de démarrage ; numéros de version repositionnés et plus lisibles.

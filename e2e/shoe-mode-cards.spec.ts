@@ -16,7 +16,9 @@ test('cartes accessibles, thèmes immédiats et disposition mobile', async ({ pa
     await page.getByRole('link', { name: 'Paramètres', exact: true }).click();
     await page.locator('#theme-select').selectOption({ label: theme });
     await page.getByRole('navigation').getByRole('link', { name: 'Paramètres', exact: true }).click();
-  await page.getByRole('link', { name: 'Mes chaussures', exact: true }).click();
+    const shoesPanel = page.locator('section[aria-labelledby="settings-shoes-title"] > details');
+    if (await shoesPanel.getAttribute('open') === null) await shoesPanel.locator(':scope > summary').click();
+    await expect(shoesPanel).toHaveAttribute('open', '');
     const colors = await manual.evaluate(input => {
       const card = input.nextElementSibling!;
       const probe = document.createElement('span'); probe.style.color = 'var(--accent)'; document.body.append(probe);
@@ -31,5 +33,9 @@ test('cartes accessibles, thèmes immédiats et disposition mobile', async ({ pa
   expect(mobileSecond!.y).toBeGreaterThan(mobileFirst!.y + mobileFirst!.height);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.locator('.shoe-mode-cards').screenshot({ path: 'test-results/shoe-mode-mobile.png' });
-  await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0); await expect(manual).toBeChecked();
+  await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
+  const shoesPanel = page.locator('section[aria-labelledby="settings-shoes-title"] > details');
+  await shoesPanel.locator(':scope > summary').click();
+  await expect(shoesPanel).toHaveAttribute('open', '');
+  await expect(manual).toBeChecked();
 });

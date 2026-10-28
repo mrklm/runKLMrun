@@ -1,7 +1,6 @@
 import { expect,it } from 'vitest';
 import { localCoachV2Reference,resolveCoachV2Reference } from './local-reference-v2';
 import { adaptCoachV2Readonly,type CoachV2ApplicationSnapshot } from './application-adapter-v2';
-import { coachComparisonDisplay } from '../../components/coach-v2-display';
 
 const snapshot=():CoachV2ApplicationSnapshot=>({
   sessions:['2026-10-10','2026-10-12','2026-10-14','2026-10-16'].map((date,index)=>
@@ -33,17 +32,6 @@ it('ne prolonge pas la fin de la période de recherche après 18 h',()=>{
 it.each([17*60+59,18*60])('conserve l’espacement après une activité réelle à la minute %i',minuteOfDay=>{
   const source=snapshot();source.sessions=[...source.sessions,{id:'recent',date:'2026-10-18',title:'Course',sport:'RUNNING',durationSeconds:2100}];
   expect(adaptCoachV2Readonly(source,{date:'2026-10-18',minuteOfDay}).selectedDate).toBe('2026-10-21');
-});
-
-it('applique la même heure aux décisions et explications du comparateur sans modifier V1',()=>{
-  const source=snapshot(),before=structuredClone(source);
-  const early=coachComparisonDisplay(source,{date:'2026-10-18',minuteOfDay:1079});
-  const late=coachComparisonDisplay(source,{date:'2026-10-18',minuteOfDay:1080});
-  expect(early.v2.suggestions[0].date).toBe('2026-10-18');expect(late.v2.suggestions[0].date).toBe('2026-10-19');
-  expect(late.v2.suggestions[0].reasons.join(' ')).toContain('19/10/2026');
-  expect(late.v1).toEqual(early.v1);
-  expect(coachComparisonDisplay(source,{date:'2026-10-18',minuteOfDay:1080})).toEqual(late);
-  expect(source).toEqual(before);
 });
 
 // Ces cas sont également exécutés sous des fuseaux à décalages UTC opposés.

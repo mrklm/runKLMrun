@@ -7,7 +7,7 @@ import type { RunningSession } from '../../types/session';
 import { activitySportSignatureV2,civilDate,ianaTimeZone,instantIso,observePresentationV2,retentionLimitV2,selectCandidateV2,type CandidateV2,
   type PersistableOccurrenceV2 } from './persistence-foundations-v2';
 import { adaptCoachV2Readonly,habitualReferenceFromOccurrencesV2,type CoachV2ApplicationSnapshot } from './application-adapter-v2';
-import { calculateCoachV2Readonly,calculateCoachVersionsComparisonReadonly } from '../../storage/coach-v2-readonly';
+import { calculateCoachV2Readonly } from '../../storage/coach-v2-readonly';
 import { openDatabase } from '../../storage/database-connection';
 
 const today='2026-10-18',DAY=86400000,origin=Date.parse(`${today}T00:00:00Z`),names:string[]=[];
@@ -242,18 +242,6 @@ describe('adaptateur applicatif V2 en lecture seule',()=>{
     const add=vi.spyOn(IDBObjectStore.prototype,'add'),put=vi.spyOn(IDBObjectStore.prototype,'put'),remove=vi.spyOn(IDBObjectStore.prototype,'delete');
     const result=await calculateCoachV2Readonly(today,name);
     expect(result.reference.confidence).toBe('confirmed');expect(result.facts).toMatchObject({sessionIds:sessions.map(value=>value.id),occurrenceIds:['occurrence']});
-    expect(add).not.toHaveBeenCalled();expect(put).not.toHaveBeenCalled();expect(remove).not.toHaveBeenCalled();
-  });
-
-  it('compare V1 et V2 depuis une transaction readonly sans créer de présentation',async()=>{
-    const name=`coach-v2-compare-${crypto.randomUUID()}`;names.push(name);const db=await openDatabase(name);
-    const actual=[-26,-21,-16,-11,-6,-3].map((offset,index)=>run(`compare-${index}`,offset));
-    for(const session of actual)await db.put('sessions',session);
-    await db.put('coachProfile',{...profile,id:'local',revision:1,createdAt:'2026-10-01T08:00:00.000Z',updatedAt:'2026-10-01T08:00:00.000Z'});
-    await db.put('evolvingCoach',{id:'local',configuration:config('speed'),coachTemperament:'rentre-dedans',revision:1,createdAt:'2026-10-01T08:00:00.000Z',updatedAt:'2026-10-01T08:00:00.000Z'});db.close();
-    const add=vi.spyOn(IDBObjectStore.prototype,'add'),put=vi.spyOn(IDBObjectStore.prototype,'put'),remove=vi.spyOn(IDBObjectStore.prototype,'delete');
-    const result=await calculateCoachVersionsComparisonReadonly(today,name);
-    expect(result.v1.suggestions.length).toBeGreaterThan(0);expect(result.v2.suggestions[0]?.type).toBe('intervals');
     expect(add).not.toHaveBeenCalled();expect(put).not.toHaveBeenCalled();expect(remove).not.toHaveBeenCalled();
   });
 

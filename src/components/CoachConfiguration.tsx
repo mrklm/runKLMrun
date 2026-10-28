@@ -1,12 +1,13 @@
 import { subscribeStorage } from '../storage/changes';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createEvolvingCoachRepository } from '../storage/evolving-coach';
 import type { EvolvingCoachRepository } from '../storage/contracts';
 import type { EvolvingCoachRecord } from '../types/evolving-coach';
 import { ProfileConflictError } from '../storage/coach-profile';
 import { configurationDraft, configurationValues, COACH_GOALS, EXPERIENCES, type ConfigurationDraft } from '../core/coach/configuration-draft';
-const repositoryDefault = createEvolvingCoachRepository();
-export function CoachConfiguration({ repository = repositoryDefault, onChange }: { repository?: EvolvingCoachRepository; onChange?: () => void }) {
+import { useProfileDatabase } from '../storage/profile-context';
+export function CoachConfiguration({ repository: provided, onChange }: { repository?: EvolvingCoachRepository; onChange?: () => void }) {
+  const database=useProfileDatabase(), repository=provided??useMemo(()=>createEvolvingCoachRepository(database),[database]);
   const [record, setRecord] = useState<EvolvingCoachRecord>();
   const [draft, setDraft] = useState(() => configurationDraft());
   const [phase, setPhase] = useState<'loading' | 'ready' | 'editing' | 'saving' | 'error'>('loading');
@@ -34,7 +35,7 @@ export function CoachConfiguration({ repository = repositoryDefault, onChange }:
         setRecord(value); setDraft(configurationDraft(value?.configuration)); setPhase('ready'); setConflict(false);
       }
     }, () => { if (token === generation.current) { setPhase('error'); setError('Votre configuration n’a pas pu être lue. Vos observations restent consultables.'); } });
-  }), [repository]);
+  }, database), [database, repository]);
   useEffect(() => { if (error) alert.current?.focus(); }, [error]);
   const change = <K extends keyof ConfigurationDraft>(key: K, value: ConfigurationDraft[K]) => setDraft(old => ({ ...old, [key]: value }));
   async function save(event: FormEvent<HTMLFormElement>) {

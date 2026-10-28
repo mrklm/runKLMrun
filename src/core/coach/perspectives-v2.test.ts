@@ -1,6 +1,5 @@
 import { describe,expect,it } from 'vitest';
 import { adaptCoachV2Readonly,type CoachV2ApplicationSnapshot,type CoachV2ReadonlyResult } from './application-adapter-v2';
-import { compareCoachVersionsReadonly } from './comparison-v1-v2';
 import { coachV2Perspectives } from './perspectives-v2';
 import { reusableActiveOccurrenceV2,selectedApplicationSuggestionV2 } from './presentation-identity-v2';
 import { civilDate,ianaTimeZone,instantIso,observePresentationV2 } from './persistence-foundations-v2';
@@ -148,7 +147,6 @@ describe('perspectives V2 sur sept jours, sans activité fictive',()=>{
     expect(plan.map(value=>value.session.totalDurationSeconds)).toEqual([2400,2100,2100]);
     expect(plan.filter(value=>value.session.totalDurationSeconds>2100)).toHaveLength(1);
     expect(coachV2Perspectives(adaptCoachV2Readonly(input,date))).toEqual(plan);
-    expect(compareCoachVersionsReadonly(input,date).v1).toEqual(compareCoachVersionsReadonly({...input,coachTemperament:'pas-a-pas'},date).v1);
     expect(input).toEqual(before);
   });
   it.each([{days:['monday'] as const},{days:[] as const}])('ne remplit pas artificiellement les jours : $days',({days})=>{
@@ -184,9 +182,6 @@ describe('perspectives V2 sur sept jours, sans activité fictive',()=>{
     expect(dates(plan)).toEqual(['2026-10-21','2026-10-23']);
     expect(plan[0].session).toBe(occurrence.content);
     expect(input).toEqual(before);
-    const comparison=compareCoachVersionsReadonly(input,date);
-    expect(comparison.v2.suggestions.map(value=>value.date)).toEqual(dates(plan));
-    expect(comparison.v2.suggestions[0].durationSeconds).toBe(occurrence.content.totalDurationSeconds);
   });
   it('réévalue après une activité réelle sans supprimer l’occurrence incompatible',async()=>{
     const occurrence=await stored(),input={...snapshot,occurrences:[occurrence],
@@ -207,10 +202,9 @@ describe('perspectives V2 sur sept jours, sans activité fictive',()=>{
 
 describe('ressenti dans le pipeline V2',()=>{
   const speed={...snapshot,coachTemperament:'rentre-dedans' as const,sessions:snapshot.sessions.map((session,index)=>({...session,date:['2026-09-27','2026-10-01','2026-10-05','2026-10-09','2026-10-12','2026-10-15'][index]})),configuration:{...snapshot.configuration!,goal:{model:'evolving' as const,kind:'speed' as const}}};
-  it('partage le classement entre prochaine séance et perspectives, sans effet V1',()=>{
+  it('partage le classement entre prochaine séance et perspectives',()=>{
     const plans=['pas-a-pas','evolution-active','rentre-dedans'].map(value=>{
       const input={...speed,coachTemperament:value as NonNullable<CoachV2ApplicationSnapshot['coachTemperament']>};
-      expect(compareCoachVersionsReadonly(input,date).v1).toEqual(compareCoachVersionsReadonly(speed,date).v1);
       return coachV2Perspectives(adaptCoachV2Readonly(input,date)).map(item=>item.session.type);
     });
     expect(plans).toEqual([
@@ -221,7 +215,7 @@ describe('ressenti dans le pipeline V2',()=>{
   });
   const withFeeling={...speed,sessions:speed.sessions.map((session,index)=>index===5?{...session,feeling:{effort:'hard' as const}}:session)};
   const veryHardFeeling={...speed,sessions:speed.sessions.map((session,index)=>index===5?{...session,feeling:{effort:'very-hard' as const}}:session)};
-  it('transmet very-hard aux perspectives, privilégie le facile et laisse V1 inchangé',()=>{
+  it('transmet very-hard aux perspectives et privilégie le facile',()=>{
     const before=structuredClone(veryHardFeeling),result=adaptCoachV2Readonly(veryHardFeeling,date);
     expect(result.activityEvidence.at(-1)).toMatchObject({date:'2026-10-15',effort:'very-hard'});
     expect(result.candidate?.type).toBe('easy-endurance');
@@ -229,7 +223,6 @@ describe('ressenti dans le pipeline V2',()=>{
     const plan=coachV2Perspectives(result);
     expect(plan.map(value=>value.session.type)).toEqual(['easy-endurance','easy-endurance','intervals']);
     expect('rationale' in plan[2].session&&plan[2].session.rationale.designChoices.join(' ')).not.toContain('ressentie');
-    expect(compareCoachVersionsReadonly(veryHardFeeling,date).v1).toEqual(compareCoachVersionsReadonly(speed,date).v1);
     expect(veryHardFeeling).toEqual(before);
     expect(adaptCoachV2Readonly(veryHardFeeling,date)).toEqual(result);
   });

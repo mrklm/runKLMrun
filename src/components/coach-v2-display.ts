@@ -1,11 +1,7 @@
-import { coachV2Perspectives,type CoachV2Perspective } from '../core/coach/perspectives-v2';
-import { reusableActiveOccurrenceV2 } from '../core/coach/presentation-identity-v2';
-import { resolveCoachV2Reference } from '../core/coach/local-reference-v2';
-import { adaptCoachV2Readonly, type CoachV2ApplicationSnapshot, type CoachV2ReadonlyResult } from '../core/coach/application-adapter-v2';
-import { compareCoachVersionsReadonly } from '../core/coach/comparison-v1-v2';
+import { type CoachV2Perspective } from '../core/coach/perspectives-v2';
+import { type CoachV2ReadonlyResult } from '../core/coach/application-adapter-v2';
 import type { PersistableOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
-import { formatCoachDuration, formatCoachDurationText } from './coach-planning-display';
-import type { CoachV2Reference } from '../core/coach/local-reference-v2';
+import { formatCoachDuration, formatCoachDurationText } from './coach-duration-format';
 
 export const coachV2Labels={type:{'easy-endurance':'Endurance facile','endurance-variations':'Endurance à variations modérées','long-run':'Sortie longue','steady-run':'Sortie soutenue',intervals:'Fractionné',hills:'Côtes',recovery:'Récupération'},
   intensity:{'very-easy':'Très facile',easy:'Facile',steady:'Soutenue','controlled-hard':'Effort contrôlé'},terrain:{flat:'Plat',rolling:'Vallonné',hills:'Côtes'}} as const;
@@ -74,15 +70,4 @@ export function coachV2PerspectiveExplanation(value:CoachV2Perspective):CoachV2E
     limitations:coachExplanationLines(['Perspective indicative et révisable : elle n’est pas une activité réalisée.',
       ...(rationale?.uncertainties??[])]),
   };
-}
-
-/** Les deux lectures de calcul partagent le même instantané ; aucun dépôt d'écriture. */
-export function coachComparisonDisplay(snapshot:CoachV2ApplicationSnapshot,date:CoachV2Reference) {
-  const comparison=compareCoachVersionsReadonly(snapshot,date),result=adaptCoachV2Readonly(snapshot,date);
-  const retained=reusableActiveOccurrenceV2(snapshot.occurrences,result,resolveCoachV2Reference(date).date);
-  const plan=coachV2Perspectives(result,retained);
-  const explanation=retained?storedCoachV2Explanation(retained):coachV2Explanation(result);
-  return {...comparison,v2:{...comparison.v2,...explanation,
-    suggestions:comparison.v2.suggestions.map((suggestion,index)=>({...suggestion,
-      ...(index===0?explanation:coachV2PerspectiveExplanation(plan[index]))}))}};
 }

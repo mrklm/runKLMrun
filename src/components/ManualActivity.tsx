@@ -1,12 +1,14 @@
 import { FeelingFields } from './FeelingFields';
 import { feelingFromFields } from '../core/analysis/session-feeling';
 import { useRef, useState, type FormEvent } from 'react';
-import { sessionRepository } from '../storage/database';
+import { createSessionRepository } from '../storage/database';
+import { useProfileDatabase } from '../storage/profile-context';
 import { validSessionDate } from '../core/analysis/session-summary';
 import { localToday } from '../core/analysis/statistics-period';
 import { sessionHref } from '../core/analysis/session-detail';
 
 export function ManualActivity() {
+  const database=useProfileDatabase();
   const [date,setDate]=useState(localToday), [minutes,setMinutes]=useState(''), [distance,setDistance]=useState('');
   const [error,setError]=useState(''), [saved,setSaved]=useState<string>(), [busy,setBusy]=useState(false);
   const [effort,setEffort]=useState(''), [comment,setComment]=useState('');
@@ -20,7 +22,7 @@ export function ManualActivity() {
     try {
       const feeling=feelingFromFields(effort,comment);
       const id=`manual:${crypto.randomUUID()}`;
-      await sessionRepository.addImported({id,title:'Course à pied',sport:'RUNNING',date,durationSeconds:seconds,...(feeling?{feeling}:{}),...(meters===undefined?{}:{distanceMeters:meters})});
+      await createSessionRepository(database).addImported({id,title:'Course à pied',sport:'RUNNING',date,durationSeconds:seconds,...(feeling?{feeling}:{}),...(meters===undefined?{}:{distanceMeters:meters})});
       setSaved(id);setMinutes('');setDistance('');setEffort('');setComment('');
     }catch{setError('La sortie n’a pas pu être enregistrée. Vos saisies sont conservées ; vous pouvez réessayer.');}
     finally{running.current=false;setBusy(false);}

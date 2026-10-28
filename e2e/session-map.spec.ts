@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { activeDatabase } from './helpers/active-database';
 
 const tile = '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e8ebed"/></svg>';
 let tileRequests: string[], errors: string[], mapModules: string[];
@@ -14,9 +15,12 @@ test.beforeEach(async ({ page, context }) => {
   await page.clock.setFixedTime(new Date('2026-01-04T12:00:00Z'));
   await page.goto('./');
   await expect(page.locator('.splash-screen')).toHaveCount(0);
-  await page.evaluate(async () => {
+  await expect(page.getByRole('combobox', { name: 'Profil actif' })).toBeVisible();
+  await expect(page.getByText('Votre histoire commence ici')).toBeVisible();
+  const databaseName = await activeDatabase(page);
+  await page.evaluate(async databaseName => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('runklmrun');
+      const request = indexedDB.open(databaseName);
       request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
     });
     const tx = db.transaction(['sessions', 'details'], 'readwrite');
@@ -29,7 +33,7 @@ test.beforeEach(async ({ page, context }) => {
     tx.objectStore('details').put({ id: 'map-dateline', gps: [179, 179.5, -179.5, -179].map((longitude, timeSeconds) => ({ timeSeconds, latitude: 0, longitude })) });
     await new Promise<void>((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); });
     db.close();
-  });
+  }, databaseName);
   await page.goto('./#/seance/map-empty'); await page.reload();
   await expect(page.locator('.splash-screen')).toHaveCount(0);
 });

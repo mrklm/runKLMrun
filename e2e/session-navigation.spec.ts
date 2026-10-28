@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { activeDatabase } from './helpers/active-database';
 let errors: string[];
 test.beforeEach(async ({ page }) => {
   // Les fixtures de janvier doivent rester récentes face à la conservation des 30 jours.
@@ -7,9 +8,10 @@ test.beforeEach(async ({ page }) => {
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('./');
   await expect(page.getByText('Votre histoire commence ici')).toBeVisible();
-  await page.evaluate(async () => {
+  const databaseName = await activeDatabase(page);
+  await page.evaluate(async databaseName => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('runklmrun');
+      const request = indexedDB.open(databaseName);
       request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
     });
     const tx = database.transaction(['sessions', 'details'], 'readwrite');
@@ -19,7 +21,7 @@ test.beforeEach(async ({ page }) => {
     const samples = Array.from({ length: 50 }, (_, i) => ({ timeSeconds: i * 2, value: 140 + i % 10 }));
     tx.objectStore('details').put({ id, heartRate: samples, altitude: samples, cadence: samples.map(p => ({ ...p, value: 80 })), speed: samples.map(p => ({ ...p, value: 3 })) });
     await new Promise<void>((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); }); database.close();
-  });
+  }, databaseName);
   await page.reload();
   await expect(page.getByRole('link', { name: 'Sortie synthétique complète', exact: true })).toBeVisible();
 });

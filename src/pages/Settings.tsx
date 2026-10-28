@@ -5,6 +5,7 @@ import { CoachTemperamentSettings } from '../components/CoachTemperamentSettings
 import { CoachProfile } from '../components/CoachProfile';
 import { Shoes } from '../components/Shoes';
 import { Training } from './Training';
+import { RunnerProfiles } from '../components/RunnerProfiles';
 import { useState } from 'react';
 import type { RunningSession } from '../types/session';
 
@@ -13,6 +14,7 @@ export function Settings({ active = true, sessions = [] }: { active?: boolean; s
   return (
     <>
       <header className="page-heading"><h1>Paramètres</h1></header>
+      {active && <RunnerProfiles />}
       <section aria-labelledby="settings-coach-title">
         <h2 id="settings-coach-title">Coach</h2>
         <details className="panel settings-panel"><summary>Configurer le Coach</summary>

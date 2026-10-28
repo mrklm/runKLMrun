@@ -1,10 +1,8 @@
 import type { CoachProfileValues } from '../../types/coach-profile';
-import type { StoredSuggestion } from '../../types/coach-suggestion';
 import type { EvolvingCoachValues } from '../../types/evolving-coach';
 import type { RunningSession } from '../../types/session';
-import type { ProposalPolicy } from '../../types/coach-proposal';
 import { matchingDate } from './suggestion-matching';
-import { bootstrapHabitualReference,type ReferenceBootstrapResult } from './reference-bootstrap-v2';
+import type { ReferenceBootstrapResult } from './reference-bootstrap-v2';
 import { selectPrototypeSessions,validatePrototypeSession,type PrototypeSession,type PrototypeSessionType,type SessionStrategyInput } from './simulation/session-strategies-v2';
 import { coachV2ProgressionState } from './progression-state-v2';
 
@@ -100,13 +98,4 @@ export function proposeExperimentalCatalogFromReferenceV2(input:CatalogFromRefer
     :observedTerrain==='rolling'?'Relief positif fiable observé : terrain vallonné possible, sans préférence déduite.'
       :'Relief non documenté de façon fiable : terrain plat retenu prudemment.');
   return {mode:'v2-experimental',reference,sessions,reasons,adaptedInput};
-}
-
-export function proposeExperimentalCatalogV2(input:{sessions:readonly RunningSession[];storedSuggestions:readonly StoredSuggestion[];
-  referenceDate:string;proposalPolicy:ProposalPolicy;configuration?:EvolvingCoachValues|null;historicalProfile?:CoachProfileValues;
-  /** Types établis par une source fiable explicite. L'absence d'entrée reste inconnue. */
-  documentedActivityTypes?:Readonly<Record<string,PrototypeSessionType|undefined>>}):ExperimentalCatalogV2Result {
-  const reference=bootstrapHabitualReference({sessions:input.sessions,suggestions:input.storedSuggestions,
-    referenceDate:input.referenceDate,proposalPolicy:input.proposalPolicy,bootstrapPolicy:'hybrid'});
-  return proposeExperimentalCatalogFromReferenceV2({...input,reference});
 }

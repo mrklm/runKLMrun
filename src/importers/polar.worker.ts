@@ -1,9 +1,9 @@
 import { importPolarArchive } from './archive';
-import { sessionRepository } from '../storage/database';
-self.onmessage = async (event: MessageEvent<Blob>) => {
+import { createSessionRepository } from '../storage/database';
+self.onmessage = async (event: MessageEvent<{ file: Blob; database: string }>) => {
   try {
     const importedIds: string[] = [];
-    const report = await importPolarArchive(event.data, sessionRepository, report => self.postMessage({ type: 'progress', report }), new Date(), id => importedIds.push(id));
+    const report = await importPolarArchive(event.data.file, createSessionRepository(event.data.database), report => self.postMessage({ type: 'progress', report }), new Date(), id => importedIds.push(id));
     self.postMessage({ type: 'done', report, importedIds });
   } catch {
     self.postMessage({ type: 'error' });

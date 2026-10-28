@@ -1,7 +1,6 @@
 import type { CoachProfileValues,Weekday } from '../../types/coach-profile';
 import type { CoachTemperament, EvolvingCoachValues } from '../../types/evolving-coach';
 import type { RunningSession } from '../../types/session';
-import type { CoachPlanning } from '../../types/coach-planning';
 import type { PersistableOccurrenceV2,TemporalAnchorV2 } from './persistence-foundations-v2';
 import { associationEvidenceMatchesV2,civilDate,validateOccurrenceShapeV2 } from './persistence-foundations-v2';
 import { proposeExperimentalCatalogFromReferenceV2,type ExperimentalCatalogV2Result } from './catalog-integration-v2';
@@ -21,7 +20,6 @@ export interface CoachV2ApplicationSnapshot {
   configuration?:EvolvingCoachValues|null;
   profile?:CoachProfileValues;
   occurrences:readonly PersistableOccurrenceV2[];
-  planning?:CoachPlanning;
   /** Date civile issue de la création persistée de la configuration. */
   configurationCreatedOn?:string;
   /** Uniquement des rôles établis par une source explicite ; le stockage actuel n'en fournit aucun. */

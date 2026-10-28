@@ -5,7 +5,6 @@ import { MonthCalendar } from './MonthCalendar';
 import { SessionList } from './SessionList';
 import { Settings } from '../pages/Settings';
 import { Home } from '../pages/Home';
-import { CoachV2Comparison } from './CoachV2Comparison';
 import { CoachSuggestionCard } from './CoachV2Experimental';
 import { CoachTemperamentSettings } from './CoachTemperamentSettings';
 
@@ -17,11 +16,7 @@ it('affiche le D+ fiable dans le résumé compact et des durées fixes dans le c
   expect(renderToStaticMarkup(createElement(SessionList, { sessions: [session], compact: true }))).toContain('157 m');
   const calendar = renderToStaticMarkup(createElement(MonthCalendar, { sessions: [session], today: '2026-10-18' }));
   expect(calendar).toContain('00:42:27'); expect(calendar).not.toContain('42 min');
-  expect(calendar).toContain('Suggestion du Coach'); expect(calendar).not.toContain('Suggestion facultative V1');
-});
-
-it('ne rend pas le comparateur V1/V2 en mode public', () => {
-  expect(renderToStaticMarkup(createElement(CoachV2Comparison))).toBe('');
+  expect(calendar).toContain('Suggestion du Coach'); expect(calendar).not.toContain('Suggestion facultative V1'); expect(calendar).not.toContain('○ Suggestion facultative');
 });
 
 it('présente trois suggestions homogènes avec leurs détails repliables', () => {

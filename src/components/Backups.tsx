@@ -2,18 +2,13 @@ import { acquireOperation, useOperationBusy } from './operation-guard';
 import { DelayedOperation } from './DelayedOperation';
 import { memoryError } from '../backup/errors';
 import { sizeLabel } from '../backup/limits';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createBackupService } from '../storage/backup';
 import { runBackupWorker } from '../backup/worker-client';
 import { BackupError } from '../backup/validation';
 import { StorageBlockedError } from '../storage/database-connection';
 import type { BackupDocument, BackupExport, RestoreOptions, RestorePreview, RestoreReport } from '../types/backup';
-
-const service = createBackupService({
-  export: data => runBackupWorker<BackupExport>({ kind: 'export', data, version: __APP_VERSION__ }),
-  parse: (file, signal) => runBackupWorker<BackupDocument>({ kind: 'parse', file }, signal),
-  prepare: (preview, options, signal) => runBackupWorker({ kind: 'prepare', preview, options }, signal),
-});
+import { useProfileDatabase } from '../storage/profile-context';
 function errorMessage(error: unknown) {
   const allocation = memoryError(error);
   if (allocation) return allocation.message;
@@ -22,6 +17,12 @@ function errorMessage(error: unknown) {
   return 'L’opération a échoué. Aucune restauration partielle n’a été conservée. Vérifiez le stockage de votre navigateur puis réessayez.';
 }
 export function Backups() {
+  const database=useProfileDatabase();
+  const service=useMemo(()=>createBackupService({
+    export: data => runBackupWorker<BackupExport>({ kind: 'export', data, version: __APP_VERSION__ }),
+    parse: (file, signal) => runBackupWorker<BackupDocument>({ kind: 'parse', file }, signal),
+    prepare: (preview, options, signal) => runBackupWorker({ kind: 'prepare', preview, options }, signal),
+  },database),[database]);
   const [phase, setPhase] = useState<'idle' | 'exporting' | 'reading' | 'restoring'>('idle');
   const [preview, setPreview] = useState<RestorePreview>();
   const [options, setOptions] = useState<RestoreOptions>({ mode: 'merge', profile: 'keep' });

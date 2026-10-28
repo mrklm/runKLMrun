@@ -1,22 +1,33 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+import { activeDatabase } from './helpers/active-database';
 test.use({ timezoneId: 'America/Los_Angeles' });
-test.beforeEach(async ({ page }) => {
-  await page.clock.setFixedTime(new Date('2026-10-11T01:00:00Z'));
-  await page.goto('./#/entrainement');
+const testTime = new Date('2026-10-11T01:00:00Z');
+async function waitForInteractiveApp(page: Page) {
+  await expect(page.locator('.splash-screen')).toBeVisible();
+  await page.clock.runFor(3000);
   await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await expect(page.locator('.app-shell')).not.toHaveAttribute('inert');
+}
+test.beforeEach(async ({ page }) => {
+  await page.clock.install({ time: new Date(testTime.getTime() - 1) });
+  await page.clock.pauseAt(testTime);
+  await page.goto('./#/entrainement');
+  await waitForInteractiveApp(page);
+  await expect(page.getByRole('combobox', { name: 'Profil actif' })).toBeVisible();
   await expect(page.getByText('Aucune séance enregistrée sur cette période.', { exact: true })).toBeVisible();
 });
 for (const width of [390, 1280]) test(`bilan, périodes et accès à la séance à ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
-  await page.evaluate(async () => {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => { const r = indexedDB.open('runklmrun'); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
+  const databaseName = await activeDatabase(page);
+  await page.evaluate(async databaseName => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => { const r = indexedDB.open(databaseName); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
     const tx = db.transaction('sessions', 'readwrite');
     ['2026-10-10', '2026-09-01', '2026-08-01'].forEach((date, i) => tx.objectStore('sessions').put({ id: `test/${i}`, title: `Sortie synthétique ${i}`, date, durationSeconds: 3600, distanceMeters: (i + 1) * 1000 }));
     tx.objectStore('sessions').put({ id: 'missing', title: 'Mesures absentes', date: '2026-10-09' });
     await new Promise<void>((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); }); db.close();
-  });
+  }, databaseName);
   await page.reload();
-  await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await waitForInteractiveApp(page);
   const period = page.getByRole('combobox', { name: 'Période du bilan' });
   const count = page.locator('.training-metrics > div').filter({ has: page.getByText('Séances réalisées', { exact: true }) }).locator('dd').first();
   await expect(period).toHaveValue('8'); await expect(count).toHaveText('3');
@@ -27,6 +38,7 @@ for (const width of [390, 1280]) test(`bilan, périodes et accès à la séance 
   await expect(period).toHaveValue('8'); await expect(count).toHaveText('3');
   await period.selectOption('12'); await expect(count).toHaveText('4');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.clock.resume();
   await page.getByRole('link', { name: 'Consulter cette séance' }).click();
   await expect(page).toHaveURL(/#\/seance\/test%2F2$/);
   await expect(page.getByRole('heading', { name: 'Sortie synthétique 2' })).toBeVisible();
@@ -47,21 +59,26 @@ test('réutilise les résumés sans lecture des détails lors des changements de
     IDBObjectStore.prototype.get = function (...args) { calls.push(`get:${this.name}`); return get.apply(this, args); };
   });
   await page.reload();
-  await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await waitForInteractiveApp(page);
   const period = page.getByRole('combobox', { name: 'Période du bilan' });
   await expect(period).toBeVisible();
-  await period.selectOption('4'); await period.selectOption('12');
   await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click();
   await page.getByRole('navigation').getByRole('link', { name: 'Accueil', exact: true }).click();
-  await page.getByRole('link', { name: 'Coach', exact: true }).click();
-  expect((await page.evaluate(() => (window as unknown as { storageReads: string[] }).storageReads)).filter(call => call.endsWith(':sessions') || call.endsWith(':details'))).toEqual(['all:sessions', 'all:sessions']); // StrictMode rejoue l’effet initial en développement.
+  await page.goto('./#/entrainement');
+  await expect(page.getByRole('heading', { name: 'Coach', exact: true })).toBeVisible();
+  const coach = page.getByTestId('coach-v2-experimental');
+  await expect(coach).toBeVisible();
+  await expect(coach.getByRole('status')).toHaveCount(0);
+  await page.evaluate(() => { (window as unknown as { storageReads: string[] }).storageReads = []; });
+  await period.selectOption('4'); await period.selectOption('12');
+  expect((await page.evaluate(() => (window as unknown as { storageReads: string[] }).storageReads)).filter(call => call.endsWith(':sessions') || call.endsWith(':details'))).toEqual([]);
 });
 test('présente l’erreur commune de stockage sans faux bilan vide', async ({ page }) => {
   await page.addInitScript(() => {
     IDBObjectStore.prototype.getAll = function () { throw new Error('Erreur synthétique de lecture'); };
   });
   await page.reload();
-  await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await waitForInteractiveApp(page);
   await expect(page.getByRole('alert')).toContainText('Stockage local indisponible');
   await expect(page.getByRole('button', { name: 'Réessayer' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Votre activité récente' })).toHaveCount(0);

@@ -5,7 +5,8 @@ import { ascentLabel } from '../core/analysis/ascent';
 import { SessionShoes } from '../components/Shoes';
 import { useEffect, useMemo, useState } from 'react';
 import type { RunningSession, SessionDetails } from '../types/session';
-import { sessionRepository } from '../storage/database';
+import { createSessionRepository } from '../storage/database';
+import { useProfileDatabase } from '../storage/profile-context';
 import { loadSessionDetails, type DetailsState } from '../storage/load-session-details';
 import { duration, measure, pace, heartRate, ascent } from '../core/analysis/session-format';
 import { prepareSeries } from '../core/analysis/session-detail';
@@ -39,9 +40,11 @@ export function SessionCurves({ details }: { details?: SessionDetails }) {
   return charts.some(c => c.samples.some(p => p.value !== null)) ? <div className="session-curves"><SynchronizedSessionCharts key={details?.id} charts={charts} /><details className="curve-notes"><summary>À propos des mesures</summary><p>{details?.cadenceUnit === 'source' ? 'La cadence TCX conserve les valeurs source, sans conversion en pas/minute.' : 'La cadence conserve l’unité source Polar (tours/minute, rpm), sans doublement.'} L’allure est affichée en minutes et secondes par kilomètre.</p></details></div> : <section className="panel settings-panel"><EmptyState title={details ? 'Aucune courbe disponible' : 'Détails indisponibles'}><p>Vous pouvez consulter les informations générales de cette sortie. Aucune série exploitable n’est enregistrée pour les graphiques.</p></EmptyState></section>;
 }
 export function Session({ session }: { session?: RunningSession }) {
+  const database = useProfileDatabase();
+  const sessionRepository = useMemo(() => createSessionRepository(database), [database]);
   const [state, setState] = useState<DetailsState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
-  useEffect(() => session ? loadSessionDetails(sessionRepository, session.id, setState) : undefined, [session?.id, attempt]);
+  useEffect(() => session ? loadSessionDetails(sessionRepository, session.id, setState) : undefined, [session?.id, attempt, sessionRepository]);
   return <>
     <a className="session-back" href="#/courses/historique">Revenir à l’historique</a>
     <header className="session-heading"><h1>{session?.title ?? 'Séance introuvable'}</h1></header>

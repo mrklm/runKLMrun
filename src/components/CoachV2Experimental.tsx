@@ -1,17 +1,17 @@
 import { useEffect,useRef,useState,type ReactNode } from 'react';
 import { localToday } from '../core/analysis/statistics-period';
-import { formatCoachDuration } from './coach-planning-display';
+import { formatCoachDuration } from './coach-duration-format';
 import { readCoachV2Projection } from './coach-v2-projection';
 import { coachV2Perspectives, type CoachV2Perspective } from '../core/coach/perspectives-v2';
 import { CoachV2TemperamentChanged,presentCoachV2Selection } from '../storage/coach-suggestions-v2';
 import { civilDate,ianaTimeZone,instantIso,type PersistableOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
 import type { CoachV2ReadonlyResult } from '../core/coach/application-adapter-v2';
-import { COACH_V2_INTERNAL_COMPARISON_ENABLED,coachV2Enabled } from '../core/coach/activation-v2';
+import { coachV2Enabled } from '../core/coach/activation-v2';
 import { watchSuggestionPresentation } from './suggestion-presentation';
 import { coachV2Labels, coachV2PerspectiveExplanation, coachV2Explanation, storedCoachV2Explanation, coachExplanationText } from './coach-v2-display';
 import { CoachExplanationDetails } from './CoachExplanationDetails';
+import { useProfileDatabase } from '../storage/profile-context';
 
-export const coachV2InternalEnabled=()=>import.meta.env.DEV&&COACH_V2_INTERNAL_COMPARISON_ENABLED;
 export { coachV2Labels };
 const dateLabel=(value:string)=>value.split('-').reverse().join('/');
 type View={result:CoachV2ReadonlyResult;occurrence?:PersistableOccurrenceV2;perspectives?:CoachV2Perspective[];freshExplanation?:ReturnType<typeof coachV2Explanation>};
@@ -27,6 +27,7 @@ export function CoachSuggestionCard({session,date,label,reasons,limitations,prim
 }
 
 export function CoachV2Experimental() {
+  const database=useProfileDatabase();
   const enabled=coachV2Enabled(),cardRef=useRef<HTMLElement>(null),attemptedRef=useRef('');
   const [view,setView]=useState<View>(),[loadError,setLoadError]=useState(''),[presentationError,setPresentationError]=useState('');
   const [busy,setBusy]=useState(false),[refresh,setRefresh]=useState(0),[retry,setRetry]=useState(0);
@@ -43,8 +44,8 @@ export function CoachV2Experimental() {
     return()=>document.removeEventListener('visibilitychange',consult);
   },[enabled]);
   useEffect(()=>{if(!enabled)return;let active=true;setView(undefined);setLoadError('');
-    readCoachV2Projection().then(({result,occurrence,perspectives})=>{if(active)setView({result,occurrence,perspectives});})
-      .catch(()=>{if(active)setLoadError('Le Coach ne peut pas préparer de suggestion pour le moment.');});return()=>{active=false;};},[enabled,refresh]);
+    readCoachV2Projection(database).then(({result,occurrence,perspectives})=>{if(active)setView({result,occurrence,perspectives});})
+      .catch(()=>{if(active)setLoadError('Le Coach ne peut pas préparer de suggestion pour le moment.');});return()=>{active=false;};},[database,enabled,refresh]);
   const result=view?.result,occurrence=view?.occurrence,session=occurrence?.content??result?.candidate,
     date=occurrence?.opportunity.suggestedFor??result?.selectedDate;
   const presentationKey=!occurrence&&result&&session&&date
@@ -55,7 +56,7 @@ export function CoachV2Experimental() {
       const now=new Date();void presentCoachV2Selection({result,referenceDate:civilDate(localToday()),moment:{presentedAt:instantIso(now.toISOString()),
         presentedOn:civilDate(localToday()),timeZone:ianaTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone),utcOffsetMinutes:-now.getTimezoneOffset(),civilDateRule:'device-local-at-presentation'},
         provenance:{engine:'coach-v2',contractVersion:1,referenceConfidence:result.reference.confidence==='confirmed'?'confirmed':'provisional',
-          referenceSourceIds:[...result.reference.sourceIds],limitationCodes:[]}}).then(stored=>{
+          referenceSourceIds:[...result.reference.sourceIds],limitationCodes:[]}},database).then(stored=>{
             if(stillVisible())setView({result,occurrence:stored.occurrence,perspectives:coachV2Perspectives(result,stored.occurrence),
               ...(stored.status==='created'?{freshExplanation:coachV2Explanation(result)}:{})});
           }).catch(error=>{
@@ -63,7 +64,7 @@ export function CoachV2Experimental() {
             else setPresentationError('La suggestion est affichée, mais elle n’a pas pu être mémorisée.');
           }).finally(()=>setBusy(false));
     },{title:'[data-presentation-title]',summary:'[data-presentation-summary]'});
-  },[enabled,result,session,date,occurrence,presentationKey,retry]);
+  },[database,enabled,result,session,date,occurrence,presentationKey,retry]);
   if(!enabled)return null;
   if(loadError)return <section className="panel coach-v2-experimental" aria-label="Coach" data-testid="coach-v2-experimental"><h2>Suggestions du Coach</h2><p role="alert">{loadError}</p></section>;
   if(!view)return <section className="panel coach-v2-experimental" aria-label="Coach" data-testid="coach-v2-experimental"><h2>Suggestions du Coach</h2><p role="status">Calcul en cours…</p></section>;

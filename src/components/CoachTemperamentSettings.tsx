@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createEvolvingCoachRepository } from '../storage/evolving-coach';
 import { subscribeStorage } from '../storage/changes';
 import { resolveCoachTemperament } from '../core/coach/configuration';
 import type { CoachTemperament, EvolvingCoachRecord } from '../types/evolving-coach';
 
-const repository = createEvolvingCoachRepository();
+import { useProfileDatabase } from '../storage/profile-context';
 const choices: { value: CoachTemperament; label: string; description: string }[] = [
   { value: 'pas-a-pas', label: 'Pas à Pas', description: 'Le Coach privilégie une progression douce, la régularité et l’observation.' },
   { value: 'evolution-active', label: 'Évolution Active', description: 'Le Coach recherche une progression volontaire et diversifie les exercices selon ta forme.' },
@@ -12,6 +12,7 @@ const choices: { value: CoachTemperament; label: string; description: string }[]
 ];
 
 export function CoachTemperamentSettings() {
+  const database=useProfileDatabase(),repository=useMemo(()=>createEvolvingCoachRepository(database),[database]);
   const [record, setRecord] = useState<EvolvingCoachRecord>();
   const [selected, setSelected] = useState(0), [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false), [error, setError] = useState('');
@@ -27,9 +28,9 @@ export function CoachTemperamentSettings() {
   }
   useEffect(() => {
     void reload();
-    const unsubscribe = subscribeStorage(['configuration'], () => { if (!busy.current) void reload(); });
+    const unsubscribe = subscribeStorage(['configuration'], () => { if (!busy.current) void reload(); },database);
     return () => { generation.current++; unsubscribe(); };
-  }, []);
+  }, [database]);
   async function select(index: number) {
     if (busy.current || !ready || index === selected) return;
     busy.current = true; setSaving(true); setSelected(index); setError('');

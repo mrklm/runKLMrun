@@ -15,6 +15,7 @@ export interface CleanupResult { deleted: number; scanned: number; interrupted: 
 export interface CleanupOptions { signal?: AbortSignal; progress?: (result: CleanupResult) => void }
 export type RetentionLock = (task: () => Promise<CleanupResult>) => Promise<CleanupResult | undefined>;
 export const RETENTION_KEY = 'runklmrun-detail-retention-v1';
+export const retentionKeyForDatabase = (name: string) => `${RETENTION_KEY}:${name}`;
 const BATCH_SIZE = 25;
 const emptyReport = (): RetentionReport => ({ total: 0, expired: 0, kept: 0, uncertain: 0, invalidSummary: 0 });
 type Preferences = Pick<Storage, 'getItem' | 'setItem'>;
@@ -50,13 +51,13 @@ export function createRetentionService(options: {
   const pause = options.pause ?? (() => new Promise<void>(resolve => setTimeout(resolve, 0)));
   const preferences = () => options.preferences ?? localStorage;
   function state(): { enabled: boolean; checkedAt?: number } {
-    const raw = preferences().getItem(RETENTION_KEY);
+    const raw = preferences().getItem(name === DATABASE_NAME ? RETENTION_KEY : retentionKeyForDatabase(name));
     try {
       const value = JSON.parse(raw ?? 'null');
       return value?.enabled === true ? { enabled: true, checkedAt: typeof value.checkedAt === 'number' && Number.isFinite(value.checkedAt) ? value.checkedAt : undefined } : { enabled: false };
     } catch { return { enabled: false }; }
   }
-  function write(checkedAt?: number) { preferences().setItem(RETENTION_KEY, JSON.stringify({ enabled: true, checkedAt })); }
+  function write(checkedAt?: number) { preferences().setItem(name === DATABASE_NAME ? RETENTION_KEY : retentionKeyForDatabase(name), JSON.stringify({ enabled: true, checkedAt })); }
 
   async function analyze(signal?: AbortSignal): Promise<RetentionReport> {
     const report = emptyReport(), reference = now();

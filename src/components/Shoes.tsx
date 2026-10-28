@@ -1,11 +1,12 @@
-import { sessionRepository } from '../storage/database';
+import { createSessionRepository } from '../storage/database';
 import { classifyDetails } from '../core/analysis/detail-retention';
 import { validSessionDate } from '../core/analysis/session-summary';
 import { localToday } from '../core/analysis/statistics-period';
-import { useEffect, useId, useState, useRef } from 'react';
+import { useEffect, useId, useMemo, useState, useRef } from 'react';
 import type { Shoe } from '../types/shoe';
 import type { RunningSession } from '../types/session';
-import { shoeRepository, type ConversionPreview, type AssignmentPreview } from '../storage/shoes';
+import { createShoeRepository, type ConversionPreview, type AssignmentPreview } from '../storage/shoes';
+import { useProfileDatabase } from '../storage/profile-context';
 import { useShoes } from './use-shoes';
 import { shoeTimeline, usageDuration } from '../core/shoes/timeline';
 import { shoeMileage, sessionsInPeriod } from '../core/shoes/shoes';
@@ -24,6 +25,7 @@ export function ShoeAlert({ sessions }: { sessions: RunningSession[] }) {
   })}</>;
 }
 export function SessionShoes({ sessionId, session }: { sessionId: string; session?: RunningSession }) {
+  const database=useProfileDatabase(),shoeRepository=useMemo(()=>createShoeRepository(database),[database]);
   const selectId = useId();
   const data = useShoes();
   const association = data.shoeAssignments.find(a => a.sessionId === sessionId);
@@ -51,6 +53,7 @@ export function SessionShoes({ sessionId, session }: { sessionId: string; sessio
   </section>;
 }
 export function ShoeAttribution({ shoes, sessions, ids, defaultId }: { shoes: Shoe[]; sessions?: RunningSession[]; ids?: string[]; defaultId?: string }) {
+  const database=useProfileDatabase(),shoeRepository=useMemo(()=>createShoeRepository(database),[database]);
   const selectId = useId();
   const [shoeId, setShoeId] = useState(defaultId ?? ''), [from, setFrom] = useState(''), [to, setTo] = useState('');
   const [replace, setReplace] = useState(false), [preview, setPreview] = useState<AssignmentPreview>(), [confirmed, setConfirmed] = useState(false);
@@ -84,6 +87,7 @@ export function ShoeAttribution({ shoes, sessions, ids, defaultId }: { shoes: Sh
   </section>;
 }
 export function ImportShoeSuggestion({ ids }: { ids: string[] }) {
+  const database=useProfileDatabase(),sessionRepository=useMemo(()=>createSessionRepository(database),[database]);
   const data = useShoes(), shoe = data.shoes.find(s => s.isDefault && s.status === 'active');
   const [recent, setRecent] = useState<string[]>([]);
   useEffect(() => {
@@ -92,10 +96,11 @@ export function ImportShoeSuggestion({ ids }: { ids: string[] }) {
       if (active) setRecent(sessions.filter(s => ids.includes(s.id) && validSessionDate(s.date) && s.date <= localToday() && classifyDetails(s, new Date()) === 'keep').map(s => s.id));
     }, () => { if (active) setRecent([]); });
     return () => { active = false; };
-  }, [ids]);
+  }, [ids,sessionRepository]);
   return data.settings?.mode !== 'automatic' && shoe && recent.length ? <ShoeAttribution key={recent.join('|')} shoes={data.shoes} ids={recent} defaultId={shoe.id} /> : null;
 }
 export function Shoes({ sessions, embedded = false }: { sessions: RunningSession[]; embedded?: boolean }) {
+  const database=useProfileDatabase(),shoeRepository=useMemo(()=>createShoeRepository(database),[database]);
   const data = useShoes();
   const automatic = data.settings?.mode === 'automatic', today = localToday();
   const timeline = shoeTimeline(data.shoes, sessions, today);
@@ -165,6 +170,7 @@ export function Shoes({ sessions, embedded = false }: { sessions: RunningSession
   </>;
 }
 function ShoeForm({ shoe, onClose, automatic }: { automatic: boolean; shoe?: Shoe; onClose: () => void }) {
+  const database=useProfileDatabase(),shoeRepository=useMemo(()=>createShoeRepository(database),[database]);
   const [name, setName] = useState(shoe?.name ?? ''), [brand, setBrand] = useState(shoe?.brand ?? '');
   const [purchase, setPurchase] = useState(shoe?.purchaseDate ?? ''), [firstUse, setFirstUse] = useState(shoe?.firstUseDate ?? '');
   const [limit, setLimit] = useState(shoe?.limitKm?.toString() ?? ''), [warning, setWarning] = useState(shoe?.warningKm?.toString() ?? '');

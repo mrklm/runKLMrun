@@ -1,11 +1,13 @@
-import { createContext, useContext, useId, useState, type ReactNode } from 'react';
+import { createContext, useContext, useId, useMemo, useState, type ReactNode } from 'react';
 import { useShoes } from './use-shoes';
-import { shoeRepository } from '../storage/shoes';
+import { createShoeRepository } from '../storage/shoes';
+import { useProfileDatabase } from '../storage/profile-context';
 const Context = createContext<ReturnType<typeof useShoes> | undefined>(undefined);
 export function ShoeHistoryProvider({ children }: { children: ReactNode }) {
   const data = useShoes(); return <Context.Provider value={data}>{children}</Context.Provider>;
 }
 export function ShoeHistorySelect({ sessionId }: { sessionId: string }) {
+  const database=useProfileDatabase(),shoeRepository=useMemo(()=>createShoeRepository(database),[database]);
   const data = useContext(Context), id = useId();
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   if (!data || data.settings?.mode === 'automatic') return null;

@@ -7,6 +7,7 @@ export function acquireOperation(): (() => void) | undefined {
   let released = false;
   return () => { if (released) return; released = true; occupied = false; listeners.forEach(listener => listener()); };
 }
+export function operationBusy() { return occupied; }
 export function useOperationBusy() {
   return useSyncExternalStore(callback => { listeners.add(callback); return () => { listeners.delete(callback); }; }, () => occupied, () => false);
 }

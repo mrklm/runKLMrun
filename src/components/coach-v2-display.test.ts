@@ -1,11 +1,7 @@
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { expect,it,vi } from 'vitest';
+import { expect,it } from 'vitest';
 import { adaptCoachV2Readonly,type CoachV2ApplicationSnapshot } from '../core/coach/application-adapter-v2';
-import { compareCoachVersionsReadonly } from '../core/coach/comparison-v1-v2';
 import type { PersistableOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
-import { ComparisonSuggestions } from './CoachV2Comparison';
-import { coachComparisonDisplay,coachExplanationLines,coachValueLabel,coachV2Explanation,storedCoachV2Explanation } from './coach-v2-display';
+import { coachExplanationLines,coachValueLabel,coachV2Explanation,storedCoachV2Explanation } from './coach-v2-display';
 
 const date='2026-10-18';
 it('n’explique plus un blocage de durée à 36:36 lorsque les variations sont admises',()=>{
@@ -92,17 +88,4 @@ it('ne remplace pas les explications historiques manquantes par un nouveau calcu
  expect(display.limitations.join(' ')).toContain('ne sont pas conservées');
  expect(display.limitations.join(' ')).toContain('provisoire');
  expect(occurrence).toEqual(before);
-});
-it('préserve toutes les décisions comparées et ne touche pas au stockage',()=>{
- const source=snapshot(),before=structuredClone(source),open=vi.spyOn(indexedDB,'open');
- const original=compareCoachVersionsReadonly(source,date),display=coachComparisonDisplay(source,date);
- expect(display.v1).toEqual(original.v1);
- expect(display.v2.status).toBe(original.v2.status);
- expect(display.v2.suggestions.map(({reasons,limitations,...decision})=>decision))
-  .toEqual(original.v2.suggestions.map(({reasons,limitations,...decision})=>decision));
- expect(source).toEqual(before);expect(open).not.toHaveBeenCalled();open.mockRestore();
- const html=renderToStaticMarkup(createElement(ComparisonSuggestions,{title:'Coach V2',values:display.v2.suggestions,...display.v2}));
- expect(html).toContain('Sélectionnée');expect(html).toContain('Endurance facile');expect(html).toContain('Facile · Plat');
- expect(html).toContain('Pourquoi ?');expect(html).toContain('Limites');expect(html).toContain('36 min 32 s');
- expect(html).not.toMatch(/2192 s|easy-endurance|selected|<button/);
 });

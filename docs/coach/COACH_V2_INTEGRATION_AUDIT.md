@@ -8,7 +8,7 @@ Phase 4A, 18 octobre 2026. Audit uniquement : aucune règle de production, donn�
 |---|---|---|
 | Observer l'historique | `src/core/coach/proposals.ts` : `proposalEvidence()`, `selectDuration()`, `calculateProposals()` | La référence actuelle est une médiane mobile des durées récentes. Sa fenêtre dépend du rythme observé, avec fraîcheur, complétude et variabilité. Elle n'a ni épisode persistant ni hystérésis. |
 | Générer les suggestions | `src/core/coach/proposals.ts` : `proposeSuggestions()` ; `src/core/coach/product-policy.ts` | Le calcul pur produit au plus trois suggestions sur sept jours. Le composant recalcule après changement des séances, du profil, de la configuration, du planning ou de la date. |
-| Présenter | `src/components/CoachPlanning.tsx`, `CoachSuggestions.tsx`, `suggestion-presentation.ts` | Une carte visible déclenche l'écriture après contrôle transactionnel du contexte. Un calcul non visible n'est pas persisté. React StrictMode et les retours d'onglet sont dédupliqués. |
+| Présenter (historique) | Interface du planning et cartes V1, retirées au lot 2 ; `suggestion-presentation.ts` | Une carte visible déclenche l'écriture après contrôle transactionnel du contexte. Un calcul non visible n'est pas persisté. React StrictMode et les retours d'onglet sont dédupliqués. |
 | Identifier et conserver | `src/core/coach/suggestions.ts`, `src/types/coach-suggestion.ts`, `src/storage/coach-suggestions.ts` | L'identité V1 contient date, `kind`, durée et terrain. Le magasin `coachSuggestions` conserve révision, état, dates techniques et association éventuelle. |
 | Rapprocher | `src/core/coach/suggestion-matching.ts`, `src/storage/suggestion-reconciliation.ts` | Association prudente par date civile et unicité. Durée et contenu ne prouvent jamais l'exécution conforme. Les ambiguïtés restent sans association. |
 | Sauvegarder | `src/types/backup.ts`, `src/backup/{format,validation,merge}.ts`, `src/storage/backup.ts` | Format 5 strict, JSON ou gzip, intégrité SHA-256. La fusion conserve une suggestion locale conflictuelle. |
@@ -30,7 +30,7 @@ Les adaptateurs expérimentaux concernés sont :
 
 Introduire d'abord un adaptateur pur de production qui transforme les résumés et suggestions V1/V2 en observations avec provenance. Il devra conserver la politique B : contributions associées bornées pour la révision, associations fiables admises seulement pour la continuité, ambiguïtés exclues. La référence V2 doit être calculée en parallèle de `proposalEvidence()`, avec diagnostic comparable, avant de piloter une durée.
 
-Le calcul peut rester dérivé : ses entrées existent déjà dans `sessions` et `coachSuggestions`. Aucun nouveau magasin n'est nécessaire pour un premier raccordement. En revanche, `CoachPlanning` ne lit actuellement pas les suggestions avant le calcul ; son chargement devra obtenir un instantané cohérent de `sessions`, profil, configuration, planning et suggestions.
+Le calcul peut rester dérivé : ses entrées existent déjà dans `sessions` et `coachSuggestions`. Aucun nouveau magasin n'est nécessaire pour un premier raccordement. L’interface V1 retirée ne lisait pas les suggestions avant le calcul ; son chargement devait obtenir un instantané cohérent de `sessions`, profil, configuration, planning et suggestions.
 
 Risques : disparition d'une preuve après expiration des suggestions, association recalculée après suppression/restauration, changement brutal entre V1 et V2, et politique B dépendante de l'ordre des observations. Les identifiants sources et le statut de validité doivent être exposés dans le diagnostic, jamais présentés comme une capacité actuelle.
 
@@ -40,7 +40,7 @@ Risques : disparition d'une preuve après expiration des suggestions, associatio
 
 Une même identité V1 réaffichée ne réécrit pas IndexedDB. Quand l'ensemble complet nouvellement visible diffère, les anciennes suggestions futures actives et non associées deviennent `superseded`. Une suggestion passée sans association devient temporairement `past-unmatched`, puis expire ; elle n'a pas d'état « ignorée ». Les refus du planning historique sont séparés et ne doivent pas être fusionnés avec ce mécanisme.
 
-La persistance ne stabilise pas encore la génération après fermeture : `CoachPlanning` recalcule avec `proposeSuggestions()` sans relire les suggestions actives pour les réutiliser. Une modification de durée, de libellé ou de terrain crée une nouvelle identité. Fermer l'application ne supprime pas les enregistrements, mais ne garantit donc pas que les mêmes cartes seront reproposées.
+La persistance ne stabilisait pas la génération après fermeture dans l’interface V1 retirée : elle recalculait avec `proposeSuggestions()` sans relire les suggestions actives pour les réutiliser. Une modification de durée, de libellé ou de terrain créait une nouvelle identité. Fermer l'application ne supprimait pas les enregistrements, mais ne garantissait donc pas que les mêmes cartes seraient reproposées.
 
 ### Incompatibilités avec 3F
 

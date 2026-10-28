@@ -1,17 +1,21 @@
 import { subscribeStorage } from '../storage/changes';
 import { CoachObservations } from './CoachObservations';
 import type { TrainingComparison } from '../core/coach/comparison';
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { emptyProfileValues, type CoachProfile as Profile, type Weekday } from '../types/coach-profile';
 import { DAYS, GOALS, TERRAINS, validateProfile, maximumMinutesForDay, formatAvailableMinutes, type ProfileErrors } from '../core/coach/profile';
-import { coachProfileRepository, ProfileConflictError } from '../storage/coach-profile';
+import { coachProfileRepository, createCoachProfileRepository, ProfileConflictError } from '../storage/coach-profile';
 import { StorageBlockedError } from '../storage/database-connection';
 import type { CoachProfileRepository } from '../storage/contracts';
 import { draftFrom, valuesFrom, type Draft } from '../core/coach/profile-draft';
 import { localToday } from '../core/analysis/statistics-period';
+import { useProfileDatabase } from '../storage/profile-context';
 
 const dateLabel = (date: string) => date.split('-').reverse().join('/');
-export function CoachProfile({ repository = coachProfileRepository, comparison, onChange, children }: { repository?: CoachProfileRepository; comparison?: TrainingComparison; onChange?: () => void; children?: ReactNode }) {
+export function CoachProfile({ repository: provided = coachProfileRepository, comparison, onChange, children }: { repository?: CoachProfileRepository; comparison?: TrainingComparison; onChange?: () => void; children?: ReactNode }) {
+  const database=useProfileDatabase();
+  const scoped=useMemo(()=>createCoachProfileRepository(database),[database]);
+  const repository=provided===coachProfileRepository?scoped:provided;
   const [profile, setProfile] = useState<Profile>();
   const [observationProfile, setObservationProfile] = useState<Profile>();
   const [draft, setDraft] = useState<Draft>(() => draftFrom(emptyProfileValues()));
@@ -48,7 +52,7 @@ export function CoachProfile({ repository = coachProfileRepository, comparison, 
         setPhase(value ? 'summary' : 'editing'); setConflict(false);
       }
     }, () => { if (token === generation.current) { setPhase('read-error'); setMessage('Votre profil n’a pas pu être lu. Vos séances restent conservées. Vous pouvez réessayer.'); } });
-  }), [repository]);
+  }, database), [database, repository]);
   useEffect(() => { if (Object.keys(errors).length || saveError) errorRef.current?.focus(); }, [errors, saveError]);
   const change = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft(d => ({ ...d, [key]: value }));
   async function save(event: FormEvent<HTMLFormElement>) {

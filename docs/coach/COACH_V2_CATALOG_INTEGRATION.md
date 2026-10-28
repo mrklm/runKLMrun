@@ -4,13 +4,12 @@ Phase 4E, 18 octobre 2026. Le catalogue enrichi est raccordé à la référence 
 
 ## Raccordement
 
-`proposeExperimentalCatalogV2()` reçoit explicitement les séances, les suggestions persistées, la configuration, le profil, la date de référence et la politique. Elle :
+`proposeExperimentalCatalogFromReferenceV2()` reçoit explicitement les séances, la référence V2, la configuration, le profil et la date de référence. Elle :
 
-1. calcule la référence hybride C avec `bootstrapHabitualReference()` ;
-2. adapte seulement les déclarations et mesures disponibles au contrat `SessionStrategyInput` ;
-3. appelle `selectPrototypeSessions()` ;
-4. valide chaque résultat avec `validatePrototypeSession()` ;
-5. retourne un `ExperimentalCatalogV2Result`, jamais un `SessionSuggestion` ou `StoredSuggestion` V1.
+1. adapte seulement les déclarations et mesures disponibles au contrat `SessionStrategyInput` ;
+2. appelle `selectPrototypeSessions()` ;
+3. valide chaque résultat avec `validatePrototypeSession()` ;
+4. retourne un `ExperimentalCatalogV2Result`, jamais un `SessionSuggestion` ou `StoredSuggestion` V1.
 
 Cette fonction n'est appelée par aucun composant. Le mode V1 implicite ou explicite continue d'utiliser `proposeSuggestions()` et produit un résultat strictement identique.
 
@@ -59,7 +58,6 @@ Même avec une référence confirmée, aucun fractionné, sortie soutenue, séan
 
 Les tests vérifient :
 
-- l'égalité stricte de V1 implicite et explicite ;
 - les références confirmées, provisoires et indisponibles ;
 - la différence entre débuter et reprendre ;
 - l'absence de type inventé pour vitesse et course ;
@@ -70,12 +68,11 @@ Les tests vérifient :
 
 ## Limites avant activation réelle
 
-- Aucun point de l'interface ne charge ou affiche cette sortie.
-- L'orchestrateur temporel est raccordé uniquement par l'API expérimentale pure décrite dans `COACH_V2_ORCHESTRATION_INTEGRATION.md`.
+- Le catalogue n’est pas une API de compatibilité V1 : sa référence est fournie explicitement par le pipeline V2.
 - Le choix d'une durée disponible unique à partir de plusieurs jours devra être remplacé lors du futur placement temporel.
 - La distance documentée maximale n'établit ni une capacité actuelle ni une sortie longue habituelle.
 - Les preuves fiables de séances structurées n'existent pas encore dans les données de production.
 - Le vocabulaire et les paramètres du catalogue restent expérimentaux.
 - L'identité, la visibilité, la persistance et les sauvegardes V2 restent à concevoir avant toute activation.
 
-La prochaine étape doit comparer longitudinalement la sortie de cet adaptateur avec les suggestions V1, sans affichage ni écriture, puis raccorder l'orchestrateur temporel uniquement après validation de cette comparaison.
+Les calculs V2 restent séparés des suggestions V1 historiques et de leur stockage.

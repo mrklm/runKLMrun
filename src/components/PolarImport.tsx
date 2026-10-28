@@ -1,17 +1,20 @@
 import { storageChanges } from '../storage/changes';
-import { DATABASE_NAME } from '../storage/database-connection';
 import { acquireOperation, useOperationBusy } from './operation-guard';
 import { DelayedOperation } from './DelayedOperation';
 import { maintainAfterImport } from '../storage/automatic-retention';
+import { createRetentionService } from '../storage/detail-retention';
 import { ImportShoeSuggestion } from './Shoes';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { takeSelectedFiles } from '../importers/file-selection';
 import { emptyReport, type ImportReport } from '../importers/import-report';
 import { emptyTcxReport, importTcxFiles } from '../importers/tcx-files';
 import { selectPolarFiles, tcxReport, zipReport, type UnifiedReport } from '../importers/polar-selection';
-import { sessionRepository } from '../storage/database';
+import { createSessionRepository } from '../storage/database';
+import { useProfileDatabase } from '../storage/profile-context';
 import { ImportReportView } from './ImportReportView';
 export function PolarImport() {
+  const database = useProfileDatabase();
+  const sessionRepository = useMemo(() => createSessionRepository(database), [database]);
   const [importedIds, setImportedIds] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [report, setReport] = useState<UnifiedReport>();
@@ -32,14 +35,14 @@ export function PolarImport() {
     if (selection.format === 'tcx') {
       const added: string[] = [];
       setReport(tcxReport(emptyTcxReport(selection.files.length)));
-      try { const result = await importTcxFiles(selection.files, sessionRepository, r => { if (mounted.current) setReport(tcxReport(r)); }, undefined, new Date(), id => added.push(id)); if (mounted.current) setReport(tcxReport(result)); void maintainAfterImport(result); }
+      try { const result = await importTcxFiles(selection.files, sessionRepository, r => { if (mounted.current) setReport(tcxReport(r)); }, undefined, new Date(), id => added.push(id)); if (mounted.current) setReport(tcxReport(result)); void maintainAfterImport(result, () => createRetentionService({ name: database }).maintain()); }
       catch { if (mounted.current) setError('Import interrompu. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer.'); }
       finally { if (mounted.current) setImportedIds(added); finish(); }
       return;
     }
     setReport(zipReport(emptyReport()));
     let committedInWorker = 0;
-    const fail = () => { if (committedInWorker) storageChanges.committed(DATABASE_NAME, ['sessions']); if (mounted.current) setReport(previous => ({ ...(previous ?? zipReport(emptyReport())), error: 'Import interrompu. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer.' })); finish(); };
+    const fail = () => { if (committedInWorker) storageChanges.committed(database, ['sessions']); if (mounted.current) setReport(previous => ({ ...(previous ?? zipReport(emptyReport())), error: 'Import interrompu. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer.' })); finish(); };
     try {
       worker.current = new Worker(new URL('../importers/polar.worker.ts', import.meta.url), { type: 'module' });
       worker.current.onerror = fail;
@@ -47,9 +50,9 @@ export function PolarImport() {
         committedInWorker = event.data.report?.imported ?? committedInWorker;
         if (event.data.type === 'error') { fail(); return; }
         if (mounted.current) setReport(zipReport(event.data.report as ImportReport));
-        if (event.data.type === 'done') { if (typeof BroadcastChannel === 'undefined' && committedInWorker) storageChanges.committed(DATABASE_NAME, ['sessions']); void maintainAfterImport(event.data.report as ImportReport); if (mounted.current) setImportedIds(event.data.importedIds ?? []); finish(); }
+        if (event.data.type === 'done') { if (typeof BroadcastChannel === 'undefined' && committedInWorker) storageChanges.committed(database, ['sessions']); void maintainAfterImport(event.data.report as ImportReport, () => createRetentionService({ name: database }).maintain()); if (mounted.current) setImportedIds(event.data.importedIds ?? []); finish(); }
       };
-      worker.current.postMessage(selection.files[0]);
+      worker.current.postMessage({ file: selection.files[0], database });
     } catch { fail(); }
   }
   return <section className="panel settings-panel" aria-labelledby="polar-title">

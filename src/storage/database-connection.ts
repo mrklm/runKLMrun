@@ -3,6 +3,7 @@ import type { Shoe, ShoeAssignment, ShoeSettings } from '../types/shoe';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { RunningSession, SessionDetails } from '../types/session';
 import type { CoachProfile } from '../types/coach-profile';
+import { readProfileRegistry, isProfileActive, withProfileDatabaseLock } from './profile-registry';
 export interface RunDatabase extends DBSchema {
   coachSuggestionsV2: { key: string; value: import('../core/coach/persistence-foundations-v2').PersistableOccurrenceV2;
     indexes: { presentationKey: string; presentedOn: string } };
@@ -21,9 +22,15 @@ export const DATABASE_VERSION = 9;
 export class StorageBlockedError extends Error {
   constructor() { super('La mise à jour du stockage est bloquée. Fermez les autres onglets de runKLMrun, puis réessayez.'); }
 }
+export class ProfileDatabaseUnavailableError extends Error { constructor() { super('Ce profil n’est plus disponible.'); } }
+async function assertProfileDatabaseAvailable(name:string) {
+  if(name===DATABASE_NAME||!name.startsWith('runklmrun-user-'))return;
+  const registry=await readProfileRegistry(),profile=registry?.profiles.find(value=>value.databaseName===name);
+  if(!profile||!isProfileActive(profile))throw new ProfileDatabaseUnavailableError();
+}
 /** Migration additive commune aux deux dépôts. Une ouverture tardive bloquée ne lance aucune écriture. */
 export function openDatabase(name = DATABASE_NAME): Promise<IDBPDatabase<RunDatabase>> {
-  return new Promise((resolve, reject) => {
+  const open=():Promise<IDBPDatabase<RunDatabase>>=>assertProfileDatabaseAvailable(name).then(() => new Promise<IDBPDatabase<RunDatabase>>((resolve, reject) => {
     let blocked = false;
     openDB<RunDatabase>(name, DATABASE_VERSION, {
       upgrade(database) {
@@ -45,5 +52,6 @@ export function openDatabase(name = DATABASE_NAME): Promise<IDBPDatabase<RunData
       blocked() { blocked = true; reject(new StorageBlockedError()); },
       blocking(_current, _next, event) { (event.target as IDBDatabase).close(); },
     }).then(database => { if (blocked) database.close(); else resolve(database); }, reject);
-  });
+  }));
+  return name===DATABASE_NAME||!name.startsWith('runklmrun-user-') ? open() : withProfileDatabaseLock(name,open);
 }

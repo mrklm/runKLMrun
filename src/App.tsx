@@ -1,5 +1,5 @@
 import { Shoes } from './components/Shoes';
-import { retentionService } from './storage/detail-retention';
+import { createRetentionService } from './storage/detail-retention';
 import { subscribeStorage } from './storage/changes';
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { appVersion, Branding, SplashScreen } from './components/Branding';
@@ -9,7 +9,13 @@ import { Training } from './pages/Training';
 import { Settings } from './pages/Settings';
 import { Help } from './pages/Help';
 import { StorageBlockedError } from './storage/database-connection';
-import { sessionRepository } from './storage/database';
+import { createSessionRepository } from './storage/database';
+import { bootstrapProfiles } from './storage/profile-bootstrap';
+import { ActiveProfileContext, ActiveProfileControllerContext, ProfileDatabaseContext } from './storage/profile-context';
+import { selectProfile } from './storage/profile-bootstrap';
+import { isProfileActive, readProfileRegistry, replacementProfile, subscribeProfileRegistry } from './storage/profile-registry';
+import { operationBusy, useOperationBusy } from './components/operation-guard';
+import type { RunnerProfile } from './types/runner-profile';
 import { sessionIdFromPath } from './core/analysis/session-detail';
 import type { RunningSession } from './types/session';
 
@@ -40,6 +46,38 @@ function getPath() {
 type DataState = { status: 'loading' } | { status: 'error'; message?: string } | { status: 'ready'; sessions: RunningSession[] };
 
 export function App() {
+  const [profile, setProfile] = useState<RunnerProfile>();
+  const [profiles, setProfiles] = useState<RunnerProfile[]>([]);
+  const [profileError, setProfileError] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  useEffect(() => { let active = true; void bootstrapProfiles().then(result => { if (active) { setProfiles(result.state.profiles.filter(isProfileActive)); setProfile(result.active); } }, () => { if (active) setProfileError(true); }); return () => { active = false; }; }, []);
+  useEffect(() => {
+    let active=true, running=false, dirty=false;
+    const refresh=async()=>{if(running){dirty=true;return;}running=true;try { const state=await readProfileRegistry(); if(!active||!state)return; setProfiles(state.profiles.filter(isProfileActive)); setProfile(current=>{if(!current)return current;const updated=state.profiles.find(item=>item.id===current.id&&isProfileActive(item));if(updated)return updated;const replacement=replacementProfile(state,current.id);if(replacement)return replacement;setProfileError(true);return current;}); } catch { if(active)setProfileError(true); } finally { running=false;if(dirty){dirty=false;void refresh();} }};
+    return subscribeProfileRegistry(()=>void refresh());
+  }, []);
+  const selectActiveProfile = async (id: string) => {
+    if (selecting || operationBusy()) throw new Error('Une opération est en cours. Réessayez après sa fin.');
+    setSelecting(true);
+    try { const selected = await selectProfile(id); setProfile(selected); if (window.location.hash.startsWith('#/seance/')) window.location.hash = '#/'; }
+    finally { setSelecting(false); }
+  };
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const target = window as Window & { __runklmrunSelectActiveProfile?: (id: string) => Promise<void> };
+    target.__runklmrunSelectActiveProfile = selectActiveProfile;
+    return () => { delete target.__runklmrunSelectActiveProfile; };
+  }, [profile]);
+  if (profileError) return <main className="panel status" role="alert">Impossible d’ouvrir les profils locaux.</main>;
+  if (!profile) return <main className="panel status" role="status">Ouverture de votre espace local…</main>;
+  return <ActiveProfileControllerContext value={{ profile, selectActiveProfile }}><ActiveProfileContext value={profile}><ProfileDatabaseContext value={profile.databaseName}><AppContent key={profile.id} database={profile.databaseName} profiles={profiles} selecting={selecting} selectActiveProfile={selectActiveProfile} /></ProfileDatabaseContext></ActiveProfileContext></ActiveProfileControllerContext>;
+}
+function ProfileSelect({ profiles, profile, selecting, selectActiveProfile }: { profiles: RunnerProfile[]; profile: RunnerProfile; selecting: boolean; selectActiveProfile: (id: string) => Promise<void> }) {
+  const [message,setMessage]=useState('');
+  const busy=useOperationBusy();
+  return <div className="profile-select"><label htmlFor="active-profile">Profil actif</label><select id="active-profile" value={profile.id} disabled={selecting||busy} onChange={event=>{const id=event.currentTarget.value;void selectActiveProfile(id).then(()=>setMessage(''),error=>setMessage(error instanceof Error?error.message:'Le profil n’a pas pu être sélectionné.'));}}>{profiles.map(item=><option key={item.id} value={item.id}>{item.displayName}</option>)}</select>{busy&&<p role="status">Changement de profil indisponible pendant l’opération en cours.</p>}{message&&<p role="alert">{message}</p>}</div>;
+}
+function AppContent({ database, profiles, selecting, selectActiveProfile }: { database: string; profiles: RunnerProfile[]; selecting: boolean; selectActiveProfile: (id: string) => Promise<void> }) {
   const [showSplash, setShowSplash] = useState(true);
   useEffect(() => {
     const timer = window.setTimeout(() => setShowSplash(false), 3000);
@@ -59,7 +97,7 @@ export function App() {
       if (running || document.visibilityState === 'hidden') return;
       running = true;
       try {
-        const result = await retentionService.maintain({ signal: controller.signal });
+        const result = await createRetentionService({ name: database }).maintain({ signal: controller.signal });
         if (!controller.signal.aborted && result?.deleted) setAttempt(value => value + 1);
       } catch {
         // Entretien silencieux : une prochaine ouverture ou importation pourra réessayer.
@@ -67,8 +105,8 @@ export function App() {
     };
     const timer = window.setTimeout(() => { if (!controller.signal.aborted) void maintain(); }, 0);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, []);
-  useEffect(() => subscribeStorage(['sessions'], () => setAttempt(value => value + 1)), []);
+  }, [database]);
+  useEffect(() => subscribeStorage(['sessions'], () => setAttempt(value => value + 1), database), [database]);
   const mainRef = useRef<HTMLElement>(null);
   const previousPath = useRef(path);
 
@@ -76,12 +114,12 @@ export function App() {
     let active = true;
     // Une relecture après notification ne doit pas remonter le Coach comme une nouvelle consultation.
     setData(previous => previous.status === 'ready' ? previous : { status: 'loading' });
-    sessionRepository.list().then(
+    createSessionRepository(database).list().then(
       (sessions) => { if (active) setData({ status: 'ready', sessions }); },
       error => { if (active) setData({ status: 'error', message: error instanceof StorageBlockedError ? error.message : undefined }); },
     );
     return () => { active = false; };
-  }, [attempt]);
+  }, [attempt, database]);
 
   useEffect(() => {
     document.title = `${currentPage?.label ?? (isSession ? 'Fiche de séance' : 'Page introuvable')} — runKLMrun`;
@@ -95,13 +133,14 @@ export function App() {
   return (
     <>
     {showSplash && <SplashScreen />}
-    <div className="app-shell" inert={showSplash}>
+    <div className="app-shell" {...(showSplash ? { inert: true } : {})}>
       <a href="#main-content" className="skip-link" onClick={(event) => { event.preventDefault(); mainRef.current?.focus(); }}>Aller au contenu</a>
       <header className="site-header">
         <Branding />
       </header>
       <nav className="navigation" aria-label="Navigation principale">
         {navigation.map((item) => <a key={item.path} href={`#${item.path}`} aria-current={path === item.path ? 'page' : undefined}>{item.path === '/' ? <img className="navigation-home-icon" src={`${import.meta.env.BASE_URL}images/coureur.png`} alt="" /> : <span aria-hidden="true">{item.symbol}</span>}{item.label}</a>)}
+        <ProfileSelect profiles={profiles} profile={profiles.find(item=>item.databaseName===database) ?? profiles[0]} selecting={selecting} selectActiveProfile={selectActiveProfile} />
       </nav>
       <main id="main-content" ref={mainRef} tabIndex={-1}>
         {needsData && data.status === 'loading' && <div className="panel status" role="status">Ouverture de votre espace local…</div>}

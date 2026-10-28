@@ -12,7 +12,7 @@ L'individualisation, la spécificité et la récupération sont des principes **
 
 ## Chemin d'exécution et données
 
-[CoachPlanning.tsx](../../src/components/CoachPlanning.tsx) appelle `proposeSuggestions()` avec les résumés, la configuration évolutive, le profil historique et le planning. Dans [proposals.ts](../../src/core/coach/proposals.ts), cette API réutilise `calculateProposals()`, également employé par `proposeNextSession()`, mais impose un horizon de sept jours et permet plusieurs suggestions. Le commentaire « sans raccordement à l'interface » de cette API n'est plus conforme à son utilisation réelle.
+L’interface historique du planning V1, retirée au lot 2, appelait `proposeSuggestions()` avec les résumés, la configuration évolutive, le profil historique et le planning. Dans [proposals.ts](../../src/core/coach/proposals.ts), cette API réutilise `calculateProposals()`, également employé par `proposeNextSession()`, mais impose un horizon de sept jours et permet plusieurs suggestions. Le commentaire « sans raccordement à l'interface » de cette API n'est plus conforme à son utilisation réelle.
 
 Les changements de séances, profil, configuration, planning et date civile alimentent le recalcul. La date est surveillée périodiquement ; les protections asynchrones évitent qu'une réponse ancienne remplace un état plus récent. Une suggestion calculée n'est pas nécessairement affichée ou mémorisée.
 
@@ -81,7 +81,7 @@ Ce sont des choix **B/C**, distincts des règles de `proposalEvidence()`. Ces te
 
 | Mécanisme | Code et fonctionnement | Limite / classe |
 |---|---|---|
-| Présentation réelle | [CoachSuggestions.tsx](../../src/components/CoachSuggestions.tsx), [suggestion-presentation.ts](../../src/components/suggestion-presentation.ts) : observation de visibilité, document visible, vérifications de position/occlusion, attente de rendu avant écriture. | **B** : visibilité technique, pas preuve de lecture ou d'acceptation. |
+| Présentation réelle historique | Cartes V1 retirées au lot 2, [suggestion-presentation.ts](../../src/components/suggestion-presentation.ts) : observation de visibilité, document visible, vérifications de position/occlusion, attente de rendu avant écriture. | **B** : visibilité technique, pas preuve de lecture ou d'acceptation. |
 | Identité | [suggestions.ts](../../src/core/coach/suggestions.ts), `suggestionId()` : date, type, durée, surface, relief. | **B** : déterministe ; changer la durée peut créer une nouvelle identité, sans réécrire l'ancienne. |
 | Écriture | [coach-suggestions.ts](../../src/storage/coach-suggestions.ts), `recordPresentedSetMember()` : transaction et contrôle du contexte courant, révisions et notifications ; une identité déjà enregistrée n'est pas réécrite à chaque affichage. | **B** : le calcul seul n'écrit rien ; aucun apprentissage de capacité depuis la mémorisation. |
 | Remplacement | L'obsolescence d'un ancien ensemble attend que les membres du nouvel ensemble soient mémorisés ; protections des suggestions associées, passées et liées au planning historique. | **B** : démonter un composant ne rend pas une suggestion obsolète. |

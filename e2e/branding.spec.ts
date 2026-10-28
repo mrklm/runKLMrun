@@ -31,8 +31,8 @@ for (const width of [320, 768, 1280]) test(`images intactes et responsive à ${w
   await expect(page.locator('.splash-screen')).toHaveCSS('animation-name', 'none');
   await expect(page.locator('.splash-screen img')).toHaveCSS('object-fit', 'contain');
   const bounds = await page.locator('.splash-window').boundingBox();
-  expect(bounds!.width).toBe(Math.min(360, width - 32));
-  expect(bounds!.height).toBe(380);
+  expect(bounds!.width).toBe(Math.min(228, width - 32));
+  expect(bounds!.height).toBe(304);
   expect(bounds!.x + bounds!.width / 2).toBeCloseTo(width / 2);
   expect(bounds!.y + bounds!.height / 2).toBeCloseTo(450);
   await page.clock.fastForward(3000);
@@ -43,7 +43,7 @@ for (const width of [320, 768, 1280]) test(`images intactes et responsive à ${w
     await expect(img).toHaveCSS('object-fit', 'contain');
     await expect(img).toHaveCSS('filter', 'none');
     const title = await img.boundingBox();
-    expect(title!.width).toBeCloseTo(width <= 640 ? 138.6 : 160.65, 1);
+    expect(title!.width).toBeCloseTo(width <= 640 ? 102.4 : 128.52, 1);
     expect(title!.x + title!.width / 2).toBeCloseTo(width / 2, 1);
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

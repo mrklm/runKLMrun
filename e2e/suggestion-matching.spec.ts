@@ -1,33 +1,54 @@
-import { test, expect } from '@playwright/test';
-import { seedCoach, openCoach, revealAll, suggestionRows } from './helpers/coach';
+import { test, expect, type Page } from '@playwright/test';
+import { seedCoach } from './helpers/coach';
+import { activeDatabase } from './helpers/active-database';
 
-test('suggestion présentée, import TCX depuis un autre onglet, doublon puis suppression', async ({ page, context }) => {
-  await seedCoach(page, 1); await openCoach(page); await revealAll(page);
-  const original = (await suggestionRows(page))[0]; expect(original.activityId).toBeUndefined();
-  await page.getByRole('link', { name: 'Accueil', exact: true }).click();
-  const other = await context.newPage(); await other.clock.setFixedTime(new Date('2026-10-17T00:00:00Z')); await other.goto('./');
-  const imported = await other.evaluate(async date => {
-    const root = '/runKLMrun/src/';
-    const { importTcxFiles } = await import(/* @vite-ignore */ root + 'importers/tcx-files.ts');
-    const { sessionRepository } = await import(/* @vite-ignore */ root + 'storage/database.ts');
-    const xml = `<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"><Activities><Activity Sport="Running"><Lap StartTime="${date}T10:00:00Z"><TotalTimeSeconds>2520</TotalTimeSeconds><DistanceMeters>6000</DistanceMeters></Lap></Activity></Activities></TrainingCenterDatabase>`;
-    const file = new File([xml], 'synthetique.TCX');
-    const first = await importTcxFiles([file], sessionRepository, () => {});
-    const again = await importTcxFiles([file], sessionRepository, () => {});
-    return { first: first.imported, duplicates: again.duplicates };
-  }, original.date);
-  expect(imported).toEqual({ first: 1, duplicates: 1 });
-  await expect.poll(async () => (await suggestionRows(page)).find(s => s.id === original.id)?.revision).toBe(2);
-  const linked = (await suggestionRows(page)).find(s => s.id === original.id)!; expect(linked.activityId).toMatch(/^tcx:/);
-  await page.reload(); await expect.poll(async () => (await suggestionRows(page)).find(s => s.id === original.id)).toEqual(linked);
-  await other.evaluate(async id => {
-    const root = '/runKLMrun/src/storage/';
-    const { openDatabase } = await import(/* @vite-ignore */ root + 'database-connection.ts');
-    const { storageChanges } = await import(/* @vite-ignore */ root + 'changes.ts');
-    const db = await openDatabase(), tx = db.transaction(['sessions', 'details'], 'readwrite');
-    await tx.objectStore('sessions').delete(id); await tx.objectStore('details').delete(id); await tx.done; db.close();
-    storageChanges.committed('runklmrun', ['sessions']);
-  }, linked.activityId!);
-  await expect.poll(async () => (await suggestionRows(page)).find(s => s.id === original.id)?.activityId).toBeUndefined();
-  expect((await suggestionRows(page)).find(s => s.id === original.id)?.revision).toBe(3);
+async function occurrences(page: Page) {
+  const databaseName=await activeDatabase(page);
+  return page.evaluate(async databaseName=>{
+    const path='/runKLMrun/src/storage/coach-suggestions-v2.ts';
+    const {createSuggestionV2Repository}=await import(/* @vite-ignore */ path);
+    return createSuggestionV2Repository(databaseName).listAll();
+  },databaseName);
+}
+
+test('suggestion V2 présentée, import TCX puis association explicite persistante', async ({ page, context }) => {
+  await seedCoach(page, 1);
+  await page.goto('./#/entrainement');
+  await expect(page.locator('.splash-screen')).toHaveCount(0);
+  const coach=page.getByTestId('coach-v2-experimental');
+  await expect(coach).toContainText('Prochaine séance conseillée');
+  await coach.scrollIntoViewIfNeeded();
+  await expect.poll(async()=>await occurrences(page)).toHaveLength(1);
+  const [suggestion]=await occurrences(page);
+  expect(suggestion.state).toBe('active');
+
+  const other=await context.newPage();
+  await other.goto('./#/entrainement');
+  await expect(other.locator('.splash-screen')).toHaveCount(0);
+  const databaseName=await activeDatabase(other);
+  const imported=await other.evaluate(async input=>{
+    const root='/runKLMrun/src/';
+    const {importTcxFiles}=await import(/* @vite-ignore */ root+'importers/tcx-files.ts');
+    const {createSessionRepository}=await import(/* @vite-ignore */ root+'storage/database.ts');
+    const repository=createSessionRepository(input.databaseName),before=new Set((await repository.list()).map(session=>session.id));
+    const xml=`<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"><Activities><Activity Sport="Running"><Lap StartTime="${input.date}T10:00:00Z"><TotalTimeSeconds>2520</TotalTimeSeconds><DistanceMeters>6000</DistanceMeters></Lap></Activity></Activities></TrainingCenterDatabase>`;
+    const file=new File([xml],'synthetique.TCX');
+    const first=await importTcxFiles([file],repository,()=>{}),again=await importTcxFiles([file],repository,()=>{});
+    const session=(await repository.list()).find(value=>!before.has(value.id));
+    return {first:first.imported,duplicates:again.duplicates,session};
+  },{databaseName,date:suggestion.opportunity.suggestedFor});
+  expect(imported.first).toBe(1);
+  expect(imported.duplicates).toBe(1);
+  expect(imported.session).toMatchObject({id:expect.stringMatching(/^tcx:/),date:suggestion.opportunity.suggestedFor});
+
+  await page.goto(`./#/seance/${encodeURIComponent(imported.session!.id)}`);
+  const association=page.getByTestId('coach-v2-association');
+  await expect(association).toContainText('Suggestion du Coach et activité');
+  await association.getByRole('button',{name:'Associer explicitement à cette activité'}).click();
+  await expect(association.getByRole('status')).toContainText('Association confirmée avec cette activité.');
+
+  await page.reload();
+  await expect(association.getByRole('status')).toContainText('Association confirmée avec cette activité.');
+  const [stored]=await occurrences(page);
+  expect(stored).toMatchObject({id:suggestion.id,state:'associated',activityId:imported.session!.id});
 });

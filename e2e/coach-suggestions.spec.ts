@@ -1,57 +1,21 @@
-import { test, expect } from '@playwright/test';
-import { seedCoach,openCoach,revealAll,suggestions,suggestionRows,setMinutes,planningData } from './helpers/coach';
-for(const count of [0,1,2,3])test(`${count} suggestions réelles, aucune validation ni ajout au planning`,async({page})=>{
- await seedCoach(page,count);await openCoach(page);await expect(suggestions(page).getByRole('article')).toHaveCount(count);
- await expect(suggestions(page).getByRole('button')).toHaveCount(0);
- if(count===0)await expect(suggestions(page)).toContainText('Aucun jour disponible');
- else {await revealAll(page);await expect.poll(async()=>(await suggestionRows(page)).length).toBe(count);}
- expect(await planningData(page)).toBeUndefined();
-});
-for(const width of [390,1280])test(`cartes compactes à ${width}px et thèmes clair/sombre`,async({page})=>{
- await page.setViewportSize({width,height:900});await seedCoach(page);await openCoach(page);
- await expect(suggestions(page).getByRole('article')).toHaveCount(3);
- for(const theme of ['Midnight Garage','AIR-KLM Day flight']){
-  await page.getByRole('link',{name:'Paramètres',exact:true}).click();await page.getByRole('combobox',{name:'Thème',exact:true}).selectOption(theme);
-  await openCoach(page);await expect(suggestions(page)).toBeVisible();
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  const texts=await suggestions(page).getByRole('article').allTextContents();expect(texts.every(t=>t.includes('Allure tranquille')&&t.includes('Chemins'))).toBe(true);
- }
-});
-test('StrictMode, réaffichage, recalcul identique et retour d’onglet ne réécrivent pas les suggestions',async({page})=>{
- await seedCoach(page);await openCoach(page);await revealAll(page);await expect.poll(async()=>(await suggestionRows(page)).length).toBe(3);
- const before=await suggestionRows(page);
- await setMinutes(page,90);await expect(suggestions(page).getByRole('article')).toHaveCount(3);await revealAll(page);
- await page.getByRole('link',{name:'Accueil',exact:true}).click();await openCoach(page);await revealAll(page);
- expect(await suggestionRows(page)).toEqual(before);
- await page.reload();await expect(page.locator('.splash-screen')).toHaveCount(0);await revealAll(page);expect(await suggestionRows(page)).toEqual(before);
-});
-test('hors écran : mémorisation au défilement, obsolescence seulement lorsque tout le nouvel ensemble a été présenté',async({page})=>{
- await page.setViewportSize({width:390,height:650});await seedCoach(page);await openCoach(page);await revealAll(page);
- await expect.poll(async()=>(await suggestionRows(page)).length).toBe(3);const old=await suggestionRows(page);
- await page.addStyleTag({content:'.coach-suggestion-list article + article { margin-top:900px; }'});
- await page.evaluate(()=>scrollTo(0,0));await setMinutes(page,40);
- const cards=suggestions(page).getByRole('article');await expect(cards).toHaveCount(3);await cards.nth(0).locator('h4').scrollIntoViewIfNeeded();
- await expect.poll(async()=>(await suggestionRows(page)).length).toBe(4);
- expect((await suggestionRows(page)).filter(s=>old.some(o=>o.id===s.id)).every(s=>s.state==='current')).toBe(true);
- await revealAll(page);await expect.poll(async()=>(await suggestionRows(page)).length).toBe(6);
- await expect.poll(async()=>(await suggestionRows(page)).filter(s=>s.state==='superseded').length).toBe(3);
- expect((await suggestionRows(page)).filter(s=>s.state==='current')).toHaveLength(3);
-});
-test('ensemble masqué puis remplacé avant présentation : aucune carte fantôme',async({page})=>{
- await seedCoach(page);const mask=await page.addStyleTag({content:'.coach-proposal-card { visibility:hidden !important; }'});
- await openCoach(page);await expect(suggestions(page).getByRole('article',{includeHidden:true})).toHaveCount(3);await setMinutes(page,40);
- await expect(suggestions(page).getByRole('article',{includeHidden:true}).nth(0)).toContainText('40 min');expect(await suggestionRows(page)).toEqual([]);
- await mask.evaluate(el=>el.remove());await revealAll(page);await expect.poll(async()=>(await suggestionRows(page)).length).toBe(3);
- expect((await suggestionRows(page)).every(s=>s.durationSeconds<=2400)).toBe(true);
-});
-test('deux onglets : coexistence, remplacement cohérent et aucune boucle de notification',async({page,context})=>{
- await seedCoach(page);await openCoach(page);await revealAll(page);await expect.poll(async()=>(await suggestionRows(page)).length).toBe(3);
- const other=await context.newPage();await other.clock.setFixedTime(new Date('2026-10-17T00:00:00Z'));await other.goto('./#/entrainement');await expect(other.locator('.splash-screen')).toHaveCount(0);
- await other.evaluate(async()=>{const path='/runKLMrun/src/storage/changes.ts';const {subscribeStorage}=await import(/* @vite-ignore */ path);(window as any).events=0;subscribeStorage(['suggestions'],()=>{(window as any).events++;});});
- await page.bringToFront();await setMinutes(page,40);await expect(suggestions(page).getByRole('article').nth(0)).toContainText('40 min');await revealAll(page);
- await expect.poll(async()=>(await suggestionRows(page)).length).toBe(6);
- await other.bringToFront();await revealAll(other);await expect.poll(()=>other.evaluate(()=>(window as any).events)).toBeGreaterThan(0);
- const events=await other.evaluate(()=>(window as any).events);await other.waitForTimeout(300);
- expect(await other.evaluate(()=>(window as any).events)).toBe(events);expect(await suggestionRows(other)).toEqual(await suggestionRows(page));
- expect((await suggestionRows(other)).filter(s=>s.state==='current')).toHaveLength(3);
-});
+import { expect,test,type Page } from '@playwright/test';
+import { activeDatabase } from './helpers/active-database';
+const modules='/runKLMrun/src/';
+async function writableActiveDatabase(page:Page) {
+ await page.evaluate(async()=>{const root='/runKLMrun/src/storage/';const {bootstrapProfiles}=await import(/* @vite-ignore */ root+'profile-bootstrap.ts');const {isProfileActive,profileDatabaseName}=await import(/* @vite-ignore */ root+'profile-registry.ts');const {DATABASE_NAME,openDatabase}=await import(/* @vite-ignore */ root+'database-connection.ts');const {active}=await bootstrapProfiles();if(!isProfileActive(active)||active.databaseName!==profileDatabaseName(active.id)||active.databaseName===DATABASE_NAME)throw new Error('Base du profil actif invalide.');if((await indexedDB.databases()).some(database=>database.name===active.databaseName))return;const database=await openDatabase(active.databaseName);database.close();});
+ return activeDatabase(page);
+}
+async function seed(page:Page,{available=true,minutes=60}:{available?:boolean;minutes?:number}={}) {
+ await page.clock.setFixedTime(new Date('2026-10-18T10:00:00Z'));await page.goto('./#/parametres');await expect(page.locator('.splash-screen')).toHaveCount(0);const databaseName=await writableActiveDatabase(page);
+ await page.evaluate(async input=>{const {openDatabase}=await import(/* @vite-ignore */ input.modules+'storage/database-connection.ts');const db=await openDatabase(input.databaseName),tx=db.transaction(['sessions','coachProfile','evolvingCoach','coachSuggestionsV2'],'readwrite');await Promise.all(['sessions','coachProfile','evolvingCoach','coachSuggestionsV2'].map(store=>tx.objectStore(store as 'sessions').clear()));for(const [index,date] of ['2026-10-10','2026-10-11','2026-10-12','2026-10-13'].entries())await tx.objectStore('sessions').put({id:`run-${index}`,title:'Course',sport:'RUNNING',date,durationSeconds:2400});await tx.objectStore('coachProfile').put({id:'local',revision:1,createdAt:'2026-10-01T08:00:00.000Z',updatedAt:'2026-10-01T08:00:00.000Z',goal:{kind:'endurance'},availability:input.available?{sessionsPerWeek:3,days:['monday','wednesday','friday'],minutesPerSession:input.minutes}:{},preferences:{terrain:'road'},accompanimentMode:'advisor'});await tx.objectStore('evolvingCoach').put({id:'local',revision:1,createdAt:'2026-10-01T08:00:00.000Z',updatedAt:'2026-10-01T08:00:00.000Z',configuration:{goal:{model:'evolving',kind:'endurance'},experience:'experienced',structuredPlanningPreference:'accepted'}});await tx.done;db.close();},{modules,databaseName,available,minutes});
+ return databaseName;
+}
+const panel=(page:Page)=>page.getByTestId('coach-v2-experimental');
+async function openCoach(page:Page) {await page.goto('./#/entrainement');await expect(panel(page)).toBeVisible();await panel(page).scrollIntoViewIfNeeded();}
+async function occurrenceCount(page:Page) {const databaseName=await activeDatabase(page);return page.evaluate(async input=>{const {openDatabase}=await import(/* @vite-ignore */ input.modules+'storage/database-connection.ts');const db=await openDatabase(input.databaseName),count=await db.count('coachSuggestionsV2');db.close();return count;},{modules,databaseName});}
+async function returnToTab(page:Page) {await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});document.dispatchEvent(new Event('visibilitychange'));Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});document.dispatchEvent(new Event('visibilitychange'));});}
+
+test('aucune disponibilité : aucune recommandation ni occurrence fictive',async({page})=>{await seed(page,{available:false});await openCoach(page);await expect(panel(page)).toContainText('Aucune suggestion adaptée n’est disponible actuellement.');await expect(panel(page).getByRole('article')).toHaveCount(0);expect(await occurrenceCount(page)).toBe(0);});
+test('Coach V2 lisible à 390 px avec recommandation et perspectives',async({page})=>{await page.setViewportSize({width:390,height:844});await seed(page);await openCoach(page);await expect(panel(page).getByRole('article')).toHaveCount(3);await expect(panel(page)).toContainText('Prochaine séance conseillée');await expect(panel(page)).toContainText('Perspective susceptible d’évoluer');await expect(panel(page).locator('[data-presentation-title]')).toContainText('Endurance facile');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect.poll(()=>occurrenceCount(page)).toBe(1);});
+test('Coach V2 cohérent à 1280 px dans les thèmes disponibles',async({page})=>{await page.setViewportSize({width:1280,height:900});await seed(page);await openCoach(page);for(const theme of ['Midnight Garage','AIR-KLM Day flight']){await page.getByRole('link',{name:'Paramètres',exact:true}).click();await page.getByRole('combobox',{name:'Thème',exact:true}).selectOption(theme);await openCoach(page);await expect(panel(page).getByRole('article')).toHaveCount(3);await expect(panel(page).locator('[data-presentation-title]')).toContainText('Endurance facile');await expect(panel(page)).toContainText('Prochaine séance conseillée');await expect(panel(page)).toContainText('Perspective susceptible d’évoluer');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}});
+test('une disponibilité modifiée ne réécrit pas une suggestion déjà présentée',async({page})=>{const databaseName=await seed(page,{minutes:60});await openCoach(page);await expect(panel(page).locator('[data-presentation-summary]')).toContainText('40 min');await expect.poll(()=>occurrenceCount(page)).toBe(1);await page.evaluate(async input=>{const {createCoachProfileRepository}=await import(/* @vite-ignore */ input.modules+'storage/coach-profile.ts');const repository=createCoachProfileRepository(input.databaseName),profile=await repository.get();await repository.save({...profile,availability:{...profile.availability,minutesPerSession:30}},profile.revision);},{modules,databaseName});await returnToTab(page);await expect(panel(page).locator('[data-presentation-summary]')).toContainText('40 min');await expect(panel(page)).toContainText('Prochaine séance conseillée');expect(await occurrenceCount(page)).toBe(1);});

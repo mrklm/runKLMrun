@@ -187,7 +187,7 @@ explicite, pas le résultat moteur complet avec ses diagnostics.
 
 ### Raccordement à la présentation — phase 5B.2
 
-`CoachPlanning.tsx` calcule toujours une proposition transitoire après lecture du
+L’ancienne interface du planning V1, retirée au lot 2, calculait une proposition transitoire après lecture du
 profil, de la configuration et du planning. Les changements de ces données, des
 résumés ou du jour courant déclenchent son actualisation. Le moteur n'écrit rien.
 Les propositions déjà acceptées ou refusées ne montent pas de carte à observer.
@@ -220,7 +220,7 @@ restent « sans activité associée enregistrée », sans jugement sur leur réa
 Un refus continue d'être géré exclusivement par les règles actuelles du planning.
 
 Insertion et obsolescence sont atomiques ; un échec annule l'ensemble. Une seule
-notification `suggestions` est émise après commit. `CoachPlanning` ne s'abonne pas
+notification `suggestions` est émise après commit. L’ancienne interface du planning V1 ne s'abonnait pas
 à ce scope : aucune boucle de recalcul/écriture. Les autres onglets peuvent observer
 l'invalidation avec le bus 5A ; les transactions sérialisent leurs insertions.
 
@@ -233,8 +233,8 @@ et sa durée ensemble.
 
 ### Suggestions libres affichées — phase 5C.2
 
-`CoachPlanning` lit les données et appelle désormais `proposeSuggestions(input,
-planning)`. `CoachSuggestions` affiche les cartes sans validation et observe chaque
+L’ancienne interface du planning V1 lisait les données et appelait `proposeSuggestions(input,
+planning)`. Ses cartes historiques étaient affichées sans validation et observaient chaque
 carte avec le mécanisme 5B.2 (onglet visible, absence de recouvrement, deux frames).
 Aucun calcul ne se produit pendant le rendu des cartes. Les actions de modification
 et d'annulation sont exclusivement réservées à l'ancien planning, conservé intégralement.
@@ -267,11 +267,11 @@ carte par carte. Aucun rapprochement automatique ni entretien nouveau n'est ajou
 
 ### Rapprochement factuel — phase 5D.1
 
-`startSuggestionReconciliation` est démarré une fois dans `main.tsx`, hors React.
-Il écoute les commits `sessions` et `suggestions`, localement et via le bus
-inter-onglets : imports Polar/TCX groupés, `save`, restauration/fusion et futures
-suppressions notifiées. Il vérifie aussi le stockage au démarrage. Il ne crée ni
-suggestion ni séance et ne recalcule pas le moteur. Aucun nouvel écran.
+`startSuggestionReconciliation` est conservé comme outil explicite de compatibilité
+technique, mais n'est plus démarré par l'application. Les imports Polar/TCX,
+`save`, restauration/fusion et suppressions notifiées ne modifient donc pas
+automatiquement les suggestions V1. Il ne crée ni suggestion ni séance et ne
+recalcule pas le moteur. Aucun nouvel écran.
 
 `reconcileActivities` lit uniquement les résumés et les suggestions dans une même
 transaction IndexedDB en écriture. Les transactions des autres onglets sont
@@ -322,7 +322,7 @@ n’affirme jamais que le coureur a suivi exactement la suggestion.
 
 ### Informations temporaires sur l’accueil — phase 5D.2
 
-`PastSuggestions` affiche seulement les suggestions mémorisées, passées, actuelles,
+L’ancienne information historique V1 affichait seulement les suggestions mémorisées, passées, actuelles,
 non associées, de J+1 à J+7 inclus (`expiresOn` à J+8). Aucun message n’est persisté.
 Le service de rapprochement expose un état local de préparation : l’information
 est masquée au démarrage, pendant une actualisation ou après une erreur. Une

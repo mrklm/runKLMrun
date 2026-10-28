@@ -37,7 +37,10 @@ test('une erreur de sauvegarde ferme l’indicateur et libère les actions', asy
     }
     Object.defineProperty(window, 'Worker', { value: FailedWorker, configurable: true });
   });
-  const backups = page.getByRole('region', { name: 'Données et sauvegardes', exact: true });
+  const dataPanel = page.locator('section[aria-labelledby="settings-data-title"] > details');
+  await dataPanel.locator(':scope > summary').click();
+  await expect(dataPanel).toHaveAttribute('open', '');
+  const backups = dataPanel.getByRole('region', { name: 'Données et sauvegardes', exact: true });
   await backups.getByRole('button', { name: 'Exporter mes données', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Importer les séances', exact: true, includeHidden: true })).toBeDisabled();
   await expect(backups.getByText(/Lecture des données, préparation et compression/)).toBeVisible();

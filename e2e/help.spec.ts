@@ -8,5 +8,6 @@ test('ouvre l’aide depuis la navigation principale', async ({ page }) => {
   await expect(page).toHaveURL(/#\/aide$/);
   await expect(page.getByRole('heading', { name: 'Aide', exact: true })).toBeVisible();
   await expect(page.getByText('Utiliser le Coach', { exact: true })).toBeVisible();
+  await expect(page.getByText('Pour commencer, ouvrez Paramètres, puis dépliez la section Configurer le Coach et complétez votre profil :', { exact: true })).toBeVisible();
   await expect(link).toHaveAttribute('aria-current', 'page');
 });

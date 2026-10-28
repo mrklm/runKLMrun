@@ -12,7 +12,7 @@ Le placement des jours, les disponibilités, l'arrondi, le budget, les libellés
 
 ### V1
 
-L'absence de `referenceMode`, ou la valeur explicite `v1`, exécute le chemin historique. Aucune suggestion persistée n'est lue, aucun diagnostic V2 n'est ajouté et la structure du résultat reste identique. Ce mode demeure le seul utilisé par `CoachPlanning`.
+L'absence de `referenceMode`, ou la valeur explicite `v1`, exécute le chemin historique. Aucune suggestion persistée n'est lue, aucun diagnostic V2 n'est ajouté et la structure du résultat reste identique. Ce mode était utilisé par l’interface V1 retirée au lot 2.
 
 ### V2 expérimental
 
@@ -50,7 +50,7 @@ Les suggestions ignorées ne fournissent aucune activité. Les activités associ
 
 ## Limites et conditions avant activation
 
-- `CoachPlanning` ne charge pas encore les suggestions persistées pour le calcul ; aucune activation réelle n'est donc possible depuis l'application.
+- L’interface V1 retirée ne chargeait pas les suggestions persistées pour le calcul ; elle ne participe plus à l’activation publique.
 - Les paramètres d'amorçage restent expérimentaux.
 - La référence provisoire peut empêcher toute proposition lorsque la politique prudente descend sous le minimum éditorial ; ce comportement doit être validé produit.
 - Le rythme et le placement restent issus de l'observation V1, même lorsque la durée utilise V2.

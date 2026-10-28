@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { OptionalSessionFeeling } from '../types/evolving-coach';
 import { effortLabels, feelingFromFields } from '../core/analysis/session-feeling';
 import { createFeelingRepository } from '../storage/session-feeling';
 import { subscribeStorage } from '../storage/changes';
 import { FeelingFields } from './FeelingFields';
-const repository = createFeelingRepository();
+import { useProfileDatabase } from '../storage/profile-context';
 export function SessionFeeling({ id }: { id: string }) {
+  const database = useProfileDatabase();
+  const repository = useMemo(() => createFeelingRepository(database), [database]);
   const [saved, setSaved] = useState<OptionalSessionFeeling>();
   const [effort, setEffort] = useState(''), [comment, setComment] = useState('');
   const [editing, setEditing] = useState(false), [ready, setReady] = useState(false), [busy, setBusy] = useState(false);
@@ -24,9 +26,9 @@ export function SessionFeeling({ id }: { id: string }) {
   }
   useEffect(() => {
     void reload();
-    const unsubscribe = subscribeStorage(['sessions', 'feelings'], () => { void reload(); });
+    const unsubscribe = subscribeStorage(['sessions', 'feelings'], () => { void reload(); }, database);
     return () => { generation.current++; unsubscribe(); };
-  }, [id]);
+  }, [id, database]);
   function edit() {
     expected.current = saved; setEffort(saved?.effort ?? ''); setComment(saved?.comment ?? '');
     setEditing(true); setError(''); setMessage('');

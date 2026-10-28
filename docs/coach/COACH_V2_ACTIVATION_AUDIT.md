@@ -20,7 +20,7 @@ Une activation progressive est possible sans convertir ni supprimer les données
 | Cycle de vie | Réaffichage, remplacement, association et invalidation prêts | Confirmation d’association et déclenchement de réconciliation absents de l’interface |
 | Sauvegarde V6 | Export, fusion, remplacement et intégrité prêts | À revalider avec la future chaîne de production complète |
 
-`CoachPlanning` charge le planning, la configuration et le profil, puis appelle `proposeSuggestions()` sans mode V2. `CoachSuggestions` affiche les objets V1 et mémorise leur visibilité avec `createSuggestionRepository()`. Aucun fichier de production n’appelle `proposeExperimentalOrchestratedV2()` ou `createSuggestionV2Repository()` pour présenter une suggestion.
+L’interface du planning et les cartes V1, retirées au lot 2, chargeaient le planning, la configuration et le profil, puis appelaient `proposeSuggestions()` sans mode V2. Elles mémorisaient leur visibilité avec `createSuggestionRepository()`. Le prototype d’orchestration V1/V2 a été retiré avec le comparateur interne au lot 3.
 
 ## Présentation, ancre et génération
 

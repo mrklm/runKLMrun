@@ -163,6 +163,10 @@ p {
 .navigation a:hover {
   background:var(--field);
 }
+.profile-select { margin-left:auto; display:flex; align-items:center; gap:8px; min-width:0; }
+.profile-select label { font-size:.85rem; white-space:nowrap; }
+.profile-select select { min-height:44px; max-width:180px; }
+.profile-select p { position:absolute; margin-top:76px; max-width:260px; }
 
 main {
   padding:36px 0 48px;
@@ -588,6 +592,8 @@ summary { cursor:pointer; }
 @media(max-width:640px) {
   .navigation { flex-wrap:wrap; }
   .navigation a { min-width:70px; }
+  .profile-select { width:100%; margin-left:0; }
+  .profile-select select { flex:1; max-width:none; }
   .chart-panel { padding:16px 8px; }
   .chart-panel h2, .chart-data, .chart-legend, .chart-pagination { margin-left:8px; margin-right:8px; }
   .history-year > summary, .history-month > summary { padding:16px; }

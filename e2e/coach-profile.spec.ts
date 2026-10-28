@@ -1,8 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 async function openTraining(page: Page) {
-  await page.clock.setFixedTime(new Date('2026-10-10T12:00:00Z'));
+  const start = new Date('2026-10-10T12:00:00Z');
+  await page.clock.install({ time: start });
+  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now())));
   await page.goto('./#/entrainement');
+  await expect(page.locator('.splash-screen')).toHaveCount(1);
+  await page.clock.runFor(3000);
   await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await page.clock.resume();
   await expect(page.getByRole('heading', { name: 'Votre profil de coureur' })).toBeVisible();
 }
 const panel = (page: Page) => page.getByRole('region', { name: 'Votre profil de coureur' });
@@ -31,6 +36,7 @@ for (const width of [390, 1280]) test(`créer, modifier et conserver le profil �
 test('signale les disponibilités incohérentes sans perdre la saisie', async ({ page }) => {
   await openTraining(page); const profile = panel(page);
   await profile.getByRole('textbox', { name: /Séances souhaitées/ }).fill('3');
+  await expect(profile.getByRole('textbox', { name: /Séances souhaitées/ })).toHaveValue('3');
   await profile.getByRole('checkbox', { name: 'Lundi', exact: true }).check();
   await profile.getByRole('checkbox', { name: 'Mardi', exact: true }).check();
   await profile.getByRole('button', { name: 'Enregistrer mon profil' }).click();

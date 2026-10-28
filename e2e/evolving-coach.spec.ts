@@ -1,17 +1,26 @@
 import { test, expect, type Page } from '@playwright/test';
+import { activeDatabase } from './helpers/active-database';
 const panel = (p: Page) => p.getByRole('region', { name: 'Votre accompagnement', exact: true });
 async function open(p: Page) {
   await p.goto('./#/entrainement');
   await expect(p.locator('.splash-screen')).toHaveCount(0);
+  await expect(p.getByRole('combobox', { name: 'Profil actif', exact: true })).toBeVisible();
   await expect(p.getByRole('heading', { name: 'Coach', exact: true })).toBeVisible();
   await expect(panel(p).getByRole('button', { name: /Configurer mon accompagnement|Modifier mes choix/ })).toBeVisible();
 }
 async function read(p: Page, store: string) {
-  return p.evaluate(async storeName => new Promise<unknown>((resolve, reject) => {
-    const r = indexedDB.open('runklmrun'); r.onerror = () => reject(r.error);
-    r.onsuccess = () => { const db = r.result, tx = db.transaction(storeName, 'readonly'), q = tx.objectStore(storeName).get('local');
-      tx.oncomplete = () => { db.close(); resolve(q.result ?? null); }; };
-  }), store);
+  const databaseName = await activeDatabase(p);
+  return p.evaluate(({ databaseName, storeName }) => new Promise<unknown>((resolve, reject) => {
+    const request = indexedDB.open(databaseName);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(storeName, 'readonly');
+      const query = transaction.objectStore(storeName).get('local');
+      transaction.onerror = () => { db.close(); reject(transaction.error); };
+      transaction.oncomplete = () => { db.close(); resolve(query.result ?? null); };
+    };
+  }), { databaseName, storeName: store });
 }
 for (const width of [390,1280]) test(`Coach unique, sept objectifs et configuration sans historique à ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 }); await open(page);
@@ -47,13 +56,17 @@ for (const width of [390,1280]) test(`Coach unique, sept objectifs et configurat
 });
 test('préserve exactement le profil historique lors du choix du nouvel objectif', async ({ page }) => {
   await open(page);
-  await page.evaluate(async () => new Promise<void>(resolve => {
-    const r = indexedDB.open('runklmrun'); r.onsuccess = () => {
-      const db = r.result, tx = db.transaction('coachProfile','readwrite');
+  const databaseName = await activeDatabase(page);
+  await page.evaluate(async databaseName => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open(databaseName);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result, tx = db.transaction('coachProfile','readwrite');
       tx.objectStore('coachProfile').put({ id: 'local', goal: { kind: 'regular', distance: { kind:'custom', meters: 8000 } }, availability: { days: ['monday'], minutesPerSession: 45 }, preferences: { terrain: 'road' }, accompanimentMode:'advisor', revision: 1, createdAt:'2026-10-01T12:00:00.000Z', updatedAt:'2026-10-01T12:00:00.000Z' });
+      tx.onerror = () => { db.close(); reject(tx.error); };
       tx.oncomplete = () => { db.close(); resolve(); };
     };
-  }));
+  }), databaseName);
   await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
   const before = await read(page, 'coachProfile'), c = panel(page);
   await expect(page.getByRole('heading', { name: 'Observations du coach' })).toBeVisible();
