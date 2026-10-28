@@ -1,5 +1,9 @@
 # Historique des versions
 
+## v0.15.1 — 2026-10-28 — Identité graphique
+
+- Identité graphique : titre de l’application remplacé et ajusté dans l’en-tête ; numéro de version repositionné.
+
 ## v0.15.0 — 2026-10-28 — Profils multiples et Coach V2
 
 ### Ajouté
