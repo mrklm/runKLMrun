@@ -1,5 +1,10 @@
 # Historique des versions
 
+## v0.15.3 — 2026-10-29 — Suivi des chaussures
+
+- Accueil : suivi compact de jusqu’à trois paires actives, avec priorité à celle de la dernière sortie.
+- Accueil : visuel des chaussures réduit, kilométrage conservé sur une ligne et alertes détaillées réservées à la page de gestion.
+
 ## v0.15.2 — 2026-10-29 — Profils et chaussures
 
 - Profils : commandes de création, modification et suppression indisponible regroupées dans un panneau repliable, avec des sélecteurs indépendants et adaptés au mobile.

@@ -124,8 +124,8 @@ test('accueil : une paire active sans alerte reste visible', async ({ page }) =>
 test('accueil : les seuils préventif et de limite restent signalés', async ({ page }) => {
   await seedShoe(page, { id: 'dashboard-warning', name: 'Paire proche', limitKm: 10, warningKm: 2 }, [9000]);
   await openHome(page);
-  await expect(shoeSummary(page)).toHaveAccessibleName('Gérer les chaussures : Paire proche, 9 km / 10 km, Seuil préventif atteint.');
-  await expect(page.getByText('Seuil préventif atteint.', { exact: true })).toBeVisible();
+  await expect(shoeSummary(page)).toHaveAccessibleName('Gérer les chaussures : Paire proche, 9 km / 10 km');
+  await expect(page.getByText('Seuil préventif atteint.', { exact: true })).toHaveCount(0);
   await expect(page.getByText('À surveiller', { exact: true })).toHaveCount(0);
 
   await page.goto('./#/parametres');
@@ -139,8 +139,8 @@ test('accueil : les seuils préventif et de limite restent signalés', async ({ 
     await createShoeRepository(input.databaseName).assign('dashboard-warning-limit', 'dashboard-warning');
   }, { modules, databaseName });
   await openHome(page);
-  await expect(shoeSummary(page)).toHaveAccessibleName('Gérer les chaussures : Paire proche, 11 km / 10 km, Limite atteinte.');
-  await expect(page.getByText('Limite atteinte.', { exact: true })).toBeVisible();
+  await expect(shoeSummary(page)).toHaveAccessibleName('Gérer les chaussures : Paire proche, 11 km / 10 km');
+  await expect(page.getByText('Limite atteinte.', { exact: true })).toHaveCount(0);
 });
 
 test('accueil : la paire de la dernière sortie est privilégiée', async ({ page }) => {

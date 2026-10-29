@@ -27,8 +27,7 @@ export function ShoeAlert({ sessions }: { sessions: RunningSession[] }) {
   return <div className="home-shoe-summaries">{displayed.map(current => {
     const usage = shoeMileage(current, sessions, associations);
     const distance = `${number(usage.km)} km${current.limitKm === undefined ? '' : ` / ${number(current.limitKm)} km`}`;
-    const alert = usage.state === 'normal' ? undefined : `${labels[usage.state]}.`;
-    return <a className="home-shoe-summary" key={current.id} href="#/chaussures" aria-label={`Gérer les chaussures : ${current.name}, ${distance}${alert ? `, ${alert}` : ''}`}><span className="home-shoe-name">{current.name}</span><img src={`${import.meta.env.BASE_URL}images/basket.png`} alt="" /><span className="home-shoe-distance">{distance}</span>{alert && <span className="home-shoe-alert">{alert}</span>}</a>;
+    return <a className="home-shoe-summary" key={current.id} href="#/chaussures" aria-label={`Gérer les chaussures : ${current.name}, ${distance}`}><span className="home-shoe-name">{current.name}</span><img src={`${import.meta.env.BASE_URL}images/basket.png`} alt="" /><span className="home-shoe-distance">{distance}</span></a>;
   })}</div>;
 }
 export function SessionShoes({ sessionId, session }: { sessionId: string; session?: RunningSession }) {
