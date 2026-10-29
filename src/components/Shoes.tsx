@@ -13,16 +13,23 @@ import { shoeMileage, sessionsInPeriod } from '../core/shoes/shoes';
 import { SessionList } from './SessionList';
 
 const number = (value: number | undefined) => value === undefined ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
-const labels = { normal: 'Normal', warning: 'À surveiller', limit: 'Limite atteinte' };
+const labels = { normal: 'Normal', warning: 'Seuil préventif atteint', limit: 'Limite atteinte' };
 export function ShoeAlert({ sessions }: { sessions: RunningSession[] }) {
-  const data = useShoes(), automatic = data.settings?.mode === 'automatic';
+  const data = useShoes();
   const timeline = shoeTimeline(data.shoes, sessions, localToday());
-  const candidates = automatic ? data.shoes.filter(s => s.id === timeline.current) : data.shoes.filter(s => s.status === 'active');
-  const associations = automatic ? timeline.assignments : data.shoeAssignments;
-  return <>{candidates.map(shoe => {
-    const usage = shoeMileage(shoe, sessions, associations);
-    return usage.state === 'normal' ? null : <aside className="notice" key={shoe.id}><a href="#/chaussures">{shoe.name} : {labels[usage.state]}</a><p>{number(usage.km)} km sur votre repère de {number(shoe.limitKm)} km.</p></aside>;
-  })}</>;
+  const candidates = data.shoes.filter(shoe => shoe.status === 'active');
+  const associations = data.settings?.mode === 'automatic' ? timeline.assignments : data.shoeAssignments;
+  if (!candidates.length) return null;
+  const latest = [...sessions].filter(session => validSessionDate(session.date)).sort((left, right) => (right.startTime ?? right.date).localeCompare(left.startTime ?? left.date))[0];
+  const associated = associations.find(association => association.sessionId === latest?.id)?.shoeId;
+  const shoe = candidates.find(candidate => candidate.id === associated) ?? candidates[0];
+  const displayed = [shoe, ...candidates.filter(candidate => candidate.id !== shoe.id)].slice(0, 3);
+  return <div className="home-shoe-summaries">{displayed.map(current => {
+    const usage = shoeMileage(current, sessions, associations);
+    const distance = `${number(usage.km)} km${current.limitKm === undefined ? '' : ` / ${number(current.limitKm)} km`}`;
+    const alert = usage.state === 'normal' ? undefined : `${labels[usage.state]}.`;
+    return <a className="home-shoe-summary" key={current.id} href="#/chaussures" aria-label={`Gérer les chaussures : ${current.name}, ${distance}${alert ? `, ${alert}` : ''}`}><span className="home-shoe-name">{current.name}</span><img src={`${import.meta.env.BASE_URL}images/basket.png`} alt="" /><span className="home-shoe-distance">{distance}</span>{alert && <span className="home-shoe-alert">{alert}</span>}</a>;
+  })}</div>;
 }
 export function SessionShoes({ sessionId, session }: { sessionId: string; session?: RunningSession }) {
   const database=useProfileDatabase(),shoeRepository=useMemo(()=>createShoeRepository(database),[database]);

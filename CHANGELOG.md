@@ -1,5 +1,11 @@
 # Historique des versions
 
+## v0.15.2 — 2026-10-29 — Profils et chaussures
+
+- Profils : commandes de création, modification et suppression indisponible regroupées dans un panneau repliable, avec des sélecteurs indépendants et adaptés au mobile.
+- Accueil : suivi de une à trois paires actives, avec priorité à la paire de la dernière sortie, kilométrage, limite personnelle et alertes d’usure réelles.
+- Accueil : nouveau visuel local des chaussures, cliquable vers leur gestion et adapté aux thèmes et aux petits écrans.
+
 ## v0.15.1 — 2026-10-28 — Identité graphique
 
 - Identité graphique : titre de l’application remplacé et ajusté dans l’en-tête ; numéro de version repositionné.

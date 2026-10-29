@@ -369,6 +369,17 @@ main:focus {
   margin:6px 0 0;
 }
 
+.home-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; }
+.home-heading h1 { margin:0; }
+.home-shoe-summaries { display:flex; align-items:flex-start; gap:16px; transform:translateY(-20px); }
+.home-shoe-summary { display:flex; flex:0 0 100px; flex-direction:column; align-items:center; text-align:center; text-decoration:none; }
+.home-shoe-name { font-weight:700; }
+.home-shoe-summary img { display:block; inline-size:100px; max-inline-size:100%; block-size:auto; }
+.home-shoe-distance { font-size:.875rem; }
+.home-shoe-alert { margin-top:4px; font-size:.875rem; font-weight:700; }
+@media(max-width:600px) { .home-heading { flex-direction:column; align-items:flex-start; gap:12px; } .home-shoe-summaries { align-self:center; transform:none; } }
+@media(max-width:360px) { .home-shoe-summaries { gap:8px; } .home-shoe-summary { flex-basis:80px; } .home-shoe-summary img { inline-size:80px; } }
+
 .status {
   padding:32px;
 }
@@ -707,6 +718,12 @@ summary { cursor:pointer; }
 .profile-days > div { display:flex; flex-wrap:wrap; gap:8px 16px; }
 .profile-days label { display:flex; align-items:center; gap:8px; min-height:44px; }
 .profile-actions { display:flex; flex-wrap:wrap; gap:12px; }
+.runner-profiles > summary { font-size:1.5rem; font-weight:700; }
+.runner-profile-actions { display:grid; gap:12px; inline-size:min(100%, 28rem); margin:20px auto 0; }
+.runner-profile-actions > .button { inline-size:100%; }
+.runner-profile-action { display:grid; grid-template-columns:minmax(7.25rem, .75fr) minmax(0, 1.25fr); gap:12px; }
+.runner-profile-action .button, .runner-profile-action select { inline-size:100%; min-inline-size:0; min-height:44px; }
+@media(max-width:360px) { .runner-profile-action { grid-template-columns:1fr; } }
 .coach-profile { overflow-wrap:anywhere; }
 
 .profile-duration-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-bottom: 12px; }

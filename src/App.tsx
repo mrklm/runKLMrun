@@ -75,7 +75,7 @@ export function App() {
 function ProfileSelect({ profiles, profile, selecting, selectActiveProfile }: { profiles: RunnerProfile[]; profile: RunnerProfile; selecting: boolean; selectActiveProfile: (id: string) => Promise<void> }) {
   const [message,setMessage]=useState('');
   const busy=useOperationBusy();
-  return <div className="profile-select"><label htmlFor="active-profile">Profil actif</label><select id="active-profile" value={profile.id} disabled={selecting||busy} onChange={event=>{const id=event.currentTarget.value;void selectActiveProfile(id).then(()=>setMessage(''),error=>setMessage(error instanceof Error?error.message:'Le profil n’a pas pu être sélectionné.'));}}>{profiles.map(item=><option key={item.id} value={item.id}>{item.displayName}</option>)}</select>{busy&&<p role="status">Changement de profil indisponible pendant l’opération en cours.</p>}{message&&<p role="alert">{message}</p>}</div>;
+  return <div className="profile-select"><select id="active-profile" aria-label="Profil actif" value={profile.id} disabled={selecting||busy} onChange={event=>{const id=event.currentTarget.value;void selectActiveProfile(id).then(()=>setMessage(''),error=>setMessage(error instanceof Error?error.message:'Le profil n’a pas pu être sélectionné.'));}}>{profiles.map(item=><option key={item.id} value={item.id}>{item.displayName}</option>)}</select>{busy&&<p role="status">Changement de profil indisponible pendant l’opération en cours.</p>}{message&&<p role="alert">{message}</p>}</div>;
 }
 function AppContent({ database, profiles, selecting, selectActiveProfile }: { database: string; profiles: RunnerProfile[]; selecting: boolean; selectActiveProfile: (id: string) => Promise<void> }) {
   const [showSplash, setShowSplash] = useState(true);
