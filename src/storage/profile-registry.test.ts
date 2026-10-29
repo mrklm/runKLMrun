@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, expect, it, vi } from 'vitest';
-import { deleteDB } from 'idb';
+import { deleteDB, openDB } from 'idb';
 import { PROFILE_REGISTRY_NAME, createRunnerProfile, deleteRunnerProfileDatabase, finalizeRunnerProfileDeletion, markRunnerProfileDeleting, readProfileRegistry, resumePendingProfileDeletions, RunnerProfileConflictError, RunnerProfileDeletionCoordinationError, RunnerProfileDeletionError, subscribeProfileRegistry, updateRunnerProfile, writeProfileRegistry } from './profile-registry';
 const profile=(id:string,name:string)=>({id,displayName:name,databaseName:`runklmrun-user-${id}`,createdAt:'2026-01-01',updatedAt:'2026-01-01'});
 const operationId='00000000-0000-4000-8000-000000000001';
@@ -33,6 +33,30 @@ it('initialise une révision pour un profil historique à sa prochaine modificat
 it('marque une suppression atomique, conserve ses métadonnées et refuse le dernier profil',async()=>{
  await writeProfileRegistry({migration:'complete',profiles:[profile('a','A'),profile('b','B')]});const marked=await markRunnerProfileDeleting('a','b',1,new Date('2026-01-02'),operationId);expect(marked.status).toBe('deleting');expect(marked.deletion).toEqual({operationId,destinationProfileId:'b',startedAt:'2026-01-02T00:00:00.000Z'});expect((await readProfileRegistry())?.profiles.find(value=>value.id==='a')?.status).toBe('deleting');
  await expect(markRunnerProfileDeleting('b','a',1)).rejects.toBeInstanceOf(RunnerProfileDeletionError);
+});
+it('refuse de marquer un profil dont la base n’est pas canonique',async()=>{
+ const b=profile('b','B'),corrupt={...profile('a','A'),databaseName:b.databaseName};
+ await writeProfileRegistry({migration:'complete',profiles:[corrupt,b]});
+ await expect(markRunnerProfileDeleting('a','b',1)).rejects.toBeInstanceOf(RunnerProfileDeletionError);
+ expect((await readProfileRegistry())?.profiles.find(value=>value.id==='a')?.status).toBeUndefined();
+});
+it('refuse les bases corrompues avant toute suppression physique',async()=>{
+ const locks=(navigator as any).locks,original=indexedDB.deleteDatabase,calls:string[]=[];
+ const b=profile('b','B'),witnessName='e2e-profile-deletion-witness';
+ const witness=await openDB(witnessName,1,{upgrade(database){database.createObjectStore('witness');}});await witness.put('witness','sentinel','value');witness.close();
+ const otherProfile=await openDB(b.databaseName,1,{upgrade(database){database.createObjectStore('witness');}});await otherProfile.put('witness','profile-b','value');otherProfile.close();
+ try {(navigator as any).locks={request:async(_name:string,action:()=>Promise<unknown>)=>action()};(indexedDB as any).deleteDatabase=(name:string)=>{calls.push(name);return {} as IDBOpenDBRequest;};
+  const cases=[{id:'a',databaseName:b.databaseName},{id:'a',databaseName:witnessName},{id:'a',databaseName:'runklmrun'},{id:'',databaseName:'runklmrun-user-'},{id:'a',databaseName:profile('a','A').databaseName,operationId:''}];
+  for(const value of cases){const currentOperationId=value.operationId??operationId,target={...profile(value.id,'A'),databaseName:value.databaseName,status:'deleting' as const,deletion:{operationId:currentOperationId,destinationProfileId:'b',startedAt:'2026-01-02T00:00:00.000Z'}};await writeProfileRegistry({migration:'complete',profiles:[target,b]});await expect(deleteRunnerProfileDatabase(value.id,currentOperationId)).rejects.toBeInstanceOf(RunnerProfileDeletionError);expect((await readProfileRegistry())?.profiles.some(profile=>profile.id===value.id)).toBe(true);}
+  const check=await openDB(witnessName);expect(await check.get('witness','value')).toBe('sentinel');check.close();expect(calls).toEqual([]);
+  const preserved=await openDB(b.databaseName);expect(await preserved.get('witness','value')).toBe('profile-b');preserved.close();
+ } finally {(indexedDB as any).deleteDatabase=original;(navigator as any).locks=locks;await deleteDB(witnessName);await deleteDB(b.databaseName);}
+});
+it('ne reprend pas une suppression interrompue avec un registre corrompu',async()=>{
+ const locks=(navigator as any).locks,original=indexedDB.deleteDatabase;let calls=0;
+ (navigator as any).locks={request:async(_name:string,action:()=>Promise<unknown>)=>action()};(indexedDB as any).deleteDatabase=()=>{calls++;return {} as IDBOpenDBRequest;};
+ const b=profile('b','B'),target={...profile('a','A'),databaseName:b.databaseName,status:'deleting' as const,deletion:{operationId,destinationProfileId:'b',startedAt:'2026-01-02T00:00:00.000Z'}};
+ try {await writeProfileRegistry({migration:'complete',profiles:[target,b]});await resumePendingProfileDeletions();expect(calls).toBe(0);expect((await readProfileRegistry())?.profiles.find(profile=>profile.id==='a')?.status).toBe('deleting');} finally {(indexedDB as any).deleteDatabase=original;(navigator as any).locks=locks;}
 });
 it('refuse destination invalide, révision obsolète et finalisation étrangère',async()=>{
  await writeProfileRegistry({migration:'complete',profiles:[profile('a','A'),profile('b','B')]});await expect(markRunnerProfileDeleting('a','missing',1)).rejects.toBeInstanceOf(RunnerProfileDeletionError);await expect(markRunnerProfileDeleting('a','b',2)).rejects.toBeInstanceOf(RunnerProfileConflictError);await markRunnerProfileDeleting('a','b',1,undefined,operationId);await expect(finalizeRunnerProfileDeletion('a','autre')).rejects.toBeInstanceOf(RunnerProfileDeletionError);

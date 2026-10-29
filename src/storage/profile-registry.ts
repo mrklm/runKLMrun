@@ -8,6 +8,7 @@ interface RegistryDatabase extends DBSchema {
   state: { key: string; value: ProfileRegistryState & { id: string } };
 }
 const STATE_KEY = 'state';
+const HISTORICAL_DATABASE_NAME = 'runklmrun';
 const listeners = new Set<() => void>();
 const channelName = 'runklmrun-profiles-changed';
 let channel: BroadcastChannel | undefined;
@@ -57,6 +58,15 @@ export class RunnerProfileDeletionError extends Error {}
 export class RunnerProfileDeletionBlockedError extends RunnerProfileDeletionError { constructor() { super('La suppression attend la fermeture d’une connexion à cette base.'); } }
 export class RunnerProfileDeletionDatabaseError extends RunnerProfileDeletionError { constructor() { super('La base du profil n’a pas pu être supprimée.'); } }
 export class RunnerProfileDeletionCoordinationError extends RunnerProfileDeletionError { constructor() { super('La coordination inter-onglets est indisponible. La suppression reste en attente.'); } }
+function assertProfileDatabaseIdentity(profile: RunnerProfile, id: string) {
+ if (!id.trim() || profile.id !== id || profile.databaseName === HISTORICAL_DATABASE_NAME || profile.databaseName !== profileDatabaseName(profile.id)) throw new RunnerProfileDeletionError('Identité de la base du profil invalide.');
+}
+function assertPendingProfileDeletion(state: ProfileRegistryState, profile: RunnerProfile, id: string, operationId: string) {
+ assertProfileDatabaseIdentity(profile, id);
+ const destination=state.profiles.find(value=>value.id===profile.deletion?.destinationProfileId);
+ if (!operationId || profileStatus(profile) !== 'deleting' || profile.deletion?.operationId !== operationId || !destination || destination.id===id || !isProfileActive(destination)) throw new RunnerProfileDeletionError('Suppression refusée.');
+ assertProfileDatabaseIdentity(destination,destination.id);
+}
 function deleteDatabase(name:string,onBlocked?:()=>void) { return new Promise<void>((resolve,reject)=>{const request=indexedDB.deleteDatabase(name);request.onsuccess=()=>resolve();request.onerror=()=>reject(new RunnerProfileDeletionDatabaseError());request.onblocked=()=>onBlocked?.();}); }
 const resuming = new Set<string>();
 export async function withProfileDatabaseLock<T>(databaseName:string, action:()=>Promise<T>, requireWebLock=false) {
@@ -75,28 +85,29 @@ export async function createRunnerProfile(values: Pick<RunnerProfile, 'displayNa
 export class RunnerProfileConflictError extends Error { constructor() { super('Ce profil a été modifié dans un autre onglet. Rechargez-le avant de réessayer.'); } }
 export async function markRunnerProfileDeleting(id:string,destinationProfileId:string,expectedRevision:number,now=new Date(),operationId=crypto.randomUUID()) {
  const db=await openProfileRegistry();try { const tx=db.transaction(['profiles','state'],'readwrite'),state=await tx.objectStore('state').get(STATE_KEY),current=await tx.objectStore('profiles').get(id);
-  if(!state||!current)throw new RunnerProfileDeletionError('Profil introuvable.');if(!isProfileActive(current)||profileRevision(current)!==expectedRevision)throw new RunnerProfileConflictError();
+  if(!state||!current)throw new RunnerProfileDeletionError('Profil introuvable.');if(!operationId)throw new RunnerProfileDeletionError('Suppression impossible.');assertProfileDatabaseIdentity(current,id);if(!isProfileActive(current)||profileRevision(current)!==expectedRevision)throw new RunnerProfileConflictError();
   const destination=await tx.objectStore('profiles').get(destinationProfileId),active=state.profiles.filter(isProfileActive);
-  if(id===destinationProfileId||!destination||!isProfileActive(destination)||active.length<2)throw new RunnerProfileDeletionError('Suppression impossible.');
+  if(id===destinationProfileId||!destination||!isProfileActive(destination)||active.length<2)throw new RunnerProfileDeletionError('Suppression impossible.');assertProfileDatabaseIdentity(destination,destinationProfileId);
   const updated:RunnerProfile={...current,status:'deleting',deletion:{operationId,destinationProfileId,startedAt:now.toISOString()},revision:profileRevision(current)+1,updatedAt:now.toISOString()};
   await tx.objectStore('profiles').put(updated);await tx.objectStore('state').put({...state,profiles:state.profiles.map(profile=>profile.id===id?updated:profile)});await tx.done;emit();return updated;
  } finally {db.close();}
 }
 export async function finalizeRunnerProfileDeletion(id:string,operationId:string) {
  const db=await openProfileRegistry();try {const tx=db.transaction(['profiles','state'],'readwrite'),state=await tx.objectStore('state').get(STATE_KEY),current=await tx.objectStore('profiles').get(id);
-  if(!state||!current||profileStatus(current)!=='deleting'||current.deletion?.operationId!==operationId)throw new RunnerProfileDeletionError('Finalisation refusée.');
+  if(!state||!current)throw new RunnerProfileDeletionError('Finalisation refusée.');assertPendingProfileDeletion(state,current,id,operationId);
   const remaining=state.profiles.filter(profile=>profile.id!==id),destination=remaining.find(profile=>profile.id===current.deletion?.destinationProfileId&&isProfileActive(profile));if(!destination||!remaining.some(isProfileActive))throw new RunnerProfileDeletionError('Destination indisponible.');
+  assertProfileDatabaseIdentity(destination,destination.id);
   await tx.objectStore('profiles').delete(id);await tx.objectStore('state').put({...state,profiles:remaining,lastUsedProfileId:state.lastUsedProfileId===id?destination.id:state.lastUsedProfileId});await tx.done;emit();
  } finally {db.close();}
 }
 async function deleteRunnerProfileDatabaseUnderLock(id:string,operationId:string,onBlocked?:()=>void) {
  const state=await readProfileRegistry(),profile=state?.profiles.find(value=>value.id===id);
- if(!profile||profileStatus(profile)!=='deleting'||profile.deletion?.operationId!==operationId||profile.databaseName=== 'runklmrun')throw new RunnerProfileDeletionError('Suppression refusée.');
+ if(!state||!profile)throw new RunnerProfileDeletionError('Suppression refusée.');assertPendingProfileDeletion(state,profile,id,operationId);
  await deleteDatabase(profile.databaseName,onBlocked);await finalizeRunnerProfileDeletion(id,operationId);
 }
 export async function deleteRunnerProfileDatabase(id:string,operationId:string,onBlocked?:()=>void) {
  const state=await readProfileRegistry(),profile=state?.profiles.find(value=>value.id===id);
- if(!profile)throw new RunnerProfileDeletionError('Suppression refusée.');
+ if(!state||!profile)throw new RunnerProfileDeletionError('Suppression refusée.');assertPendingProfileDeletion(state,profile,id,operationId);
  return withProfileDatabaseLock(profile.databaseName,()=>deleteRunnerProfileDatabaseUnderLock(id,operationId,onBlocked),true);
 }
 export async function resumePendingProfileDeletions() {

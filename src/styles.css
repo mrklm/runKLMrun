@@ -723,6 +723,11 @@ summary { cursor:pointer; }
 .runner-profile-action { display:grid; grid-template-columns:minmax(7.25rem, .75fr) minmax(0, 1.25fr); gap:12px; }
 .runner-profile-action .button, .runner-profile-action select { inline-size:100%; min-inline-size:0; min-height:44px; }
 @media(max-width:360px) { .runner-profile-action { grid-template-columns:1fr; } }
+.profile-deletion-backdrop { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:16px; background:rgb(0 0 0 / .55); }
+.profile-deletion-dialog { inline-size:min(100%,32rem); max-block-size:calc(100dvh - 32px); overflow:auto; }
+.profile-deletion-dialog label { display:grid; gap:6px; margin:16px 0; }
+.profile-deletion-dialog input, .profile-deletion-dialog select { inline-size:100%; min-block-size:44px; }
+.profile-deletion-dialog button + button { margin-inline-start:12px; }
 .coach-profile { overflow-wrap:anywhere; }
 
 .profile-duration-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-bottom: 12px; }

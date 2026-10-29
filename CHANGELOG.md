@@ -1,5 +1,17 @@
 # Historique des versions
 
+## v0.16.0 — 2026-10-29 — Profils multiples finalisés
+
+### Gestion des profils
+
+- Suppression publique d’un profil activée après confirmation explicite par saisie du pseudonyme.
+- Suppression du profil actif avec basculement automatique vers un profil de destination ; les autres profils et leurs données restent isolés.
+- Dernier profil protégé, opérations bloquées signalées et reprises par le mécanisme existant.
+
+### Sécurité
+
+- Le moteur de suppression vérifie l’identité du profil, le nom canonique de sa base et le marqueur d’opération avant toute suppression IndexedDB.
+
 ## v0.15.3 — 2026-10-29 — Suivi des chaussures
 
 - Accueil : suivi compact de jusqu’à trois paires actives, avec priorité à celle de la dernière sortie.
