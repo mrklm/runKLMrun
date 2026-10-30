@@ -1,5 +1,21 @@
 # Historique des versions
 
+## v1.0.0 — Première version stable
+
+- Première version stable et utilisable de runKLMrun.
+- Suivi des activités de course à pied, avec saisie manuelle et importation Polar/TCX.
+- Statistiques, historique, calendrier et visualisation des parcours GPS.
+- Gestion de plusieurs profils et suivi du kilométrage des chaussures.
+- Coach V2 et recommandations adaptées à l'historique et aux disponibilités.
+- Bilan facultatif après création ou importation des séances.
+- Publication sous licence GNU GPL v3.0.
+
+## v0.19.1 — 2026-10-30 — Aide et lisibilité
+
+- Aide enrichie : bilan, profils, chaussures, sauvegardes, vie privée et fonctionnement technique.
+- Titres hiérarchisés et lecture adaptée au mobile dans les thèmes existants.
+- Précisions sur la saisie manuelle, la conservation des détails et les sauvegardes du profil actif.
+
 ## v0.19.0 — 2026-10-30 — Bilan après création de séances
 
 - Bilan facultatif après une création manuelle ou un import de 1 à 5 nouvelles activités réellement enregistrées.

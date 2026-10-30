@@ -1,7 +1,8 @@
 {
   "name": "runklmrun",
   "private": true,
-  "version": "0.19.0",
+  "version": "1.0.0",
+  "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",

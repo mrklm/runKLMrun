@@ -1,7 +1,7 @@
-# runKLMrun — v0.7.0
+# runKLMrun — v1.0.0
 
-Socle d’une application web open source de suivi et de planification des
-entraînements de course à pied. Interface en français, responsive, sans compte,
+Première version stable d’une application web gratuite et open source de suivi
+et de planification des entraînements de course à pied. Interface en français, responsive, sans compte,
 sans serveur applicatif et sans service payant. Les données sportives restent
 dans IndexedDB, sur le navigateur et l’appareil utilisés.
 
@@ -710,3 +710,41 @@ indépendant de 2 000 caractères maximum. Ces annotations peuvent être modifi�
 ou supprimées, sont sauvegardées et ne sont pas utilisées par le moteur du Coach.
 En fusion, le résumé local reste prioritaire en cas de conflit ; un remplacement
 restaure les annotations du fichier après confirmation explicite.
+
+
+## Licence
+
+Le code propre à runKLMrun est placé sous la **GNU General Public License,
+version 3 uniquement** (`GPL-3.0-only`). Le texte officiel intégral figure dans
+[LICENSE](LICENSE), repris sans modification depuis la
+[source officielle GNU](https://www.gnu.org/licenses/gpl-3.0.txt).
+Cette mention n’étend pas la licence aux dépendances tierces.
+
+### Compatibilité des dépendances — point à résoudre avant publication
+
+**La compatibilité GPL de l’application assemblée n’est pas acquise :**
+`react-leaflet` 5.0.0 utilise `Hippocratic-2.1`, avec des restrictions d’usage
+supplémentaires incompatibles avec les libertés de la GPL. Sa dépendance
+`@react-leaflet/core` 3.0.0 utilise également cette licence. Leurs fichiers
+`LICENSE.md` et métadonnées installés font foi. Aucune dépendance n’a été modifiée.
+Ce point doit être résolu avant de distribuer l’ensemble sous GPL v3.
+
+Vérification des licences déclarées et fournies par les dépendances directes
+installées (versions verrouillées dans `package-lock.json`) :
+
+| Dépendances directes | Licence |
+| --- | --- |
+| `@zip.js/zip.js` 2.23.0 | BSD-3-Clause |
+| `idb` 8.0.4 | ISC |
+| `leaflet` 1.9.4 | BSD-2-Clause |
+| `react` 19.3.0, `react-dom` 19.3.0, `recharts` 3.10.1 | MIT |
+| `react-leaflet` 5.0.0 | Hippocratic-2.1 — incompatibilité signalée ci-dessus |
+| `@playwright/test` 1.64.0, `fake-indexeddb` 6.2.5, `typescript` 5.9.3 | Apache-2.0 |
+| `@types/leaflet` 1.9.21, `@types/node` 22.20.5, `@types/react` 19.3.0, `@types/react-dom` 19.3.0 | MIT |
+| `@vitejs/plugin-react` 5.2.0, `@xmldom/xmldom` 0.9.12, `vite` 7.3.7, `vitest` 5.0.3 | MIT |
+
+Aucune autre incompatibilité manifeste n’a été relevée parmi ces dépendances
+directes, sous réserve du respect de leurs notices et conditions. Il ne s’agit
+pas d’un audit exhaustif des dépendances transitives ni des ressources graphiques.
+Voir les [commentaires GNU sur les licences](https://www.gnu.org/licenses/license-list.html)
+et la [compatibilité Apache 2.0 / GPL v3](https://www.apache.org/licenses/GPL-compatibility.html).
