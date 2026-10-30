@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/protected-test';
 import { activeDatabase } from './helpers/active-database';
 let errors: string[];
 test.beforeEach(async ({ page }) => {
@@ -59,14 +59,12 @@ test('ouvre une séance sans détails et permet le retour', async ({ page }) => 
 
 test('déclare, modifie puis retire un type d’entraînement',async({page})=>{
   await page.getByRole('link',{name:'Sortie synthétique complète',exact:true}).click();
-  const panel=page.getByRole('region',{name:'Type d’entraînement'});
+  const panel=page.getByRole('region',{name:'Bilan de votre séance'});
   await expect(panel).toContainText('Non renseigné');
-  await panel.getByRole('button',{name:'Ajouter un type d’entraînement'}).click();
-  await panel.locator('select').selectOption('hills');
-  await panel.getByRole('button',{name:'Enregistrer le type'}).click();
+  await panel.getByRole('combobox',{name:'Type d’entraînement',exact:true}).selectOption('hills');
+  await panel.getByRole('button',{name:'Enregistrer',exact:true}).click();
   await expect(panel).toContainText('Côtes');
-  await panel.getByRole('button',{name:'Modifier le type d’entraînement'}).click();
-  await panel.locator('select').selectOption('');
-  await panel.getByRole('button',{name:'Enregistrer le type'}).click();
+  await panel.getByRole('combobox',{name:'Type d’entraînement',exact:true}).selectOption('');
+  await panel.getByRole('button',{name:'Enregistrer',exact:true}).click();
   await expect(panel).toContainText('Non renseigné');
 });

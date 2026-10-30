@@ -26,6 +26,9 @@ describe('fiche de séance', () => {
   it('affiche le chargement sans masquer le résumé', () => {
     const html = renderToStaticMarkup(createElement(Session, { session }));
     expect(html).toContain('Chargement des détails'); expect(html).toContain('Informations générales');
+    expect(html).toContain('Bilan de votre séance');
+    expect(html).not.toContain('data-testid="session-feeling"');
+    expect(html).not.toContain('data-testid="coach-v2-association"');
   });
   it.each([undefined, { id: 'a' }, { id: 'a', heartRate: [] }, { id: 'a', heartRate: [{ timeSeconds: 0, value: null }] }])('garde un état utile sans courbe exploitable', details => {
     expect(renderToStaticMarkup(createElement(SessionCurves, { details }))).toContain('Aucune série exploitable');

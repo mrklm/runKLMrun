@@ -52,6 +52,16 @@ beforeEach(() => {
 afterEach(async () => { await Promise.all(names.splice(0).map(database => deleteDB(database))); vi.restoreAllMocks(); });
 
 describe('bilan atomique', () => {
+  it('enregistre le lien historique et les annotations dans une transaction sans confirmation', async () => {
+    const { repository, snapshot } = await setup();
+    const saved = await repository.save(snapshot, { association: 'associate', feeling: { effort: 'easy' } });
+    expect(saved.occurrence?.state).toBe('associated'); expect(saved.occurrence?.realization).toBeUndefined();
+    expect(saved.session.feeling?.effort).toBe('easy');
+    await expect(repository.save(saved, { association: 'associate', realization: response('completed') })).rejects.toThrow(/incohérente/);
+    const confirmed = await repository.save(saved, { realization: response('not-completed') });
+    await expect(repository.save(confirmed, { association: 'associate' })).rejects.toThrow(/réponse existe/);
+  });
+
   it('enregistre une activité sans recommandation, sans inventer de type', async () => {
     const { repository } = await setup();
     const snapshot = await repository.get(run.id);

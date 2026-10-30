@@ -1,40 +1,49 @@
-import { test, expect } from '@playwright/test';
-for (const width of [390,1280]) test(`ressenti facultatif, persistance et concurrence à ${width}px`,async({page,context})=>{
- const duplicateKeyWarnings:string[]=[];
- page.on('console',message=>{if(message.text().includes('Encountered two children with the same key'))duplicateKeyWarnings.push(message.text());});
- await page.setViewportSize({width,height:900});await page.goto('./#/historique');await expect(page.locator('.splash-screen')).toHaveCount(0);
- await page.getByText('Ajouter une sortie manuellement',{exact:true}).click();
- const manual=page.getByRole('form',{name:'Ajouter une sortie manuellement'});
- await manual.getByLabel('Date de la sortie').fill('2026-10-10');await manual.getByLabel('Durée (minutes)',{exact:true}).fill('30');
- await manual.getByLabel('Commentaire personnel (facultatif)').fill('Commentaire seul');
- await manual.getByRole('button',{name:'Enregistrer la sortie'}).click();await manual.getByRole('link',{name:'Consulter la sortie'}).click();
- const region=page.getByRole('region',{name:'Votre ressenti',exact:true});await expect(region.getByText('Commentaire seul',{exact:true})).toBeVisible();
- const url=page.url();await expect(page.getByRole('region',{name:'Votre ressenti',exact:true})).toHaveCount(1);
- await page.getByRole('navigation').getByRole('link',{name:'Accueil',exact:true}).click();await expect(page.getByRole('region',{name:'Votre ressenti',exact:true})).toHaveCount(0);
- await page.goto(url);await expect(page.getByRole('region',{name:'Votre ressenti',exact:true})).toHaveCount(1);
- for(let visit=0;visit<3;visit++) {
- await expect(page.getByText('Chargement des détails de votre séance…',{exact:true})).toHaveCount(0);
- await expect(region.getByText('Commentaire seul',{exact:true})).toBeVisible();
- await expect(page.getByRole('region',{name:'Votre ressenti',exact:true})).toHaveCount(1);
- await page.getByRole('link',{name:'Revenir à l’historique',exact:true}).click();
- await expect(page.getByRole('region',{name:'Votre ressenti',exact:true})).toHaveCount(0);
- await page.goto(url);
- }
- await page.reload();await expect(page.locator('.splash-screen')).toHaveCount(0);await expect(region.getByText('Commentaire seul',{exact:true})).toBeVisible();
- await region.getByRole('button',{name:'Modifier le ressenti ou le commentaire'}).click();
- await region.getByLabel('Effort perçu (facultatif)').selectOption('easy');
- await region.getByRole('button',{name:'Enregistrer le ressenti'}).focus();await page.keyboard.press('Enter');await expect(region.getByText('Facile',{exact:true})).toBeVisible();
- const other=await context.newPage();await other.goto(url);await expect(other.locator('.splash-screen')).toHaveCount(0);
- const otherRegion=other.getByRole('region',{name:'Votre ressenti',exact:true});await expect(otherRegion.getByText('Facile',{exact:true})).toBeVisible();
- await otherRegion.getByRole('button',{name:'Modifier le ressenti ou le commentaire'}).click();await otherRegion.getByLabel('Commentaire personnel (facultatif)').fill('Brouillon conservé');
- await region.getByRole('button',{name:'Modifier le ressenti ou le commentaire'}).click();await region.getByLabel('Effort perçu (facultatif)').selectOption('hard');await region.getByRole('button',{name:'Enregistrer le ressenti'}).click();await expect(region.getByText('Difficile',{exact:true})).toBeVisible();
- await otherRegion.getByRole('button',{name:'Enregistrer le ressenti'}).click();await expect(otherRegion.getByRole('alert')).toContainText('autre onglet');await expect(otherRegion.getByLabel('Commentaire personnel (facultatif)')).toHaveValue('Brouillon conservé');
- await otherRegion.getByRole('button',{name:'Recharger le ressenti'}).click();await expect(otherRegion.getByText('Difficile',{exact:true})).toBeVisible();
- await region.getByRole('button',{name:'Modifier le ressenti ou le commentaire'}).click();await region.getByLabel('Effort perçu (facultatif)').selectOption('');await region.getByRole('button',{name:'Enregistrer le ressenti'}).click();await expect(otherRegion.getByText('Difficile',{exact:true})).toHaveCount(0);await expect(otherRegion.getByText('Commentaire seul',{exact:true})).toBeVisible();
- await region.getByRole('button',{name:'Modifier le ressenti ou le commentaire'}).click();await region.getByLabel('Commentaire personnel (facultatif)').fill('');await region.getByRole('button',{name:'Enregistrer le ressenti'}).click();await expect(region.getByRole('button',{name:'Ajouter un ressenti ou un commentaire'})).toBeVisible();
- for(const theme of ['AIR-KLM Day flight','Midnight Garage']) {
- await page.getByRole('navigation').getByRole('link',{name:'Paramètres'}).click();await page.getByRole('combobox',{name:'Thème',exact:true}).selectOption({label:theme});await page.goto(url);await expect(region.getByRole('button',{name:'Ajouter un ressenti ou un commentaire'})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- }
- await other.close();
- expect(duplicateKeyWarnings).toEqual([]);
+import { test, expect } from './helpers/protected-test';
+for (const width of [390, 1280]) test(`bilan : ressenti facultatif, persistance et concurrence à ${width}px`, async ({ page, context }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.setViewportSize({ width, height: 900 }); await page.goto('./#/historique'); await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await page.getByText('Ajouter une sortie manuellement', { exact: true }).click();
+  const manual = page.getByRole('form', { name: 'Ajouter une sortie manuellement' });
+  await manual.getByLabel('Date de la sortie').fill('2026-10-10'); await manual.getByLabel('Durée (minutes)', { exact: true }).fill('30');
+  await manual.getByLabel('Commentaire personnel (facultatif)').fill('Commentaire seul');
+  await manual.getByRole('button', { name: 'Enregistrer la sortie' }).click(); await manual.getByRole('link', { name: 'Consulter la sortie' }).click();
+  const region = page.getByRole('region', { name: 'Bilan de votre séance', exact: true }), url = page.url();
+  const effort = region.getByLabel('Effort perçu (facultatif)'), comment = region.getByLabel('Commentaire personnel (facultatif)');
+  await expect(comment).toHaveValue('Commentaire seul');
+  await expect(effort.locator('option')).toHaveText(['Non renseigné', 'Facile', 'Modérée', 'Difficile', 'Très difficile']);
+  await expect(region.getByRole('radio')).toHaveCount(0);
+  for (let visit = 0; visit < 2; visit++) {
+    await page.getByRole('link', { name: 'Revenir à l’historique', exact: true }).click(); await expect(region).toHaveCount(0);
+    await page.goto(url); await expect(region).toHaveCount(1); await expect(comment).toHaveValue('Commentaire seul');
+  }
+  await effort.selectOption('easy'); await region.getByRole('button', { name: 'Enregistrer', exact: true }).focus(); await page.keyboard.press('Enter');
+  await expect(region.getByRole('status')).toContainText('Votre bilan a été enregistré.');
+  await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0); await expect(effort).toHaveValue('easy');
+  const other = await context.newPage(); await other.goto(url); await expect(other.locator('.splash-screen')).toHaveCount(0);
+  const otherRegion = other.getByRole('region', { name: 'Bilan de votre séance', exact: true });
+  await expect(otherRegion.getByLabel('Effort perçu (facultatif)')).toHaveValue('easy');
+  await expect(other.locator('.app-shell')).toHaveJSProperty('inert', false);
+  await other.bringToFront();
+  await otherRegion.getByLabel('Commentaire personnel (facultatif)').click();
+  await otherRegion.getByLabel('Commentaire personnel (facultatif)').fill('Brouillon conservé');
+  await expect(otherRegion.getByText('18/2000 caractères',{exact:true})).toBeVisible();
+  await effort.selectOption('hard'); await region.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(region.getByRole('status')).toContainText('Votre bilan a été enregistré.');
+  await expect(otherRegion.getByLabel('Commentaire personnel (facultatif)')).toHaveValue('Brouillon conservé');
+  await expect(otherRegion.getByRole('status')).toContainText('Les informations ont changé');
+  await otherRegion.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(otherRegion.getByRole('alert')).toContainText('changé');
+  await expect(otherRegion.getByLabel('Commentaire personnel (facultatif)')).toHaveValue('Brouillon conservé');
+  await otherRegion.getByRole('button', { name: 'Recharger le bilan' }).click();
+  await expect(otherRegion.getByLabel('Effort perçu (facultatif)')).toHaveValue('hard');
+  await effort.selectOption(''); await comment.fill(''); await region.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(otherRegion.getByLabel('Commentaire personnel (facultatif)')).toHaveValue('');
+  await expect(otherRegion.getByLabel('Effort perçu (facultatif)')).toHaveValue('');
+  for (const theme of ['AIR-KLM Day flight', 'Midnight Garage']) {
+    await page.getByRole('navigation').getByRole('link', { name: 'Paramètres' }).click();
+    await page.getByRole('combobox', { name: 'Thème', exact: true }).selectOption({ label: theme }); await page.goto(url);
+    await expect(effort).toHaveValue(''); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await other.close(); expect(errors).toEqual([]);
 });

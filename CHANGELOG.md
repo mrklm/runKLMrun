@@ -1,5 +1,13 @@
 # Historique des versions
 
+## v0.18.0 — 2026-10-30 — Bilan de séance dans la fiche d’activité
+
+- Formulaire partagé « Bilan de votre séance » : ressenti, réalisation du Coach, type effectué et description libre.
+- Modification et effacement des réponses, sélection explicite des recommandations et conservation des associations sans confirmation.
+- Sauvegarde atomique, brouillons préservés en cas de conflit et isolation lors des changements de profil.
+- Regroupement des anciens blocs dans la fiche, avec navigation clavier et présentation adaptée aux thèmes et au mobile.
+- Aucun déclenchement après import ; règles du Coach et formats de sauvegarde inchangés.
+
 ## v0.17.0 — 2026-10-30 — Fondations du bilan de séance
 
 - Stockage atomique du ressenti, du type d’entraînement et d’une description libre facultative ; prise en charge du type récupération.

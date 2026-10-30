@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/protected-test';
 import { activeDatabase } from './helpers/active-database';
 
 const tile = '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e8ebed"/></svg>';
@@ -60,16 +60,15 @@ for (const width of [390, 1280]) test(`carte automatique, segments, formulaires 
     expect(box.y).toBeGreaterThanOrEqual(frame.y); expect(box.y + box.height).toBeLessThanOrEqual(frame.y + frame.height);
   }
   const original = (await map.locator('.leaflet-container').elementHandle())!;
-  const feeling = page.getByRole('region', { name: 'Votre ressenti', exact: true });
-  await feeling.getByRole('button', { name: 'Ajouter un ressenti ou un commentaire' }).click();
+  const feeling = page.getByRole('region', { name: 'Bilan de votre séance', exact: true });
   await feeling.getByLabel('Effort perçu (facultatif)').selectOption('easy');
-  await feeling.getByRole('button', { name: 'Enregistrer le ressenti' }).click();
-  await expect(feeling.getByText('Facile', { exact: true })).toBeVisible();
-  const training = page.getByRole('region', { name: 'Type d’entraînement', exact: true });
-  await training.getByRole('button', { name: 'Ajouter un type d’entraînement' }).click();
-  await training.getByRole('combobox').selectOption('hills');
-  await training.getByRole('button', { name: 'Enregistrer le type', exact: true }).click();
-  await expect(training.getByText('Côtes', { exact: true })).toBeVisible();
+  await feeling.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(feeling.getByLabel('Effort perçu (facultatif)')).toHaveValue('easy');
+  await expect(feeling.getByRole('status')).toContainText('Votre bilan a été enregistré.');
+  const training = page.getByRole('region', { name: 'Bilan de votre séance', exact: true });
+  await training.getByRole('combobox',{name:'Type d’entraînement',exact:true}).selectOption('hills');
+  await training.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(training.getByRole('combobox',{name:'Type d’entraînement',exact:true})).toHaveValue('hills');
   expect(await original.evaluate(node => node.isConnected && node === document.querySelector('.leaflet-container'))).toBe(true);
   await expect(page.locator('.recharts-surface')).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -78,8 +77,7 @@ for (const width of [390, 1280]) test(`carte automatique, segments, formulaires 
   await toggle.click(); await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByTestId('session-map')).toHaveCount(0);
   const requestsWhenClosed = tileRequests.length;
-  await feeling.getByRole('button', { name: 'Modifier le ressenti ou le commentaire' }).click();
-  await feeling.getByRole('button', { name: 'Annuler' }).click();
+  await feeling.getByRole('button', { name: 'Annuler les modifications' }).click();
   await expect(page.getByTestId('session-map')).toHaveCount(0);
   expect(tileRequests).toHaveLength(requestsWhenClosed);
   await toggle.focus(); await page.keyboard.press('Enter');
@@ -88,10 +86,10 @@ for (const width of [390, 1280]) test(`carte automatique, segments, formulaires 
   for (let visit = 0; visit < 3; visit++) {
     await page.getByRole('navigation').getByRole('link', { name: 'Accueil', exact: true }).click();
     await expect(page.locator('.leaflet-container')).toHaveCount(0);
-    await expect(page.getByRole('region', { name: 'Votre ressenti', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Bilan de votre séance', exact: true })).toHaveCount(0);
     await page.goto('./#/seance/map-route');
     await expect(page.locator('.leaflet-container')).toHaveCount(1);
-    await expect(page.getByRole('region', { name: 'Votre ressenti', exact: true })).toHaveCount(1);
+    await expect(page.getByRole('region', { name: 'Bilan de votre séance', exact: true })).toHaveCount(1);
     await page.goto('./#/seance/map-point');
     await expect(page.getByRole('heading', { name: 'map-point', exact: true })).toBeVisible();
     await expect(page.locator('.leaflet-container')).toHaveCount(1);

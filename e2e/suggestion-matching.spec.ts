@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './helpers/protected-test';
+import type { Page } from '@playwright/test';
 import { seedCoach } from './helpers/coach';
 import { activeDatabase } from './helpers/active-database';
 
@@ -42,13 +43,15 @@ test('suggestion V2 présentée, import TCX puis association explicite persistan
   expect(imported.session).toMatchObject({id:expect.stringMatching(/^tcx:/),date:suggestion.opportunity.suggestedFor});
 
   await page.goto(`./#/seance/${encodeURIComponent(imported.session!.id)}`);
-  const association=page.getByTestId('coach-v2-association');
-  await expect(association).toContainText('Suggestion du Coach et activité');
-  await association.getByRole('button',{name:'Associer explicitement à cette activité'}).click();
-  await expect(association.getByRole('status')).toContainText('Association confirmée avec cette activité.');
+  const association=page.getByTestId('session-review');
+  await expect(association).toContainText('Recommandation du Coach');
+  await association.getByText('Association sans confirmation',{exact:true}).click();
+  await association.getByLabel('Associer sans confirmer la réalisation').check();
+  await association.getByRole('button',{name:'Enregistrer',exact:true}).click();
+  await expect(association).toContainText('sans confirmation de réalisation');
 
   await page.reload();
-  await expect(association.getByRole('status')).toContainText('Association confirmée avec cette activité.');
+  await expect(association).toContainText('sans confirmation de réalisation');
   const [stored]=await occurrences(page);
   expect(stored).toMatchObject({id:suggestion.id,state:'associated',activityId:imported.session!.id});
 });

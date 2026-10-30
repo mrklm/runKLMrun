@@ -1,6 +1,5 @@
-import { SessionFeeling } from '../components/SessionFeeling';
+import { SessionReviewEditor } from '../components/SessionReviewEditor';
 import { SessionRoute } from '../components/SessionRoute';
-import { SessionTrainingType } from '../components/SessionTrainingType';
 import { ascentLabel } from '../core/analysis/ascent';
 import { SessionShoes } from '../components/Shoes';
 import { useEffect, useMemo, useState } from 'react';
@@ -12,11 +11,11 @@ import { duration, measure, pace, heartRate, ascent } from '../core/analysis/ses
 import { prepareSeries } from '../core/analysis/session-detail';
 import { SynchronizedSessionCharts } from '../components/SynchronizedSessionCharts';
 import { EmptyState } from '../components/EmptyState';
-import { CoachV2ActivityAssociation } from '../components/CoachV2ActivityAssociation';
 import { formatActivityTime } from '../core/analysis/activity-time';
 
 export function SessionInformation({ session }: { session: RunningSession }) {
   const fields = [
+    ...(session.sport ? [['Sport', session.sport]] : []),
     ['Date', session.date ? session.date.split('-').reverse().join('/') : '—'],
     ['Heure', session.startTime ? formatActivityTime(session.startTime, true) : '—'], ['Durée', duration(session.durationSeconds)],
     ['Distance', measure(session.distanceMeters, 'km', 1000)], ['Allure moyenne', pace(session.averagePaceSecondsPerKm)],
@@ -50,14 +49,12 @@ export function Session({ session }: { session?: RunningSession }) {
     <header className="session-heading"><h1>{session?.title ?? 'Séance introuvable'}</h1></header>
     {!session ? <section className="panel settings-panel"><p>Cette séance n’est pas disponible sur cet appareil.</p></section> : <>
       <SessionInformation session={session} />
+      <SessionReviewEditor database={database} session={session} showActivitySummary={false} />
       <SessionRoute key={`route:${session.id}`} state={state} />
       {state.status === 'loading' && <p role="status">Chargement des détails de votre séance…</p>}
       {state.status === 'error' && <section className="panel settings-panel" role="alert"><h2>Stockage local indisponible</h2><p>Les détails n’ont pas pu être chargés. Vous pouvez réessayer.</p><button className="button" onClick={() => setAttempt(v => v + 1)}>Réessayer</button></section>}
       {state.status === 'ready' && <SessionCurves details={state.details} />}
-      <SessionFeeling key={`feeling:${session.id}`} id={session.id} />
-      <SessionTrainingType key={`training:${session.id}`} id={session.id} />
       <SessionShoes sessionId={session.id} session={session} />
-      <CoachV2ActivityAssociation session={session} />
     </>}
   </>;
 }

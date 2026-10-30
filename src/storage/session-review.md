@@ -14,6 +14,9 @@ Une propriété omise conserve la donnée ; `null` l'efface.
 
 Les propriétés modifiables sont `feeling`, `trainingType`,
 `trainingDescription`, `realization` et `realizationProposal`.
+La commande facultative `association: 'associate'` conserve aussi la possibilité
+d’enregistrer un lien historique sans confirmation, dans la même transaction.
+Elle ne peut pas être combinée avec un résultat ni écraser une réponse existante.
 Le ressenti garde son contrat existant. La description accepte 2 000 caractères,
 refuse une chaîne vide et les caractères de contrôle hors tabulations et sauts
 de ligne. Type connu et description peuvent coexister. Aucune classification
@@ -62,10 +65,29 @@ remplacement adopte les données du fichier ; une ancienne sauvegarde peut donc
 effacer les nouveaux champs. Les révisions des occurrences déjà présentes
 augmentent au remplacement pour rejeter les instantanés périmés.
 
-## Limites de cette étape
+## Limites du service
 
-Aucune interface, règle de sélection, formule de récupération ou analyse Polar
-n'est ajoutée. Les consommateurs du Coach continuent d'ignorer le résultat de
+Le service ne comporte aucune interface, règle de sélection, formule de
+récupération ou analyse Polar. Les consommateurs du Coach continuent d'ignorer le résultat de
 réalisation ; le lien d'association conserve sa signification historique.
 Les propositions automatiques ne portent pas encore de preuve détaillée ni de
 version d'analyse : ce contrat devra être précisé lors de leur implémentation.
+
+## Formulaire partagé (étape B)
+
+`SessionReviewEditor` reçoit `database` et `session`, sans dépendre de la
+navigation. `showActivitySummary` vaut `true` par défaut ; la fiche le désactive
+car ses informations générales sont immédiatement voisines.
+`SessionReviewForm` porte les champs visuels ; `useSessionReview` gère les
+lectures, les brouillons, les notifications et l’unique appel à `save`.
+`session-review-model` construit uniquement les champs modifiés du patch.
+
+Plusieurs recommandations exigent une sélection explicite. Les liens occupés
+sont exclus du choix. Une occurrence obsolète peut être consultée et sa réponse
+effacée, mais aucune nouvelle confirmation n’est proposée. Une réponse négative
+sans référence d’activité reste accessible depuis les activités de sa date.
+
+Les changements externes ne remplacent pas un brouillon. Le dépôt arbitre les
+conflits lors de l’enregistrement ; le rechargement explicite abandonne le
+brouillon. Les lectures périmées sont ignorées et le composant est réinitialisé
+lorsque la base ou l’activité change. Aucun déclenchement après import n’est ajouté.

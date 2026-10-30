@@ -836,3 +836,13 @@ summary { cursor:pointer; }
 .session-map .session-map-marker { display:grid; place-items:center; border:2px solid #fff; border-radius:50%; color:#fff; font:bold 15px/1 system-ui,sans-serif; box-shadow:0 1px 5px #0008; }
 .session-map-start { background:#176636; }
 .session-map-end { background:#a52720; }
+
+/* Bilan commun à la fiche et aux futurs contextes d’édition. */
+.session-review { overflow-wrap:anywhere; }
+.session-review textarea, .review-select select { width:100%; min-width:0; max-width:100%; }
+.review-select { display:flex; flex-direction:column; gap:6px; }
+.review-select select { min-height:44px; }
+.review-answers label, .review-check { display:flex; align-items:center; gap:10px; min-height:44px; }
+.review-answers input, .review-check input { flex:0 0 auto; }
+.review-actions { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+.session-review button { min-height:44px; }

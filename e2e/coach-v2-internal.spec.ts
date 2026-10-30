@@ -1,4 +1,5 @@
-import { expect,test,type Page } from '@playwright/test';
+import { expect,test } from './helpers/protected-test';
+import type { Page } from '@playwright/test';
 import { activeDatabase } from './helpers/active-database';
 
 const modules='/runKLMrun/src/';
@@ -179,10 +180,12 @@ test('association V2 explicitement confirmée depuis une activité compatible',a
     await db.put('sessions',{id:'compatible-run',title:'Sortie compatible',sport:'RUNNING',date:occurrence.opportunity.suggestedFor,durationSeconds:2700});db.close();
   },{modules,databaseName});
   await page.goto('./#/seance/compatible-run');await page.reload();
-  const association=page.getByTestId('coach-v2-association');
-  await expect(association).toContainText('Suggestion du Coach et activité');
-  await association.getByRole('button',{name:'Associer explicitement à cette activité'}).click();
-  await expect(association.getByRole('status')).toContainText('Association confirmée');
+  const association=page.getByTestId('session-review');
+  await expect(association).toContainText('Recommandation du Coach');
+  await association.getByText('Association sans confirmation',{exact:true}).click();
+  await association.getByLabel('Associer sans confirmer la réalisation').check();
+  await association.getByRole('button',{name:'Enregistrer',exact:true}).click();
+  await expect(association).toContainText('sans confirmation de réalisation');
 });
 
 test('activation interne sans suggestion admissible ne crée rien',async({page})=>{

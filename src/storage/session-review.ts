@@ -19,6 +19,8 @@ export interface SessionReviewPatch {
   feeling?: OptionalSessionFeeling | null;
   trainingType?: DocumentedActivityType | null;
   trainingDescription?: string | null;
+  /** Lien explicite historique, sans affirmer une réalisation. */
+  association?: 'associate';
   realization?: Realization | null;
   realizationProposal?: RealizationProposal | null;
 }
@@ -46,14 +48,16 @@ export function createSessionReviewRepository(database: string) {
     async save(expected: SessionReviewSnapshot, changes: SessionReviewPatch): Promise<SessionReviewSnapshot> {
       const snapshot = structuredClone(expected), patch = structuredClone(changes);
       if (snapshot.database !== database) throw new SessionReviewConflictError();
-      if (Object.keys(patch).some(key => !['feeling', 'trainingType', 'trainingDescription', 'realization', 'realizationProposal'].includes(key)))
+      if (Object.keys(patch).some(key => !['feeling', 'trainingType', 'trainingDescription', 'realization', 'realizationProposal', 'association'].includes(key)))
         throw new Error('Champ de bilan inconnu.');
+      if (patch.association !== undefined && (patch.association !== 'associate' || patch.realization !== undefined))
+        throw new Error('Demande d’association incohérente.');
       if (patch.feeling != null) validateFeeling(patch.feeling);
       if (patch.trainingType != null && !isDocumentedActivityType(patch.trainingType)) throw new Error('Type d’entraînement invalide.');
       if (patch.trainingDescription != null) validateTrainingDescription(patch.trainingDescription);
       if (patch.realization != null) validateRealization(patch.realization);
       if (patch.realizationProposal != null) validateRealizationProposal(patch.realizationProposal);
-      if ((patch.realization !== undefined || patch.realizationProposal !== undefined) && !snapshot.occurrence)
+      if ((patch.realization !== undefined || patch.realizationProposal !== undefined || patch.association !== undefined) && !snapshot.occurrence)
         throw new Error('Une recommandation est requise.');
       const db = await openDatabase(database);
       const tx = db.transaction(['sessions', 'coachSuggestionsV2'], 'readwrite');
@@ -69,13 +73,13 @@ export function createSessionReviewRepository(database: string) {
           else if (patch[key] !== undefined) Object.assign(session, { [key]: patch[key] });
         }
         let next: { -readonly [K in keyof PersistableOccurrenceV2]: PersistableOccurrenceV2[K] } | undefined = occurrence;
-        if (occurrence && (patch.realization !== undefined || patch.realizationProposal !== undefined)) {
+        if (occurrence && (patch.realization !== undefined || patch.realizationProposal !== undefined || patch.association !== undefined)) {
           validateOccurrenceShapeV2(occurrence);
-          if (occurrence.state === 'obsolete' && (patch.realization != null || patch.realizationProposal != null))
+          if (occurrence.state === 'obsolete' && (patch.realization != null || patch.realizationProposal != null || patch.association !== undefined))
             throw new Error('Cette recommandation est obsolète.');
           if (occurrence.activityId !== undefined && occurrence.activityId !== session.id)
             throw new Error('Cette recommandation est associée à une autre activité.');
-          if ((patch.realization != null || patch.realizationProposal != null) && matchingDate(session) !== occurrence.opportunity.suggestedFor) throw new Error('La date de l’activité ne correspond pas.');
+          if ((patch.realization != null || patch.realizationProposal != null || patch.association !== undefined) && matchingDate(session) !== occurrence.opportunity.suggestedFor) throw new Error('La date de l’activité ne correspond pas.');
           const now = new Date().toISOString();
           next = { ...occurrence, revision: occurrence.revision + 1, updatedAt: instantIso(now > occurrence.updatedAt ? now : occurrence.updatedAt) };
           if (patch.realizationProposal === null) delete next.realizationProposal;
@@ -95,6 +99,13 @@ export function createSessionReviewRepository(database: string) {
               next = { ...presentation, state: 'associated', activityId: session.id,
                 associationEvidence: { sportSignature: activitySportSignatureV2(session) }, realization: patch.realization };
             }
+          }
+          if (patch.association === 'associate') {
+            if (occurrence.realization !== undefined) throw new Error('Une réponse existe déjà pour cette recommandation.');
+            if ((await occurrences.getAll()).some(item => item.id !== occurrence.id && item.activityId === session.id))
+              throw new Error('Cette activité est déjà associée à une autre recommandation.');
+            next = { ...next, state: 'associated', activityId: session.id,
+              associationEvidence: { sportSignature: activitySportSignatureV2(session) } };
           }
           validateOccurrenceShapeV2(next);
           await occurrences.put(next);
