@@ -1,3 +1,4 @@
+import { instantIso } from '../core/coach/persistence-foundations-v2';
 import { nextCoachRevision, resolveCoachTemperament } from '../core/coach/configuration';
 import { classifyDetails } from '../core/analysis/detail-retention';
 import type { BackupData, BackupSourceData, RestoreOptions, RestoreReport } from '../types/backup';
@@ -158,7 +159,10 @@ export function prepareRestore(local: BackupData, incoming: BackupSourceData, op
     if(activityOwner!==undefined||occurrence.activityId&&sessionConflicts.has(occurrence.activityId)) {
       report.conflicts++;report.warnings.push('Une occurrence V2 du fichier n’a pas été ajoutée : son association à une activité est contradictoire.');continue;
     }
-    suggestionsV2.set(occurrence.id,structuredClone(occurrence));presentationKeys.set(occurrence.presentationKey,occurrence.id);
+    const previous=options.mode==='replace'?local.coachSuggestionsV2?.find(value=>value.id===occurrence.id):undefined;
+    const restored=previous?{...occurrence,revision:nextCoachRevision(Math.max(previous.revision,occurrence.revision)),
+      updatedAt:instantIso([now,previous.updatedAt,occurrence.updatedAt].sort().at(-1)!)}:structuredClone(occurrence);
+    suggestionsV2.set(occurrence.id,restored);presentationKeys.set(occurrence.presentationKey,occurrence.id);
     if(occurrence.activityId)activityOwners.set(occurrence.activityId,occurrence.id);
   }
   if (report.conflicts) report.warnings.push(`${report.conflicts} conflit(s) : les résumés, détails, chaussures et associations locaux concernés sont conservés, sans écrasement. Gardez le fichier pour consulter les variantes.`);

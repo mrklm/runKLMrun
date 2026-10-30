@@ -100,7 +100,7 @@ describe('sauvegardes V6 des suggestions V2',()=>{
     const invalid=await createBackup({...empty(),coachSuggestionsV2:[value]},'0.7.0');
     (invalid.data.coachSuggestionsV2![0].content as {shortSummary:string}).shortSummary='Altération cohérente extérieurement';
     await expect(verifyBackup(await resign(invalid))).rejects.toThrow(/occurrence/i);
-    const future={...await createBackup(empty(),'0.7.0'),formatVersion:7} as unknown as BackupDocument;
+    const future={...await createBackup(empty(),'0.7.0'),formatVersion:8} as unknown as BackupDocument;
     await expect(verifyBackup(await resign(future))).rejects.toThrow(/version/);
   });
 

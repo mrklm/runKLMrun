@@ -1,5 +1,13 @@
 # Historique des versions
 
+## v0.17.0 — 2026-10-30 — Fondations du bilan de séance
+
+- Stockage atomique du ressenti, du type d’entraînement et d’une description libre facultative ; prise en charge du type récupération.
+- Réalisation complète, partielle ou non-réalisation du Coach V2, distincte des associations historiques et des propositions automatiques.
+- Contrôles de concurrence, isolation des profils et invalidation des confirmations après modification sportive ou suppression.
+- Sauvegardes V7 pour les nouvelles annotations, avec lecture des anciens formats et conservation des conflits locaux en fusion.
+- Fondations de persistance uniquement : aucun nouveau formulaire ni changement des règles du Coach.
+
 ## v0.16.0 — 2026-10-29 — Profils multiples finalisés
 
 ### Gestion des profils

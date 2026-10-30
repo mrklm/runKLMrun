@@ -1,3 +1,4 @@
+import { validateRealization, validateRealizationProposal, type Realization, type RealizationProposal } from '../analysis/session-review';
 import { validSessionDate } from '../analysis/session-summary';
 import type { PrototypeGoal } from './simulation/session-strategies-v2';
 import type { RunningSession } from '../../types/session';
@@ -48,6 +49,8 @@ export interface AssociationInvalidationV2 {
 }
 export interface AssociationEvidenceV2 {readonly sportSignature:string}
 export interface PersistableOccurrenceV2 {
+  readonly realization?:Realization;
+  readonly realizationProposal?:RealizationProposal;
   readonly schemaVersion:2;readonly id:OccurrenceId;readonly presentationKey:PresentationKey;
   readonly contentFingerprint:ContentFingerprint;readonly content:ImmutableSessionContentV2;
   readonly opportunity:PresentationOpportunityV2;readonly presentation:PresentationMomentV2;
@@ -229,7 +232,13 @@ function validateProvenance(value:unknown):asserts value is OccurrenceProvenance
   }
 }
 export function validateOccurrenceShapeV2(value:unknown):asserts value is PersistableOccurrenceV2 {
-  if(!object(value))fail('occurrence.');exact(value,['schemaVersion','id','presentationKey','contentFingerprint','content','opportunity','presentation','provenance','state','revision','updatedAt','retainUntil','supersedesId','supersededById','activityId','associationEvidence','associationInvalidation'],'occurrence');
+  if(!object(value))fail('occurrence.');exact(value,['schemaVersion','id','presentationKey','contentFingerprint','content','opportunity','presentation','provenance','state','revision','updatedAt','retainUntil','supersedesId','supersededById','activityId','associationEvidence','associationInvalidation','realization','realizationProposal'],'occurrence');
+  if(value.realizationProposal!==undefined)validateRealizationProposal(value.realizationProposal);
+  if(value.realization!==undefined) {
+    validateRealization(value.realization);
+    if(value.state==='obsolete'&&value.realization.result!=='not-completed')fail('réalisation sur une occurrence obsolète.');
+    if(value.realization.result==='not-completed' ? value.state==='associated' : value.state!=='associated'||value.associationEvidence===undefined)fail('réalisation incompatible avec l’association.');
+  }
   if(value.schemaVersion!==2)fail('version d’occurrence.');occurrenceId(String(value.id));validateSessionContentV2(value.content);
   validateOpportunity(value.opportunity);validateMoment(value.presentation);validateProvenance(value.provenance);
   if(!['active','obsolete','associated'].includes(value.state as string))fail('état de présentation.');
@@ -263,14 +272,14 @@ export function validateOccurrenceShapeV2(value:unknown):asserts value is Persis
 export function operationalStatusV2(occurrence:PersistableOccurrenceV2,today:string):
   {readonly withinWindow:boolean;readonly deletionEligible:boolean} {
   validateOccurrenceShapeV2(occurrence);const date=civilDate(today),withinWindow=date<occurrence.retainUntil;
-  return {withinWindow,deletionEligible:occurrence.state!=='associated'&&!withinWindow};
+  return {withinWindow,deletionEligible:occurrence.state!=='associated'&&occurrence.realization===undefined&&!withinWindow};
 }
 
 export function invalidateAssociationV2(occurrence:PersistableOccurrenceV2,activityId:string,updatedAt:InstantIso,
   reason:AssociationInvalidationV2['reason']):PersistableOccurrenceV2 {
   validateOccurrenceShapeV2(occurrence);text(activityId,'identifiant d’activité invalidée',200);instantIso(updatedAt);
   if(occurrence.state!=='associated'||occurrence.activityId!==activityId)return occurrence;
-  const {activityId:_removed,...rest}=occurrence;
+  const {activityId:_removed,realization:_realization,realizationProposal:_proposal,...rest}=occurrence;
   const next:PersistableOccurrenceV2={...rest,state:'obsolete',revision:occurrence.revision+1,updatedAt,
     associationInvalidation:{activityId,invalidatedAt:updatedAt,reason}};
   validateOccurrenceShapeV2(next);return next;

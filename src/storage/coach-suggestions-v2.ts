@@ -142,6 +142,8 @@ export function createSuggestionV2Repository(name=DATABASE_NAME) {
         if(!current)throw new SuggestionV2LifecycleConflict('Occurrence introuvable.');
         validateOccurrenceShapeV2(current);
         if(current.revision!==input.expectedRevision)throw new SuggestionV2LifecycleConflict('Occurrence modifiée simultanément.');
+        if(current.state==='obsolete')throw new SuggestionV2LifecycleConflict('Occurrence obsolète.');
+        if(current.realization?.result==='not-completed')throw new SuggestionV2LifecycleConflict('Modifiez explicitement le bilan avant cette association.');
         if(current.state==='associated') {
           if(current.activityId===input.activityId) {await tx.done;return current;}
           throw new SuggestionV2LifecycleConflict('Occurrence déjà associée à une autre activité.');

@@ -1,9 +1,9 @@
 import type { OptionalSessionFeeling } from './evolving-coach';
 import type { AscentEstimate } from '../core/analysis/ascent';
-export type DocumentedActivityType='easy-endurance'|'endurance-variations'|'long-run'|'steady-run'|'intervals'|'hills';
+export type DocumentedActivityType='easy-endurance'|'endurance-variations'|'long-run'|'steady-run'|'intervals'|'hills'|'recovery';
 export const documentedActivityTypeLabels:Readonly<Record<DocumentedActivityType,string>>={
   'easy-endurance':'Endurance facile','endurance-variations':'Variations modérées','long-run':'Sortie longue',
-  'steady-run':'Séance soutenue',intervals:'Fractionné',hills:'Côtes',
+  'steady-run':'Séance soutenue',intervals:'Fractionné',hills:'Côtes',recovery:'Récupération',
 };
 export const isDocumentedActivityType=(value:unknown):value is DocumentedActivityType=>
   typeof value==='string'&&Object.hasOwn(documentedActivityTypeLabels,value);
@@ -14,6 +14,8 @@ export interface RunningSession {
   feeling?: OptionalSessionFeeling;
   /** Déclaration facultative du coureur ; jamais déduite des mesures ou suggestions. */
   trainingType?: DocumentedActivityType;
+  /** Description déclarée, sans classification implicite. */
+  trainingDescription?: string;
   title: string;
   date: string;
   startTime?: string;

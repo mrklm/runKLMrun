@@ -1,3 +1,4 @@
+import { backupFormatVersion } from './version';
 import { memoryError } from './errors';
 import type { BackupData, BackupDocument, BackupPayload } from '../types/backup';
 import { BACKUP_LIMITS, inspectJson, type BackupLimits } from './limits';
@@ -23,7 +24,7 @@ export async function createBackup(data: BackupData, appVersion: string, exporte
   validateBackupData(data);
   for(const occurrence of data.coachSuggestionsV2??[])await validateOccurrenceV2(occurrence);
   // Le résultat n’est pas lié aux objets d’entrée ; les champs facultatifs undefined sont omis.
-  const serialized = canonicalJson({ format: 'runKLMrun-backup', formatVersion: data.coachSuggestionsV2 !== undefined ? 6 : data.coachSuggestions !== undefined ? 5 : data.coachPlanning !== undefined ? 4 : data.evolvingCoach !== undefined ? 3 : data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1, exportedAt, appVersion, data });
+  const serialized = canonicalJson({ format: 'runKLMrun-backup', formatVersion: backupFormatVersion(data), exportedAt, appVersion, data });
   inspectJson(serialized);
   const payload: BackupPayload = JSON.parse(serialized);
   return { ...payload, integrity: { algorithm: 'SHA-256', digest: await sha256(serialized) } };

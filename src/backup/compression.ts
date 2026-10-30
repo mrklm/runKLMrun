@@ -1,3 +1,4 @@
+import { backupFormatVersion } from './version';
 import { memoryError } from './errors';
 import type { BackupData, BackupDocument, BackupExport } from '../types/backup';
 import { canonicalJson, parseBackup, sha256Bytes } from './format';
@@ -51,7 +52,7 @@ export async function exportGzip(data: BackupData, version: string, limits: Back
   validateBackupData(data);
   for(const occurrence of data.coachSuggestionsV2??[])await validateOccurrenceV2(occurrence);
   const bytes = (() => {
-    const text = canonicalJson({ format: 'runKLMrun-backup', formatVersion: data.coachSuggestionsV2 !== undefined ? 6 : data.coachSuggestions !== undefined ? 5 : data.coachPlanning !== undefined ? 4 : data.evolvingCoach !== undefined ? 3 : data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1, exportedAt, appVersion: version, data });
+    const text = canonicalJson({ format: 'runKLMrun-backup', formatVersion: backupFormatVersion(data), exportedAt, appVersion: version, data });
     const stats = inspectJsonStats(text, limits);
     checkIntegrityEnvelope(stats, limits);
     return new TextEncoder().encode(text);
