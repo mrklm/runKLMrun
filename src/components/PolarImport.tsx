@@ -1,3 +1,5 @@
+import type { CreatedActivityBatch } from './created-activity-batch';
+import type { PolarWorkerMessage } from '../importers/polar-worker-task';
 import { storageChanges } from '../storage/changes';
 import { acquireOperation, useOperationBusy } from './operation-guard';
 import { DelayedOperation } from './DelayedOperation';
@@ -6,13 +8,13 @@ import { createRetentionService } from '../storage/detail-retention';
 import { ImportShoeSuggestion } from './Shoes';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { takeSelectedFiles } from '../importers/file-selection';
-import { emptyReport, type ImportReport } from '../importers/import-report';
+import { emptyReport } from '../importers/import-report';
 import { emptyTcxReport, importTcxFiles } from '../importers/tcx-files';
 import { selectPolarFiles, tcxReport, zipReport, type UnifiedReport } from '../importers/polar-selection';
 import { createSessionRepository } from '../storage/database';
 import { useProfileDatabase } from '../storage/profile-context';
 import { ImportReportView } from './ImportReportView';
-export function PolarImport() {
+export function PolarImport({ onCreated }: { onCreated?: (batch: CreatedActivityBatch) => void }) {
   const database = useProfileDatabase();
   const sessionRepository = useMemo(() => createSessionRepository(database), [database]);
   const [importedIds, setImportedIds] = useState<string[]>([]);
@@ -31,28 +33,46 @@ export function PolarImport() {
     const selection = selectPolarFiles(files);
     if ('error' in selection) { setError(selection.error); setReport(undefined); return; }
     const release = acquireOperation(); if (!release) return; releaseOperation.current = release;
+    const batchId = crypto.randomUUID();
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+    let settled = false;
+    const completed = (activityIds: string[]) => {
+      if (settled) return; settled = true; finish();
+      if (mounted.current) { setImportedIds(activityIds); onCreated?.({ id: batchId, database, activityIds, returnFocus }); }
+    };
     setImportedIds([]); setError(undefined); running.current = true; setBusy(true);
     if (selection.format === 'tcx') {
       const added: string[] = [];
       setReport(tcxReport(emptyTcxReport(selection.files.length)));
       try { const result = await importTcxFiles(selection.files, sessionRepository, r => { if (mounted.current) setReport(tcxReport(r)); }, undefined, new Date(), id => added.push(id)); if (mounted.current) setReport(tcxReport(result)); void maintainAfterImport(result, () => createRetentionService({ name: database }).maintain()); }
       catch { if (mounted.current) setError('Import interrompu. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer.'); }
-      finally { if (mounted.current) setImportedIds(added); finish(); }
+      finally { completed(added); }
       return;
     }
     setReport(zipReport(emptyReport()));
-    let committedInWorker = 0;
-    const fail = () => { if (committedInWorker) storageChanges.committed(database, ['sessions']); if (mounted.current) setReport(previous => ({ ...(previous ?? zipReport(emptyReport())), error: 'Import interrompu. Les séances déjà ajoutées sont conservées. Vous pouvez réessayer.' })); finish(); };
+    // Sans message terminal, la liste peut être incomplète : aucun bilan ni estimation du seuil.
+    const fail = () => {
+      if (settled || !mounted.current) return;
+      settled = true;
+      storageChanges.committed(database, ['sessions']);
+      setReport(undefined);
+      setError('Import interrompu. Le nombre final de séances enregistrées n’a pas pu être confirmé. Les séances déjà ajoutées sont conservées dans votre historique. Vous pouvez réessayer.');
+      finish();
+    };
     try {
       worker.current = new Worker(new URL('../importers/polar.worker.ts', import.meta.url), { type: 'module' });
       worker.current.onerror = fail;
-      worker.current.onmessage = event => {
-        committedInWorker = event.data.report?.imported ?? committedInWorker;
-        if (event.data.type === 'error') { fail(); return; }
-        if (mounted.current) setReport(zipReport(event.data.report as ImportReport));
-        if (event.data.type === 'done') { if (typeof BroadcastChannel === 'undefined' && committedInWorker) storageChanges.committed(database, ['sessions']); void maintainAfterImport(event.data.report as ImportReport, () => createRetentionService({ name: database }).maintain()); if (mounted.current) setImportedIds(event.data.importedIds ?? []); finish(); }
+      worker.current.onmessage = (event: MessageEvent<PolarWorkerMessage>) => {
+        const message = event.data;
+        if (settled || !mounted.current || message.batchId !== batchId) return;
+        setReport(zipReport(message.report));
+        if (message.type === 'done' || message.type === 'error') {
+          if (typeof BroadcastChannel === 'undefined' && message.importedIds.length) storageChanges.committed(database, ['sessions']);
+          void maintainAfterImport(message.report, () => createRetentionService({ name: database }).maintain());
+          completed(message.importedIds);
+        }
       };
-      worker.current.postMessage({ file: selection.files[0], database });
+      worker.current.postMessage({ file: selection.files[0], database, batchId });
     } catch { fail(); }
   }
   return <section className="panel settings-panel" aria-labelledby="polar-title">

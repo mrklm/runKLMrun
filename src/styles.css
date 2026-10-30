@@ -846,3 +846,11 @@ summary { cursor:pointer; }
 .review-answers input, .review-check input { flex:0 0 auto; }
 .review-actions { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
 .session-review button { min-height:44px; }
+
+.session-review-dialog { width:min(48rem, calc(100vw - 24px)); max-height:calc(100dvh - 24px); margin:auto; overflow:auto; border:1px solid var(--border); color:var(--text); }
+.session-review-dialog::backdrop { background:var(--bg); opacity:.8; }
+.review-dialog-header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.review-dialog-header h2 { margin:0; }
+.session-review-dialog .session-review { padding:0; border:0; box-shadow:none; }
+.review-close-confirmation { border:1px solid var(--border); padding:16px; border-radius:8px; }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }

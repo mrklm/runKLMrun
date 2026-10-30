@@ -1,5 +1,6 @@
 import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './helpers/protected-test';
+import type { Page } from '@playwright/test';
 import { activeDatabase } from './helpers/active-database';
 const testTime=new Date('2026-10-16T12:00:00Z');
 async function prepareClock(page:Page){await page.clock.install({time:new Date(testTime.getTime()-1)});await page.clock.pauseAt(testTime);}
@@ -29,6 +30,7 @@ test('imports TCX successifs et écriture directe : actualisation locale et autr
  for(const [i,day] of [14,15].entries()){
   await page.getByLabel('Sélectionner les fichiers').setInputFiles({name:`synthetic-${day}.TCX`,mimeType:'application/xml',buffer:Buffer.from(tcx(day))});
   await page.getByRole('button',{name:'Importer les séances',exact:true}).click();
+  await page.getByRole('dialog',{name:'Bilan de votre séance',exact:true}).getByRole('button',{name:'Quitter le bilan',exact:true}).click();
   await expect(page.getByRole('status').filter({hasText:'Compte rendu'})).toContainText('1 séances ajoutées');
   await other.bringToFront();
   await expect(other.getByRole('group',{name:'Activités récentes',exact:true}).locator('.session-link')).toHaveCount(i+1);
@@ -94,6 +96,8 @@ await page.getByRole('button', {
   name: 'Importer les séances',
   exact: true
 }).click();
+
+await page.getByRole('dialog',{name:'Bilan de votre séance',exact:true}).getByRole('button',{name:'Quitter le bilan',exact:true}).click();
 
 // Attendre le worker avant de quitter la page (le démontage peut interrompre l’import).
 await expect(page.getByRole('status').filter({hasText:'Compte rendu'})).toContainText('2 séances ajoutées');

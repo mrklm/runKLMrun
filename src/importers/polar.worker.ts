@@ -1,11 +1,5 @@
-import { importPolarArchive } from './archive';
 import { createSessionRepository } from '../storage/database';
-self.onmessage = async (event: MessageEvent<{ file: Blob; database: string }>) => {
-  try {
-    const importedIds: string[] = [];
-    const report = await importPolarArchive(event.data.file, createSessionRepository(event.data.database), report => self.postMessage({ type: 'progress', report }), new Date(), id => importedIds.push(id));
-    self.postMessage({ type: 'done', report, importedIds });
-  } catch {
-    self.postMessage({ type: 'error' });
-  }
+import { runPolarWorkerImport, type PolarWorkerRequest } from './polar-worker-task';
+self.onmessage = (event: MessageEvent<PolarWorkerRequest>) => {
+  void runPolarWorkerImport(event.data, createSessionRepository(event.data.database), message => self.postMessage(message));
 };

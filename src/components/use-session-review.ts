@@ -55,22 +55,25 @@ export function useSessionReview(database: string, sessionId: string) {
     setMessage('');
   }
   async function save() {
-    if (!loaded || !draft || running.current) return;
+    if (!loaded || !draft || running.current) return false;
     const token = context.current;
     running.current = true; setSaving(true); setError(''); setMessage('');
     try {
       const occurrence = loaded.candidates.find(item => item.occurrence.id === selected)?.occurrence;
       const expected = { ...loaded.snapshot, ...(occurrence ? { occurrence } : {}) };
       await createSessionReviewRepository(database).save(expected, reviewPatch(expected, draft));
-      if (token !== context.current) return;
+      if (token !== context.current) return false;
       dirty.current = false; setMessage('Votre bilan a été enregistré.');
       await reload(true);
+      return token === context.current;
     } catch (cause) {
       if (token === context.current) setError(cause instanceof Error ? cause.message : 'L’enregistrement a échoué. Vos saisies sont conservées.');
+      return false;
     } finally { if (token === context.current) { running.current = false; setSaving(false); } }
   }
   const candidate = loaded?.candidates.find(item => item.occurrence.id === selected);
   const responseChanged = !!draft && (draft.result !== (candidate?.occurrence.realization?.result ?? '') || draft.associateOnly);
-  return { loaded, draft, selected, candidate, loading, saving, error, message, changed, responseChanged,
+  const unsaved = !!loaded && !!draft && JSON.stringify(draft) !== JSON.stringify(reviewDraft(loaded.snapshot.session, candidate?.occurrence));
+  return { unsaved, loaded, draft, selected, candidate, loading, saving, error, message, changed, responseChanged,
     update, select, save, reload: () => { void reload(); } };
 }

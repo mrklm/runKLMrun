@@ -6,13 +6,14 @@ import { TRAINING_DESCRIPTION_LIMIT, type RealizationResult } from '../core/anal
 import { availableReviewCandidate, type ReviewCandidate, type ReviewDraft } from './session-review-model';
 
 export interface SessionReviewFormProps {
+  saveLabel?: string;
   sessionId: string; draft: ReviewDraft; candidates: ReviewCandidate[]; selected: string;
   disabled: boolean; responseChanged: boolean;
   onChange: (patch: Partial<ReviewDraft>) => void;
   onSelect: (id: string) => void; onSave: () => void; onReset: () => void;
 }
 const answers: readonly [RealizationResult, string][] = [['completed', 'Oui'], ['partial', 'Partiellement'], ['not-completed', 'Non, autre entraînement']];
-export function SessionReviewForm({ sessionId, draft, candidates, selected, disabled, responseChanged, onChange, onSelect, onSave, onReset }: SessionReviewFormProps) {
+export function SessionReviewForm({ saveLabel = 'Enregistrer', sessionId, draft, candidates, selected, disabled, responseChanged, onChange, onSelect, onSave, onReset }: SessionReviewFormProps) {
   const id = useId(), [descriptionOpen, setDescriptionOpen] = useState(false);
   const candidate = candidates.find(item => item.occurrence.id === selected), occurrence = candidate?.occurrence;
   const obsolete = occurrence?.state === 'obsolete';
@@ -77,7 +78,7 @@ export function SessionReviewForm({ sessionId, draft, candidates, selected, disa
     </fieldset>
     <p>Vos modifications prennent effet après l’enregistrement.</p>
     <div className="review-actions">
-      <button type="submit" className="button" disabled={disabled}>{disabled ? 'Veuillez patienter…' : 'Enregistrer'}</button>
+      <button type="submit" className="button" disabled={disabled}>{disabled ? 'Veuillez patienter…' : saveLabel}</button>
       <button type="button" disabled={disabled} onClick={onReset}>Annuler les modifications</button>
     </div>
   </form>;

@@ -7,7 +7,8 @@ for (const width of [390, 1280]) test(`bilan : ressenti facultatif, persistance 
   const manual = page.getByRole('form', { name: 'Ajouter une sortie manuellement' });
   await manual.getByLabel('Date de la sortie').fill('2026-10-10'); await manual.getByLabel('Durée (minutes)', { exact: true }).fill('30');
   await manual.getByLabel('Commentaire personnel (facultatif)').fill('Commentaire seul');
-  await manual.getByRole('button', { name: 'Enregistrer la sortie' }).click(); await manual.getByRole('link', { name: 'Consulter la sortie' }).click();
+  await manual.getByRole('button', { name: 'Enregistrer la sortie' }).click();
+  await page.getByRole('dialog', { name: 'Bilan de votre séance', exact: true }).getByRole('button', { name: 'Plus tard', exact: true }).click(); await manual.getByRole('link', { name: 'Consulter la sortie' }).click();
   const region = page.getByRole('region', { name: 'Bilan de votre séance', exact: true }), url = page.url();
   const effort = region.getByLabel('Effort perçu (facultatif)'), comment = region.getByLabel('Commentaire personnel (facultatif)');
   await expect(comment).toHaveValue('Commentaire seul');

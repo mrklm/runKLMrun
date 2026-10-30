@@ -1,31 +1,38 @@
+import type { CreatedActivityBatch } from './created-activity-batch';
 import { FeelingFields } from './FeelingFields';
 import { feelingFromFields } from '../core/analysis/session-feeling';
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createSessionRepository } from '../storage/database';
 import { useProfileDatabase } from '../storage/profile-context';
 import { validSessionDate } from '../core/analysis/session-summary';
 import { localToday } from '../core/analysis/statistics-period';
 import { sessionHref } from '../core/analysis/session-detail';
 
-export function ManualActivity() {
+export function ManualActivity({ onCreated }: { onCreated?: (batch: CreatedActivityBatch) => void }) {
   const database=useProfileDatabase();
   const [date,setDate]=useState(localToday), [minutes,setMinutes]=useState(''), [distance,setDistance]=useState('');
   const [error,setError]=useState(''), [saved,setSaved]=useState<string>(), [busy,setBusy]=useState(false);
   const [effort,setEffort]=useState(''), [comment,setComment]=useState('');
-  const running=useRef(false);
+  const running=useRef(false), generation=useRef(0);
+  useEffect(() => { generation.current++; return () => { generation.current++; }; }, [database]);
   async function submit(event:FormEvent) {
     event.preventDefault(); if(running.current)return;
     const seconds=Math.round(Number(minutes)*60), meters=distance.trim()?Number(distance.replace(',','.'))*1000:undefined;
     if(!validSessionDate(date)||date>localToday()||!Number.isFinite(seconds)||seconds<=0||seconds>86400
       ||(meters!==undefined&&(!Number.isFinite(meters)||meters<0))) {setError('Renseignez une date passée ou actuelle, une durée positive de 24 heures maximum et une distance positive ou nulle.');return;}
+    const current = generation.current;
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
     running.current=true;setBusy(true);setError('');setSaved(undefined);
     try {
       const feeling=feelingFromFields(effort,comment);
       const id=`manual:${crypto.randomUUID()}`;
-      await createSessionRepository(database).addImported({id,title:'Course à pied',sport:'RUNNING',date,durationSeconds:seconds,...(feeling?{feeling}:{}),...(meters===undefined?{}:{distanceMeters:meters})});
+      const created = await createSessionRepository(database).addImported({id,title:'Course à pied',sport:'RUNNING',date,durationSeconds:seconds,...(feeling?{feeling}:{}),...(meters===undefined?{}:{distanceMeters:meters})});
+      if (current !== generation.current) return;
+      if (!created) throw new Error('Activité déjà présente.');
       setSaved(id);setMinutes('');setDistance('');setEffort('');setComment('');
-    }catch{setError('La sortie n’a pas pu être enregistrée. Vos saisies sont conservées ; vous pouvez réessayer.');}
-    finally{running.current=false;setBusy(false);}
+      onCreated?.({ id: crypto.randomUUID(), database, activityIds: [id], returnFocus });
+    }catch{if (current === generation.current) setError('La sortie n’a pas pu être enregistrée. Vos saisies sont conservées ; vous pouvez réessayer.');}
+    finally{if (current === generation.current) { running.current=false;setBusy(false); }}
   }
   return <details className="panel settings-panel"><summary>Ajouter une sortie manuellement</summary>
     <form aria-label="Ajouter une sortie manuellement" onSubmit={event=>void submit(event)}>

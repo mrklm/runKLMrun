@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './helpers/protected-test';
+import type { Page } from '@playwright/test';
 import { activeDatabase } from './helpers/active-database';
 
 async function openSettingsPanel(page: Page, sectionId: string, summaryName: string) {
@@ -14,6 +15,7 @@ for(const width of [390,1280])test(`historique et paramètres à ${width}px`,asy
  await form.getByLabel('Date de la sortie').fill('2026-10-10');await form.getByLabel('Durée (minutes)',{exact:true}).fill('32.5');
  await form.getByLabel('Distance (km, facultative)').fill('-1');await form.getByRole('button',{name:'Enregistrer la sortie'}).click();await expect(form.getByRole('alert')).toContainText('distance positive ou nulle');
  await form.getByLabel('Distance (km, facultative)').fill('5,2');await form.getByRole('button',{name:'Enregistrer la sortie'}).click();
+ await page.getByRole('dialog',{name:'Bilan de votre séance',exact:true}).getByRole('button',{name:'Plus tard',exact:true}).click();
  await expect(form.getByRole('status')).toContainText('Sortie enregistrée');
  const databaseName=await activeDatabase(page);
  const saved=await page.evaluate(async databaseName=>{const path='/runKLMrun/src/storage/database.ts';const {createSessionRepository}=await import(/* @vite-ignore */ path);return createSessionRepository(databaseName).list();},databaseName);

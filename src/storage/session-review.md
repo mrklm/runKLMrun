@@ -90,4 +90,37 @@ sans référence d’activité reste accessible depuis les activités de sa date
 Les changements externes ne remplacent pas un brouillon. Le dépôt arbitre les
 conflits lors de l’enregistrement ; le rechargement explicite abandonne le
 brouillon. Les lectures périmées sont ignorées et le composant est réinitialisé
-lorsque la base ou l’activité change. Aucun déclenchement après import n’est ajouté.
+lorsque la base ou l’activité change.
+
+
+## Proposition après création (étape C)
+
+`Courses` reçoit un lot identifié (`id`, `database`, `activityIds`) uniquement
+depuis les créateurs. `reviewableBatch` retient les listes exhaustives de 1 à 5
+créations distinctes ; aucun bilan ni rappel pour zéro ou au moins six créations.
+Les notifications de stockage ne déclenchent jamais de fenêtre. Les lots déjà
+traités sont mémorisés jusqu’au démontage du contexte de profil.
+
+Les TCX utilisent les identifiants du callback `onAdded`, appelé après le commit.
+Le worker ZIP conserve cette liste hors du bloc `try` et transmet un message
+terminal `done` ou `error`, marqué par l’identifiant du lot. Une erreur récupérable
+conserve donc une liste exhaustive. Un arrêt brutal sans message terminal
+rafraîchit l’historique mais ne propose aucun bilan sur une liste incertaine.
+Les créations manuelles vérifient le résultat de `addImported` avant le callback.
+
+`SessionReviewDialog` utilise un dialogue natif et les thèmes existants. Il
+affiche un seul `SessionReviewEditor` à la fois ; les autres restent montés
+pour garder leurs brouillons et instantanés de concurrence. Chaque sauvegarde
+utilise le dépôt atomique existant. « Plus tard » ne produit aucune réponse.
+La fermeture avec brouillons exige un abandon explicite ; les réponses déjà
+sauvegardées restent conservées. Focus initial, confinement clavier et retour
+à l’élément déclencheur sont assurés ; Échap respecte cette confirmation.
+
+Ordre retenu : fin du lot, bilan facultatif, puis accès au bloc intégré existant
+d’attribution des chaussures. Celui-ci n’est pas une fenêtre modale ; sa logique
+et ses identifiants restent inchangés. L’import massif conserve ce bloc habituel.
+
+Le contexte `AppContent`, indexé par l’identifiant du profil, démonte le dialogue
+lors d’un changement de profil ou de sa suppression dans un autre onglet. Les
+callbacks de création tardifs sont ignorés ; les bases restent explicites. Aucun
+format de stockage, de sauvegarde ou algorithme du Coach n’est modifié.

@@ -1,5 +1,13 @@
 # Historique des versions
 
+## v0.19.0 — 2026-10-30 — Bilan après création de séances
+
+- Bilan facultatif après une création manuelle ou un import de 1 à 5 nouvelles activités réellement enregistrées.
+- Fenêtre unique, navigation entre activités, brouillons conservés et abandon explicite ; aucun questionnaire pour les imports de 6 activités ou plus.
+- Identifiants confirmés transmis après les erreurs ZIP récupérables ; aucun bilan sur un arrêt brutal au résultat incertain.
+- Formulaire partagé, retour du focus, isolation des profils et suggestion de chaussures préservée.
+- Règles du Coach, conservation des détails et formats de sauvegarde inchangés.
+
 ## v0.18.0 — 2026-10-30 — Bilan de séance dans la fiche d’activité
 
 - Formulaire partagé « Bilan de votre séance » : ressenti, réalisation du Coach, type effectué et description libre.

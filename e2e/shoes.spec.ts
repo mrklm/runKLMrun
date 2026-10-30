@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './helpers/protected-test';
+import type { Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { readBackupFile } from '../src/backup/compression';
 import { activeDatabase } from './helpers/active-database';
@@ -75,7 +76,7 @@ test('première utilisation libre, modification, attribution explicite et sauveg
   await period.getByRole('button', { name: 'Confirmer l’attribution' }).click();
   await expect(pair.getByText('Kilométrage cumulé').locator('..').locator('dd')).toHaveText('12 km');
   await page.getByRole('link', { name: 'Accueil', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Paire du littoral : Limite atteinte' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Gérer les chaussures : Paire du littoral, 12 km / 10 km', exact: true })).toBeVisible();
   await page.getByRole('navigation').getByRole('link', { name: 'Paramètres', exact: true }).click();
   await openShoesInSettings(page);
   await pair.getByRole('button', { name: 'Archiver cette paire' }).click();
@@ -113,6 +114,7 @@ test('propose la paire par défaut après un import, sans attribuer les doublons
   const xml = `<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"><Activities><Activity Sport="Running"><Lap StartTime="${new Date().toISOString()}"><TotalTimeSeconds>60</TotalTimeSeconds><DistanceMeters>100</DistanceMeters></Lap></Activity></Activities></TrainingCenterDatabase>`;
   await page.locator('input[type=file][multiple]').setInputFiles({ name: 'synthetic.TCX', mimeType: 'application/xml', buffer: Buffer.from(xml) });
   await page.getByRole('button', { name: 'Importer les séances', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Bilan de votre séance', exact: true }).getByRole('button', { name: 'Plus tard', exact: true }).click();
   const proposal = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Chaussures des nouvelles séances', exact: true }) }).last();
   await expect(proposal.getByRole('heading')).toBeVisible();
   await expect(proposal.getByLabel('Paire concernée', { exact: true })).toHaveValue('default-synthetic');
@@ -132,6 +134,7 @@ test('propose la paire par défaut après un import, sans attribuer les doublons
   const historicalXml = xml.replace(/StartTime="[^"]+"/, 'StartTime="2020-02-07T12:00:00Z"');
   await page.locator('input[type=file][multiple]').setInputFiles({ name: 'historique.TCX', mimeType: 'application/xml', buffer: Buffer.from(historicalXml) });
   await page.getByRole('button', { name: 'Importer les séances', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Bilan de votre séance', exact: true }).getByRole('button', { name: 'Plus tard', exact: true }).click();
   await expect(page.getByText(/1 séances ajoutées.*0 doublons/)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Chaussures des nouvelles séances' })).toHaveCount(0);
   expect(await associations()).toBe(1);
