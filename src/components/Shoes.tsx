@@ -13,7 +13,6 @@ import { shoeMileage, sessionsInPeriod } from '../core/shoes/shoes';
 import { SessionList } from './SessionList';
 
 const number = (value: number | undefined) => value === undefined ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
-const labels = { normal: 'Normal', limit: 'Limite atteinte' };
 export function ShoeAlert({ sessions }: { sessions: RunningSession[] }) {
   const data = useShoes();
   const timeline = shoeTimeline(data.shoes, sessions, localToday());
@@ -140,7 +139,12 @@ export function Shoes({ sessions, embedded = false }: { sessions: RunningSession
     const usage = shoeMileage(shoe, sessions, effective);
     const period = timeline.periods.find(p => p.shoe.id === shoe.id);
     const ids = new Set(effective.filter(a => a.shoeId === shoe.id).map(a => a.sessionId));
-    return <section className="panel settings-panel shoe-panel" key={shoe.id}><h2>{shoe.name}</h2><p>{shoe.brand} · {automatic ? timeline.issues.length ? 'Dates à corriger' : period?.current ? 'Paire actuelle' : period?.future ? 'Paire à venir' : 'Ancienne paire' : shoe.status === 'active' ? 'Active' : 'Archivée'}{!automatic && shoe.isDefault ? ' · Paire par défaut' : ''} · {labels[usage.state]}</p>
+    const description = [shoe.brand,
+      data.shoes.length > 1 && automatic && period?.current ? 'Paire actuelle' : undefined,
+      data.shoes.length > 1 && !automatic && shoe.isDefault ? 'Paire par défaut' : undefined,
+      usage.state === 'limit' ? 'Limite atteinte' : undefined,
+    ].filter(Boolean).join(' · ');
+    return <section className="panel settings-panel shoe-panel" key={shoe.id}><h2>{shoe.name}</h2>{description && <p>{description}</p>}
       {automatic && !timeline.issues.length && period && <><p>{period.current ? `Utilisée depuis le ${period.start.split('-').reverse().join('/')}` : period.future ? `Début prévu le ${period.start.split('-').reverse().join('/')}` : `Utilisée du ${period.start.split('-').reverse().join('/')} au ${period.end?.split('-').reverse().join('/') ?? '—'}`}</p>{period.end && <p>Fin déduite : {period.end.split('-').reverse().join('/')} (veille de la paire suivante, et non dernière séance enregistrée).</p>}<p>Durée calendaire : {period.future ? '—' : usageDuration(period.start, period.current ? today : period.end ?? today)}.</p></>}
       <dl className="session-detail-metrics"><div><dt>Kilométrage cumulé</dt><dd>{number(automatic && timeline.issues.length ? undefined : usage.km)} km</dd></div><div><dt>Limite personnelle</dt><dd>{number(shoe.limitKm)} km</dd></div><div><dt>Kilométrage restant</dt><dd>{number(usage.remainingKm)} km</dd></div><div><dt>Utilisation</dt><dd>{number(usage.percent)} %</dd></div><div><dt>Séances associées</dt><dd>{automatic && timeline.issues.length ? '—' : usage.count}</dd></div><div><dt>Date de première utilisation</dt><dd>{shoe.firstUseDate?.split('-').reverse().join('/') ?? '—'}</dd></div><div><dt>Date d’achat</dt><dd>{shoe.purchaseDate?.split('-').reverse().join('/') ?? '—'}</dd></div></dl>
       {!!usage.missing && <p>{usage.missing} séance(s) sans distance exploitable, non comptées dans les kilomètres.</p>}

@@ -204,7 +204,7 @@ for (const width of [390, 1280]) test(`ancienne marge ignorée, modification de 
   }, database);
   await page.reload();
   const card = page.locator('.shoe-panel').filter({ has: page.getByRole('heading', { name: 'Paire synthétique ancienne', exact: true }) });
-  await expect(card.getByText(/Marque synthétique.*Normal/)).toBeVisible();
+  await expect(card.getByText('Marque synthétique', { exact: true })).toBeVisible();
   await expect(page.getByText('Seuil préventif atteint', { exact: false })).toHaveCount(0);
   await page.getByRole('navigation').getByRole('link', { name: 'Accueil', exact: true }).click();
   await expect(page.locator('.home-shoe-distance')).toHaveText(/26 km \/ 1\s?500 km/);
@@ -221,7 +221,7 @@ for (const width of [390, 1280]) test(`ancienne marge ignorée, modification de 
     await expect(form.getByLabel('Date d’achat (facultative)', { exact: true })).toHaveValue('2026-09-30');
     await form.getByLabel('Limite personnelle (km, facultative)', { exact: true }).fill(limit);
     await form.getByRole('button', { name: 'Enregistrer cette paire', exact: true }).click();
-    await expect(card.getByText(limit ? /Limite atteinte/ : /Marque synthétique.*Normal/)).toBeVisible();
+    await expect(card.getByText(limit ? /Limite atteinte/ : /^Marque synthétique$/)).toBeVisible();
   }
   const stored = await page.evaluate(async database => {
     const { createShoeRepository } = await import(/* @vite-ignore */ '/runKLMrun/src/storage/shoes.ts');
@@ -233,4 +233,60 @@ for (const width of [390, 1280]) test(`ancienne marge ignorée, modification de 
   await page.getByRole('navigation').getByRole('link', { name: 'Accueil', exact: true }).click();
   await expect(page.locator('.home-shoe-distance')).toHaveText('26 km');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+for (const width of [390, 1280]) test(`libellés des chaussures : zéro, une ou plusieurs paires à ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto('./#/parametres');
+  await expect(page.locator('.app-shell')).toHaveJSProperty('inert', false);
+  const database = await writableActiveDatabase(page);
+  await openShoesInSettings(page);
+  await expect(page.getByText(/Paire actuelle|Limite atteinte|\bNormal\b/)).toHaveCount(0);
+  await page.getByRole('navigation').getByRole('link', { name: 'Accueil', exact: true }).click();
+  await expect(page.locator('.home-shoe-summary')).toHaveCount(0);
+  await page.evaluate(async database => {
+    const { openDatabase } = await import(/* @vite-ignore */ '/runKLMrun/src/storage/database-connection.ts');
+    const db = await openDatabase(database), tx = db.transaction(['shoes', 'shoeSettings', 'sessions'], 'readwrite');
+    await tx.objectStore('shoes').put({ id: 'current', name: 'Paire courante synthétique', firstUseDate: '2026-10-01', status: 'active', isDefault: false, limitKm: 1500, revision: 1 });
+    await tx.objectStore('shoeSettings').put({ id: 'local', mode: 'automatic', revision: 1 });
+    await tx.objectStore('sessions').put({ id: 'run', title: 'Sortie synthétique', date: '2026-10-20', durationSeconds: 7200, distanceMeters: 26000 });
+    await tx.done; db.close();
+  }, database);
+  await page.goto('./#/chaussures'); await page.reload();
+  const current = page.locator('.shoe-panel').filter({ has: page.getByRole('heading', { name: 'Paire courante synthétique', exact: true }) });
+  await expect(current).toBeVisible();
+  await expect(current.getByText(/Paire actuelle|Limite atteinte|\bNormal\b/)).toHaveCount(0);
+  await expect(current.locator(':scope > p').first()).toContainText('Utilisée depuis');
+  await expect(current.getByText('Kilométrage cumulé').locator('..').locator('dd')).toHaveText('26 km');
+  await page.evaluate(async database => {
+    const { openDatabase } = await import(/* @vite-ignore */ '/runKLMrun/src/storage/database-connection.ts');
+    const db = await openDatabase(database), shoe = await db.get('shoes', 'current');
+    await db.put('shoes', { ...shoe, limitKm: 26 }); db.close();
+  }, database);
+  await page.reload();
+  await expect(current.getByText('Limite atteinte', { exact: true })).toBeVisible();
+  await expect(current.getByText('Paire actuelle', { exact: false })).toHaveCount(0);
+  await page.evaluate(async database => {
+    const { openDatabase } = await import(/* @vite-ignore */ '/runKLMrun/src/storage/database-connection.ts');
+    const db = await openDatabase(database);
+    await db.put('shoes', { id: 'previous', name: 'Autre paire synthétique', firstUseDate: '2026-09-01', status: 'active', isDefault: false, revision: 1 }); db.close();
+  }, database);
+  await page.reload();
+  await expect(current.getByText('Paire actuelle · Limite atteinte', { exact: true })).toBeVisible();
+  const previous = page.locator('.shoe-panel').filter({ has: page.getByRole('heading', { name: 'Autre paire synthétique', exact: true }) });
+  await expect(previous).toBeVisible();
+  await expect(previous.getByText(/Paire actuelle|Limite atteinte|\bNormal\b/)).toHaveCount(0);
+  await expect(previous.locator(':scope > p').first()).toContainText('Utilisée du');
+  await page.evaluate(async database => {
+    const { openDatabase } = await import(/* @vite-ignore */ '/runKLMrun/src/storage/database-connection.ts');
+    const db = await openDatabase(database), shoe = await db.get('shoes', 'current');
+    await db.put('shoes', { ...shoe, limitKm: 1500 }); db.close();
+  }, database);
+  await page.reload();
+  await expect(current.getByText('Paire actuelle', { exact: true })).toBeVisible();
+  await expect(page.getByText(/\bNormal\b/)).toHaveCount(0);
+  await page.getByRole('navigation').getByRole('link', { name: 'Accueil', exact: true }).click();
+  await expect(page.locator('.home-shoe-summary')).toHaveCount(2);
+  await expect(page.locator('.home-shoe-summary').first()).toHaveAccessibleName(/Paire courante synthétique, 26 km \/ 1\s?500 km/);
+  await expect(page.locator('.home-shoe-summary').getByText(/\bNormal\b/)).toHaveCount(0);
 });

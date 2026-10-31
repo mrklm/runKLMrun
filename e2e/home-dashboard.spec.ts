@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from './helpers/protected-test';
+import type { Page } from '@playwright/test';
 import { activeDatabase } from './helpers/active-database';
 
 const modules = '/runKLMrun/src/';
@@ -7,6 +8,8 @@ const recentActivities = (page: Page) => page.locator('details[aria-labelledby="
 const shoeSummary = (page: Page) => page.locator('a.home-shoe-summary');
 
 async function writableActiveDatabase(page: Page) {
+  await expect(page.getByRole('combobox', { name: 'Profil actif', exact: true })).toBeVisible();
+  await expect(page.locator('.app-shell')).toHaveJSProperty('inert', false);
   await page.evaluate(async () => {
     const root = '/runKLMrun/src/storage/';
     const { bootstrapProfiles } = await import(/* @vite-ignore */ `${root}profile-bootstrap.ts`);

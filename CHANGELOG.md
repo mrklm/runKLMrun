@@ -1,5 +1,9 @@
 # Historique des versions
 
+## v1.0.2 — 2026-10-31 — Libellés des chaussures simplifiés
+
+- Suppression du libellé « Normal » ; « Paire actuelle » réservé à la paire courante parmi plusieurs paires. Kilométrage et indication « Limite atteinte » conservés.
+
 ## v1.0.1 — 2026-10-31 — Suivi des chaussures simplifié
 
 - Simplification du suivi des chaussures : suppression de l'alerte préventive, conservation de l'indication de limite atteinte.
