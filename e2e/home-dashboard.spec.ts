@@ -121,7 +121,7 @@ test('accueil : une paire active sans alerte reste visible', async ({ page }) =>
   await expect(page).toHaveURL(/#\/chaussures$/);
 });
 
-test('accueil : les seuils préventif et de limite restent signalés', async ({ page }) => {
+test('accueil : kilométrage conservé, ancienne marge sans alerte préventive', async ({ page }) => {
   await seedShoe(page, { id: 'dashboard-warning', name: 'Paire proche', limitKm: 10, warningKm: 2 }, [9000]);
   await openHome(page);
   await expect(shoeSummary(page)).toHaveAccessibleName('Gérer les chaussures : Paire proche, 9 km / 10 km');

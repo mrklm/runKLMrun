@@ -6,6 +6,7 @@ export interface Shoe {
   firstUseDate?: string;
   /** Repères personnels en kilomètres, facultatifs, sans valeur universelle. */
   limitKm?: number;
+  /** Ancienne marge, conservée pour les données et sauvegardes ; ignorée par le suivi. */
   warningKm?: number;
   status: 'active' | 'archived';
   isDefault: boolean;

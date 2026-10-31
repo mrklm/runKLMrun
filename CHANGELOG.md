@@ -1,5 +1,9 @@
 # Historique des versions
 
+## v1.0.1 — 2026-10-31 — Suivi des chaussures simplifié
+
+- Simplification du suivi des chaussures : suppression de l'alerte préventive, conservation de l'indication de limite atteinte.
+
 ## v1.0.0 — Première version stable
 
 - Première version stable et utilisable de runKLMrun.

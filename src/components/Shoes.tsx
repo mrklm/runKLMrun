@@ -13,7 +13,7 @@ import { shoeMileage, sessionsInPeriod } from '../core/shoes/shoes';
 import { SessionList } from './SessionList';
 
 const number = (value: number | undefined) => value === undefined ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
-const labels = { normal: 'Normal', warning: 'Seuil préventif atteint', limit: 'Limite atteinte' };
+const labels = { normal: 'Normal', limit: 'Limite atteinte' };
 export function ShoeAlert({ sessions }: { sessions: RunningSession[] }) {
   const data = useShoes();
   const timeline = shoeTimeline(data.shoes, sessions, localToday());
@@ -179,11 +179,11 @@ function ShoeForm({ shoe, onClose, automatic }: { automatic: boolean; shoe?: Sho
   const database=useProfileDatabase(),shoeRepository=useMemo(()=>createShoeRepository(database),[database]);
   const [name, setName] = useState(shoe?.name ?? ''), [brand, setBrand] = useState(shoe?.brand ?? '');
   const [purchase, setPurchase] = useState(shoe?.purchaseDate ?? ''), [firstUse, setFirstUse] = useState(shoe?.firstUseDate ?? '');
-  const [limit, setLimit] = useState(shoe?.limitKm?.toString() ?? ''), [warning, setWarning] = useState(shoe?.warningKm?.toString() ?? '');
+  const [limit, setLimit] = useState(shoe?.limitKm?.toString() ?? '');
   const [isDefault, setDefault] = useState(shoe?.isDefault ?? false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   async function save() {
     setBusy(true); setError('');
-    try { await shoeRepository.save({ id: shoe?.id ?? crypto.randomUUID(), name: name.trim(), brand: brand.trim() || undefined, purchaseDate: purchase || undefined, firstUseDate: firstUse || undefined, limitKm: limit === '' ? undefined : Number(limit), warningKm: warning === '' ? undefined : Number(warning), status: shoe?.status ?? 'active', isDefault }, shoe?.revision); onClose(); }
+    try { await shoeRepository.save({ id: shoe?.id ?? crypto.randomUUID(), name: name.trim(), brand: brand.trim() || undefined, purchaseDate: purchase || undefined, firstUseDate: firstUse || undefined, limitKm: limit === '' ? undefined : Number(limit), ...(shoe?.warningKm === undefined ? {} : { warningKm: shoe.warningKm }), status: shoe?.status ?? 'active', isDefault }, shoe?.revision); onClose(); }
     catch (e) { setError(e instanceof Error ? e.message : 'Enregistrement impossible.'); }
     finally { setBusy(false); }
   }
@@ -195,7 +195,6 @@ function ShoeForm({ shoe, onClose, automatic }: { automatic: boolean; shoe?: Sho
       <label>Date de première utilisation<input type="date" required={automatic} value={firstUse} onChange={e => setFirstUse(e.target.value)} /></label>
       <p>Cette date est indépendante de l’achat et reste modifiable. En mode automatique, elle détermine la période de calcul. En mode manuel, elle n’attribue aucune séance.</p>
       <label>Limite personnelle (km, facultative)<input type="number" min="0.001" step="any" value={limit} onChange={e => setLimit(e.target.value)} /></label>
-      <label>Seuil préventif (km avant la limite, facultatif)<input type="number" min="0" step="any" value={warning} onChange={e => setWarning(e.target.value)} /></label>
       {!automatic && <label><input type="checkbox" checked={isDefault} disabled={shoe?.status === 'archived'} onChange={e => setDefault(e.target.checked)} /> Paire active par défaut, proposée lors des imports</label>}
       <div className="profile-actions"><button className="button" type="submit">Enregistrer cette paire</button><button className="button" type="button" onClick={onClose}>Annuler</button></div>
     </fieldset>{error && <p role="alert">{error}</p>}

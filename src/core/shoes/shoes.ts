@@ -13,7 +13,8 @@ export function validateShoe(value: unknown): asserts value is Shoe {
     || (shoe.status === 'archived' && shoe.isDefault) || !Number.isSafeInteger(shoe.revision) || shoe.revision < 1) throw new Error('Renseignez un nom de paire et un statut valides.');
   for (const date of [shoe.purchaseDate, shoe.firstUseDate]) if (date !== undefined && (typeof date !== 'string' || !validSessionDate(date))) throw new Error('Renseignez une date valide ou laissez le champ vide.');
   if (shoe.limitKm !== undefined && (!Number.isFinite(shoe.limitKm) || shoe.limitKm <= 0)) throw new Error('La limite doit être un nombre strictement positif.');
-  if (shoe.warningKm !== undefined && (!Number.isFinite(shoe.warningKm) || shoe.warningKm < 0 || shoe.limitKm === undefined || shoe.warningKm > shoe.limitKm)) throw new Error('Le seuil préventif doit être compris entre zéro et votre limite.');
+  // Champ historique conservé : il ne doit plus contraindre la limite modifiable.
+  if (shoe.warningKm !== undefined && (!Number.isFinite(shoe.warningKm) || shoe.warningKm < 0)) throw new Error('Ancienne valeur de chaussure invalide.');
 }
 export function shoeMileage(shoe: Shoe, sessions: readonly RunningSession[], assignments: readonly ShoeAssignment[]) {
   const ids = new Set(assignments.filter(a => a.shoeId === shoe.id).map(a => a.sessionId));
@@ -26,8 +27,7 @@ export function shoeMileage(shoe: Shoe, sessions: readonly RunningSession[], ass
     else missing++;
   }
   const km = meters / 1000;
-  const state: 'normal' | 'warning' | 'limit' = shoe.limitKm !== undefined && km >= shoe.limitKm ? 'limit'
-    : shoe.limitKm !== undefined && shoe.warningKm !== undefined && km >= shoe.limitKm - shoe.warningKm ? 'warning' : 'normal';
+  const state: 'normal' | 'limit' = shoe.limitKm !== undefined && km >= shoe.limitKm ? 'limit' : 'normal';
   return { km, count, missing, state, remainingKm: shoe.limitKm === undefined ? undefined : Math.max(0, shoe.limitKm - km), percent: shoe.limitKm === undefined ? undefined : km / shoe.limitKm * 100 };
 }
 export function sessionsInPeriod(sessions: readonly RunningSession[], from: string, to: string): RunningSession[] {

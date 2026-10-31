@@ -53,7 +53,7 @@ test('première utilisation libre, modification, attribution explicite et sauveg
   await expect(form.getByLabel('Date de première utilisation', { exact: true })).toHaveAttribute('type', 'date');
   await expect(form.getByLabel('Date d’achat (facultative)', { exact: true })).toHaveValue('');
   await form.getByLabel('Limite personnelle (km, facultative)', { exact: true }).fill('10');
-  await form.getByLabel('Seuil préventif (km avant la limite, facultatif)', { exact: true }).fill('3');
+  await expect(form.getByLabel(/Seuil préventif/)).toHaveCount(0);
   await form.getByRole('checkbox').check();
   await form.getByRole('button', { name: 'Enregistrer cette paire' }).click();
   const pair = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Paire du littoral', exact: true }) });
@@ -75,6 +75,7 @@ test('première utilisation libre, modification, attribution explicite et sauveg
   await period.getByRole('checkbox', { name: 'Je confirme cette attribution.' }).check();
   await period.getByRole('button', { name: 'Confirmer l’attribution' }).click();
   await expect(pair.getByText('Kilométrage cumulé').locator('..').locator('dd')).toHaveText('12 km');
+  await expect(pair.getByText(/Limite atteinte/)).toBeVisible();
   await page.getByRole('link', { name: 'Accueil', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Gérer les chaussures : Paire du littoral, 12 km / 10 km', exact: true })).toBeVisible();
   await page.getByRole('navigation').getByRole('link', { name: 'Paramètres', exact: true }).click();
@@ -82,6 +83,7 @@ test('première utilisation libre, modification, attribution explicite et sauveg
   await pair.getByRole('button', { name: 'Archiver cette paire' }).click();
   await expect(pair.getByRole('button', { name: 'Réactiver cette paire' })).toBeVisible();
   await expect(pair.getByText('Kilométrage cumulé').locator('..').locator('dd')).toHaveText('12 km');
+  await expect(pair.getByText(/Limite atteinte/)).toBeVisible();
   await pair.getByRole('button', { name: 'Réactiver cette paire' }).click();
   await page.goto('./#/seance/shoe-run-1'); await expect(page.locator('.splash-screen')).toHaveCount(0);
   const association = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Chaussures de cette séance' }) });
@@ -185,4 +187,50 @@ test('modes automatique et manuel, conversion confirmée et choix direct dans l�
   await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
   await openShoesInSettings(page);
   await expect(page.getByRole('radio', { name: 'Une seule paire — Automatique' })).toBeChecked();
+});
+
+for (const width of [390, 1280]) test(`ancienne marge ignorée, modification de limite et affichages à ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto('./#/chaussures');
+  await expect(page.locator('.app-shell')).toHaveJSProperty('inert', false);
+  const database = await writableActiveDatabase(page);
+  await page.evaluate(async database => {
+    const { openDatabase } = await import(/* @vite-ignore */ '/runKLMrun/src/storage/database-connection.ts');
+    const db = await openDatabase(database), tx = db.transaction(['shoes', 'sessions', 'shoeAssignments'], 'readwrite');
+    await tx.objectStore('shoes').put({ id: 'legacy-shoe', name: 'Paire synthétique ancienne', brand: 'Marque synthétique', firstUseDate: '2026-10-01', purchaseDate: '2026-09-30', status: 'active', isDefault: true, limitKm: 1500, warningKm: 1500, revision: 1 });
+    await tx.objectStore('sessions').put({ id: 'legacy-run', title: 'Sortie synthétique', date: '2026-10-20', durationSeconds: 7200, distanceMeters: 26000 });
+    await tx.objectStore('shoeAssignments').put({ sessionId: 'legacy-run', shoeId: 'legacy-shoe' });
+    await tx.done; db.close();
+  }, database);
+  await page.reload();
+  const card = page.locator('.shoe-panel').filter({ has: page.getByRole('heading', { name: 'Paire synthétique ancienne', exact: true }) });
+  await expect(card.getByText(/Marque synthétique.*Normal/)).toBeVisible();
+  await expect(page.getByText('Seuil préventif atteint', { exact: false })).toHaveCount(0);
+  await page.getByRole('navigation').getByRole('link', { name: 'Accueil', exact: true }).click();
+  await expect(page.locator('.home-shoe-distance')).toHaveText(/26 km \/ 1\s?500 km/);
+  await page.getByRole('link', { name: 'Sortie synthétique', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Paire', exact: true })).toHaveValue('legacy-shoe');
+  await expect(page.getByText('Seuil préventif atteint', { exact: false })).toHaveCount(0);
+  await page.getByRole('navigation').getByRole('link', { name: 'Paramètres', exact: true }).click();
+  await openShoesInSettings(page);
+  for (const limit of ['20', '']) {
+    await card.getByRole('button', { name: 'Modifier cette paire', exact: true }).click();
+    const form = page.locator('form.shoe-panel');
+    await expect(form.getByLabel(/Seuil préventif/)).toHaveCount(0);
+    await expect(form.getByLabel('Marque (facultative)', { exact: true })).toHaveValue('Marque synthétique');
+    await expect(form.getByLabel('Date d’achat (facultative)', { exact: true })).toHaveValue('2026-09-30');
+    await form.getByLabel('Limite personnelle (km, facultative)', { exact: true }).fill(limit);
+    await form.getByRole('button', { name: 'Enregistrer cette paire', exact: true }).click();
+    await expect(card.getByText(limit ? /Limite atteinte/ : /Marque synthétique.*Normal/)).toBeVisible();
+  }
+  const stored = await page.evaluate(async database => {
+    const { createShoeRepository } = await import(/* @vite-ignore */ '/runKLMrun/src/storage/shoes.ts');
+    return createShoeRepository(database).list();
+  }, database);
+  expect(stored.shoes[0]).toMatchObject({ warningKm: 1500, name: 'Paire synthétique ancienne', brand: 'Marque synthétique', firstUseDate: '2026-10-01', purchaseDate: '2026-09-30' });
+  expect(stored.shoes[0].limitKm).toBeUndefined();
+  expect(stored.shoeAssignments).toEqual([{ sessionId: 'legacy-run', shoeId: 'legacy-shoe' }]);
+  await page.getByRole('navigation').getByRole('link', { name: 'Accueil', exact: true }).click();
+  await expect(page.locator('.home-shoe-distance')).toHaveText('26 km');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

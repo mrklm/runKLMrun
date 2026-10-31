@@ -8,6 +8,7 @@ import { prepareRestore } from './merge';
 import { createBackupService, prepareNative, readBackupSnapshot } from '../storage/backup';
 import { createShoeRepository } from '../storage/shoes';
 import { openDatabase } from '../storage/database-connection';
+import { shoeMileage } from '../core/shoes/shoes';
 import type { BackupData } from '../types/backup';
 const reference = new Date('2026-10-13T12:00:00Z');
 const names: string[] = [];
@@ -112,4 +113,23 @@ it('inclut le mode dans la détection des changements concurrents', async () => 
   const { name, service: s } = service(); const preview = await s.preview(await file(data()));
   await createShoeRepository(name).setMode('automatic');
   await expect(s.restore(preview, { mode: 'replace', profile: 'restore' })).rejects.toThrow('changé');
+});
+
+it.each(['merge', 'replace'] as const)('restaure une ancienne marge sans alerte et préserve les données (%s)', async mode => {
+  const { name, service: s } = service(), source = data();
+  source.shoes![0].limitKm = 1500; source.shoes![0].warningKm = 1500;
+  source.sessions[0].distanceMeters = 26000;
+  await s.restore(await s.preview(await file(source)), { mode, profile: 'restore' });
+  const restored = await readBackupSnapshot(name);
+  expect(restored).toEqual(source);
+  expect(shoeMileage(restored.shoes![0], restored.sessions, restored.shoeAssignments!)).toMatchObject({ km: 26, state: 'normal' });
+  const repository = createShoeRepository(name), shoe = restored.shoes![0];
+  await repository.save({ ...shoe, limitKm: undefined }, shoe.revision);
+  const exported = await s.exportData(), document = await readBackupFile(exported.file);
+  expect(document.formatVersion).toBe(2);
+  expect(document.data.shoes![0]).toMatchObject({ name: shoe.name, warningKm: 1500, firstUseDate: shoe.firstUseDate });
+  expect(document.data.shoes![0].limitKm).toBeUndefined();
+  const destination = service();
+  await destination.service.restore(await destination.service.preview(exported.file), { mode: 'replace', profile: 'restore' });
+  expect(await readBackupSnapshot(destination.name)).toEqual(document.data);
 });

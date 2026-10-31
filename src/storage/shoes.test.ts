@@ -92,15 +92,17 @@ it('compte chaque séance une seule fois et ignore les distances absentes ou inv
   const assignments = list.map(s => ({ sessionId: s.id, shoeId: 'shoe' }));
   expect(shoeMileage(shoe(), list, assignments)).toMatchObject({ km: 12, count: 5, missing: 3, state: 'normal', remainingKm: undefined });
 });
-it.each([[79, 'normal'], [80, 'warning'], [100, 'limit'], [105, 'limit']] as const)('calcule l’alerte à %s km', (km, state) => {
-  const s = { ...shoe(), limitKm: 100, warningKm: 20 };
+it.each([[26, 'normal'], [1499, 'normal'], [1500, 'limit'], [1501, 'limit']] as const)('calcule l’alerte à %s km', (km, state) => {
+  const s = { ...shoe(), limitKm: 1500, warningKm: 1500 };
   const result = shoeMileage(s, [{ ...sessions[0], distanceMeters: km * 1000 }], [{ sessionId: 'a', shoeId: s.id }]);
-  expect(result.state).toBe(state); expect(result.percent).toBe(km); expect(result.remainingKm).toBe(Math.max(0, 100 - km));
+  expect(result.state).toBe(state); expect(result.percent).toBe(km / 1500 * 100); expect(result.remainingKm).toBe(Math.max(0, 1500 - km));
 });
 it('valide les dates et seuils sans imposer une limite ni une date d’achat', () => {
   expect(() => validateShoe(shoe())).not.toThrow();
   expect(() => validateShoe({ ...shoe(), firstUseDate: '2025-02-30' })).toThrow();
-  expect(() => validateShoe({ ...shoe(), limitKm: 100, warningKm: 101 })).toThrow();
+  expect(() => validateShoe({ ...shoe(), limitKm: 100, warningKm: 101 })).not.toThrow();
+  expect(() => validateShoe({ ...shoe(), warningKm: 1500 })).not.toThrow();
+  for (const warningKm of [-1, NaN, Infinity, '100']) expect(() => validateShoe({ ...shoe(), warningKm })).toThrow();
   expect(() => sessionsInPeriod(sessions, '2025-02-09', '2025-02-07')).toThrow();
 });
 
@@ -130,4 +132,15 @@ it('annule la conversion si une date change après l’aperçu', async () => {
 it('refuse un changement de mode concurrent', async () => {
   const { repository } = await setup(); await repository.setMode('manual');
   await expect(repository.setMode('automatic')).rejects.toThrow('changé');
+});
+
+it('ignore la marge historique sans limite et conserve les autres données lors des modifications', async () => {
+  const { repository, training } = await setup();
+  const original = await repository.save({ ...shoe(), brand: 'Marque synthétique', limitKm: 1500, warningKm: 1500 });
+  await repository.assign('a', original.id);
+  const updated = await repository.save({ ...original, name: 'Paire renommée', limitKm: undefined }, original.revision);
+  const data = await repository.list();
+  expect(data.shoes).toEqual([{ ...original, name: 'Paire renommée', limitKm: undefined, revision: updated.revision }]);
+  expect(data.shoeAssignments).toEqual([{ sessionId: 'a', shoeId: original.id }]);
+  expect(shoeMileage(updated, await training.list(), data.shoeAssignments)).toMatchObject({ state: 'normal', remainingKm: undefined, percent: undefined });
 });
