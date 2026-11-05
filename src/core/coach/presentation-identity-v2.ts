@@ -1,3 +1,4 @@
+import { selectContinuityV2 } from './continuity-selection-v2';
 import type { CoachProfileValues,Weekday } from '../../types/coach-profile';
 import type { CoachV2ReadonlyResult } from './application-adapter-v2';
 import { civilDate,selectCandidateV2,type CandidateV2,type PersistableOccurrenceV2,type SelectedSuggestionV2,
@@ -15,6 +16,16 @@ const capFor=(availability:CoachProfileValues['availability']|null,date:string):
   return Number.isInteger(minutes)&&minutes!>0?minutes!*60:null;
 };
 
+/** Le groupe de la date inclut les préférences de charge : une ancienne
+ * occurrence exigeante ne peut pas être validée isolément contre ce groupe. */
+export function admissibleCoachV2Content(content:PersistableOccurrenceV2['content'],date:string,result:CoachV2ReadonlyResult):boolean {
+  if(result.continuity&&selectContinuityV2({selected:content,candidates:result.admissibleSessionsByDate[date]??[],
+    memory:result.continuity,date}).decision.status==='avoidable-repeat')return false;
+  return result.admissibleSessionsByDate[date]?.some(candidate=>candidate.type===content.type
+    &&candidate.intensity===content.intensity&&candidate.terrain===content.terrain
+    &&content.totalDurationSeconds<=candidate.totalDurationSeconds)??false;
+}
+
 /** Une occurrence active compatible prime sur tout nouveau calcul. */
 export function reusableActiveOccurrenceV2(occurrences:readonly PersistableOccurrenceV2[],result:CoachV2ReadonlyResult,
   referenceDate:string):PersistableOccurrenceV2|undefined {
@@ -25,9 +36,7 @@ export function reusableActiveOccurrenceV2(occurrences:readonly PersistableOccur
       &&value.opportunity.availability.weekday===weekday(value.opportunity.suggestedFor)
       &&capFor(result.declarations.availability,value.opportunity.suggestedFor)!==null
       &&value.content.totalDurationSeconds<=capFor(result.declarations.availability,value.opportunity.suggestedFor)!
-      &&result.admissibleSessionsByDate[value.opportunity.suggestedFor]?.some(candidate=>
-        candidate.type===value.content.type&&candidate.intensity===value.content.intensity&&candidate.terrain===value.content.terrain
-        &&value.content.totalDurationSeconds<=candidate.totalDurationSeconds))
+      &&admissibleCoachV2Content(value.content,value.opportunity.suggestedFor,result))
     .sort((a,b)=>a.opportunity.suggestedFor.localeCompare(b.opportunity.suggestedFor)||a.id.localeCompare(b.id))[0];
 }
 

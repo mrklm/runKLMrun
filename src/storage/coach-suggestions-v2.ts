@@ -4,11 +4,12 @@ import { activitySportSignatureV2,associationEvidenceMatchesV2,civilDate,invalid
 import { matchingDate } from '../core/coach/suggestion-matching';
 import { DATABASE_NAME,openDatabase } from './database-connection';
 import { storageChanges } from './changes';
-import { adaptCoachV2Readonly,type CoachV2ReadonlyResult } from '../core/coach/application-adapter-v2';
+import { adaptCoachV2WithContinuity,type CoachV2ReadonlyResult } from '../core/coach/application-adapter-v2';
 import { readCoachV2Snapshot } from './coach-v2-readonly';
-import { nextGenerationV2,reusableActiveOccurrenceV2,selectedApplicationSuggestionV2 } from '../core/coach/presentation-identity-v2';
+import { admissibleCoachV2Content,nextGenerationV2,reusableActiveOccurrenceV2,selectedApplicationSuggestionV2 } from '../core/coach/presentation-identity-v2';
 
 export class CoachV2TemperamentChanged extends Error {}
+export class CoachV2SelectionChanged extends Error {}
 
 export type StoredPresentationResultV2=
   |{readonly status:'created';readonly occurrence:PersistableOccurrenceV2}
@@ -185,10 +186,14 @@ export async function presentCoachV2Selection(input:{result:CoachV2ReadonlyResul
     const snapshot=await readCoachV2Snapshot(name);
     // Réexaminer aussi les dates des occurrences arrivées depuis le calcul de cet onglet.
     // Minuit est volontaire ici : la limite de 18 h ne concerne pas leur réutilisation.
-    const current=adaptCoachV2Readonly(snapshot,input.referenceDate);
+    const current=await adaptCoachV2WithContinuity(snapshot,input.referenceDate);
     const reusable=reusableActiveOccurrenceV2(snapshot.occurrences,current,input.referenceDate);
     if(!reusable&&(input.result.coachTemperament??'pas-a-pas')!==(snapshot.coachTemperament??'pas-a-pas'))
       throw new CoachV2TemperamentChanged('Le tempérament a changé : recalcul nécessaire.');
+    if(!reusable&&(!input.result.candidate||!input.result.selectedDate))
+      throw new Error('Sélection V2 incomplète : aucune présentation ne peut être créée.');
+    if(!reusable&&!admissibleCoachV2Content(input.result.candidate!,input.result.selectedDate!,current))
+      throw new CoachV2SelectionChanged('Les activités ou le bilan ont changé : recalcul nécessaire.');
     const prepared=reusable?undefined:await observePresentationV2({
       selection:selectedApplicationSuggestionV2(input.result,nextGenerationV2(snapshot.occurrences,input.result)),
       moment:input.moment,provenance:input.provenance,existing:[],createId:input.createId??(()=>crypto.randomUUID())});

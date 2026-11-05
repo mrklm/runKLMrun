@@ -1,6 +1,6 @@
-# runKLMrun — v1.0.0
+# runKLMrun — v1.1.0
 
-Première version stable d’une application web gratuite et open source de suivi
+Application web gratuite et open source de suivi
 et de planification des entraînements de course à pied. Interface en français, responsive, sans compte,
 sans serveur applicatif et sans service payant. Les données sportives restent
 dans IndexedDB, sur le navigateur et l’appareil utilisés.

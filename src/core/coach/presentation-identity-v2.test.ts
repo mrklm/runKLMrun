@@ -95,7 +95,7 @@ describe('identité applicative et génération V2',()=>{
 
   it('réapplique le délai structuré réel à une occurrence de fractionné déjà présentée',async()=>{
     const runs:RunningSession[]=['2026-10-01','2026-10-04','2026-10-07','2026-10-10','2026-10-13','2026-10-16']
-      .map((date,index)=>({id:`run-${index}`,date,title:'Course',sport:'RUNNING',durationSeconds:2400}));
+      .map((date,index)=>({id:`run-${index}`,date,title:'Course',sport:'RUNNING',durationSeconds:2400,trainingType:'easy-endurance',feeling:{effort:'easy'}}));
     const values={...configuration,goal:{model:'evolving',kind:'speed'} as const};
     const initial=adaptCoachV2Readonly({coachTemperament:'rentre-dedans',sessions:runs,occurrences:[],configuration:values,profile},'2026-10-18');
     expect(initial.candidate?.type).toBe('intervals');

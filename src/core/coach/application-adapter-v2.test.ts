@@ -266,7 +266,8 @@ describe('adaptateur applicatif V2 en lecture seule',()=>{
     const linked:PersistableOccurrenceV2={...linkedBase,retainUntil:retentionLimitV2(linkedBase.opportunity,linkedBase.presentation)};
     const valid=adaptCoachV2Readonly({coachTemperament:'rentre-dedans',sessions:[...history,performed],occurrences:[linked],configuration:config('speed'),profile},today);
     expect(valid.catalog.adaptedInput?.observedSessionTypes).toEqual([]);
-    expect(valid.candidate?.type).toBe('intervals'); // Introduction fondée sur les activités réelles, pas sur l'association.
+    expect(valid.catalog.sessions.some(value=>value.type==='intervals')).toBe(true); // Catalogue inchangé.
+    expect(valid.candidate?.type).toBe('easy-endurance'); // D2b-2 : bilan insuffisant, réévaluation.
     const documented=adaptCoachV2Readonly({coachTemperament:'rentre-dedans',sessions:[...history,performed],occurrences:[linked],configuration:config('speed'),profile,
       documentedActivityTypes:{[performed.id]:'intervals'}},today);
     expect(documented.catalog.adaptedInput?.observedSessionTypes).toEqual(['intervals']);
@@ -274,6 +275,6 @@ describe('adaptateur applicatif V2 en lecture seule',()=>{
     const invalid={...performed,durationSeconds:performed.durationSeconds+300};
     const changed=adaptCoachV2Readonly({coachTemperament:'rentre-dedans',sessions:[...history,invalid],occurrences:[linked],configuration:config('speed'),profile},today);
     expect(changed.catalog.adaptedInput?.observedSessionTypes).toEqual([]);
-    expect(changed.candidate?.type).toBe('intervals');
+    expect(changed.candidate?.type).toBe('easy-endurance');
   });
 });

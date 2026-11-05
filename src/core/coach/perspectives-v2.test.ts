@@ -128,7 +128,7 @@ describe('perspectives V2 sur sept jours, sans activité fictive',()=>{
   });
   it('propage les variations modérées aux perspectives sans les traiter comme des activités',async()=>{
     const occurrence=await stored(snapshot);
-    const input={...snapshot,coachTemperament:'rentre-dedans' as const,occurrences:[{...occurrence,
+    const input={...snapshot,sessions:snapshot.sessions.map(session=>({...session,trainingType:'easy-endurance' as const,feeling:{effort:'easy' as const}})),coachTemperament:'rentre-dedans' as const,occurrences:[{...occurrence,
       provenance:{...occurrence.provenance,referenceConfidence:'confirmed' as const}}]},before=structuredClone(input);
     const result=adaptCoachV2Readonly(input,date),plan=coachV2Perspectives(result);
     expect(plan[0].session).toMatchObject({type:'endurance-variations',intensity:'steady'});
@@ -167,10 +167,10 @@ describe('perspectives V2 sur sept jours, sans activité fictive',()=>{
       .toEqual(['2026-10-19','2026-10-21','2026-10-23']);
   });
   it('ne répète pas une séance structurée envisagée et ne la transforme pas en expérience acquise',()=>{
-    const input={...snapshot,coachTemperament:'rentre-dedans' as const,configuration:{...snapshot.configuration!,goal:{model:'evolving' as const,kind:'speed' as const}}};
+    const input={...snapshot,sessions:snapshot.sessions.map(session=>({...session,trainingType:'easy-endurance' as const,feeling:{effort:'easy' as const}})),coachTemperament:'rentre-dedans' as const,configuration:{...snapshot.configuration!,goal:{model:'evolving' as const,kind:'speed' as const}}};
     const plan=coachV2Perspectives(adaptCoachV2Readonly(input,date));
     expect(plan.map(value=>value.session.type)).toEqual(['intervals','easy-endurance','easy-endurance']);
-    expect(input.sessions).toEqual(snapshot.sessions);
+    expect(input.sessions.map(({trainingType:_type,feeling:_feeling,...session})=>session)).toEqual(snapshot.sessions);
   });
   it('ancre les perspectives sur la suggestion future retenue par un autre onglet',async()=>{
     const future={...snapshot,profile:{...snapshot.profile!,availability:{days:['wednesday'] as const,minutesPerSession:45}}};
@@ -201,7 +201,7 @@ describe('perspectives V2 sur sept jours, sans activité fictive',()=>{
 });
 
 describe('ressenti dans le pipeline V2',()=>{
-  const speed={...snapshot,coachTemperament:'rentre-dedans' as const,sessions:snapshot.sessions.map((session,index)=>({...session,date:['2026-09-27','2026-10-01','2026-10-05','2026-10-09','2026-10-12','2026-10-15'][index]})),configuration:{...snapshot.configuration!,goal:{model:'evolving' as const,kind:'speed' as const}}};
+  const speed={...snapshot,coachTemperament:'rentre-dedans' as const,sessions:snapshot.sessions.map((session,index)=>({...session,trainingType:'easy-endurance' as const,feeling:{effort:'easy' as const},date:['2026-09-27','2026-10-01','2026-10-05','2026-10-09','2026-10-12','2026-10-15'][index]})),configuration:{...snapshot.configuration!,goal:{model:'evolving' as const,kind:'speed' as const}}};
   it('partage le classement entre prochaine séance et perspectives',()=>{
     const plans=['pas-a-pas','evolution-active','rentre-dedans'].map(value=>{
       const input={...speed,coachTemperament:value as NonNullable<CoachV2ApplicationSnapshot['coachTemperament']>};
@@ -209,7 +209,7 @@ describe('ressenti dans le pipeline V2',()=>{
     });
     expect(plans).toEqual([
       ['easy-endurance','easy-endurance','easy-endurance'],
-      ['easy-endurance','intervals','easy-endurance'],
+      ['intervals','easy-endurance','easy-endurance'],
       ['intervals','easy-endurance','easy-endurance'],
     ]);
   });
@@ -219,18 +219,21 @@ describe('ressenti dans le pipeline V2',()=>{
     const before=structuredClone(veryHardFeeling),result=adaptCoachV2Readonly(veryHardFeeling,date);
     expect(result.activityEvidence.at(-1)).toMatchObject({date:'2026-10-15',effort:'very-hard'});
     expect(result.candidate?.type).toBe('easy-endurance');
-    expect(result.candidate?.rationale.designChoices.join(' ')).toContain('ressentie');
+    expect(result.candidate?.rationale.designChoices.join(' ')).toContain('sept jours');
     const plan=coachV2Perspectives(result);
-    expect(plan.map(value=>value.session.type)).toEqual(['easy-endurance','easy-endurance','intervals']);
-    expect('rationale' in plan[2].session&&plan[2].session.rationale.designChoices.join(' ')).not.toContain('ressentie');
+    expect(plan.map(value=>value.session.type)).toEqual(['easy-endurance','easy-endurance','easy-endurance']);
+    // Le ressenti expire bien à J+7 ; l'absence d'activité récente demande alors une réévaluation.
+    expect(result.loadPoliciesByDate?.['2026-10-23'].decisions.structured.status).toBe('review');
+    expect(result.loadPoliciesByDate?.['2026-10-23'].protections.some(value=>value.code==='very-hard-protection')).toBe(false);
+    expect('rationale' in plan[2].session&&plan[2].session.rationale.designChoices.join(' ')).not.toContain('sept jours');
     expect(veryHardFeeling).toEqual(before);
     expect(adaptCoachV2Readonly(veryHardFeeling,date)).toEqual(result);
   });
-  it('conserve sans réécriture une occurrence déjà présentée et compatible',async()=>{
+  it('écarte sans réécriture une occurrence exigeante après un ressenti difficile',async()=>{
     const occurrence=await stored(speed),input={...withFeeling,occurrences:[occurrence]},before=structuredClone(input);
     const result=adaptCoachV2Readonly(input,date),retained=reusableActiveOccurrenceV2(input.occurrences,result,date);
-    expect(retained).toBe(occurrence);expect(retained?.content.type).toBe('intervals');
-    expect(coachV2Perspectives(result,retained)[0].session).toBe(occurrence.content);
+    expect(occurrence.content.type).toBe('intervals');expect(retained).toBeUndefined();
+    expect(coachV2Perspectives(result,occurrence)[0].session.type).toBe('easy-endurance');
     expect(input).toEqual(before);
   });
   it.each([

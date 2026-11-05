@@ -107,7 +107,7 @@ test.describe('consultation V2',()=>{
     expect(await occurrences(page)).toEqual(initial);
   });
 
-  test('renouvelle la suggestion passée seulement au retour et conserve son historique',async({page})=>{
+  test('renouvelle après une activité réelle sans attendre le retour et conserve son historique',async({page})=>{
     const panel=await prepare(page,'2026-10-19T10:00:00Z'),initial=await occurrences(page);
     expect(initial[0].opportunity.suggestedFor).toBe('2026-10-19');
     await page.clock.setSystemTime(new Date('2026-10-19T21:59:59Z'));
@@ -121,8 +121,7 @@ test.describe('consultation V2',()=>{
       storageChanges.committed(input.databaseName,['sessions','profile','configuration','suggestions-v2']);
     },{modules,databaseName});
     await page.clock.runFor(1000);
-    await expect(panel).toContainText('19/10/2026');expect(await occurrences(page)).toEqual(initial);
-    await returnToTab(page);
+    // D2b-2 : une activité réelle invalide immédiatement la carte affichée.
     await expect(panel).toContainText('23/10/2026');
     await expect(panel).toContainText('Prochaine séance conseillée');
     await panel.scrollIntoViewIfNeeded();await expect.poll(()=>count(page)).toBe(2);

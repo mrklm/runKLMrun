@@ -1,8 +1,18 @@
+import { selectContinuityV2,type ContinuityDecisionV2 } from '../continuity-selection-v2';
+import type { RecommendationContinuityV2 } from '../recommendation-continuity-v2';
 import type { CoachTemperament, OptionalSessionFeeling } from '../../../types/evolving-coach';
 import type { PrototypeGoal,PrototypeSession,PrototypeSessionType } from './session-strategies-v2';
 import { validSessionDate } from '../../analysis/session-summary';
+import { applyLoadAdaptationV2,type LoadAdaptationDecisionV2 } from '../load-adaptation-selection-v2';
 
 export interface RecordedActivityEvidence {
+  /** Métadonnées facultatives pour les appelants de simulation historiques.
+   * D1 les transporte seulement : aucun calcul de charge ni règle ne les utilise. */
+  id?:string;
+  durationSeconds?:number;
+  distanceMeters?:number;
+  /** Confirmation positive explicitement liée ; une réponse négative n'a pas de lien d'activité. */
+  confirmedRealization?:{occurrenceId:string;result:'completed'|'partial'};
   date:string;
   /** Présent uniquement si le type provient d'une source fiable indépendante. */
   documentedType?:PrototypeSessionType;
@@ -16,6 +26,7 @@ export interface SessionOrchestratorPolicy {
   longActivityGapDays:number;
 }
 export interface SessionOrchestratorInput {
+  continuity?:RecommendationContinuityV2;
   referenceDate:string;
   goal:PrototypeGoal;
   habitualReferenceSeconds:number|null;
@@ -30,8 +41,11 @@ export interface SessionOrchestratorInput {
   complementaryTo?:readonly Pick<PrototypeSession,'type'|'totalDurationSeconds'|'intensity'|'terrain'>[];
   coachTemperament?:CoachTemperament;
   policy?:SessionOrchestratorPolicy;
+  /** Politique déjà calculée à referenceDate par l'adaptateur applicatif. */
+  loadPolicy?:LoadAdaptationDecisionV2;
 }
 export interface SessionOrchestratorResult {
+  continuityDecision?:ContinuityDecisionV2;
   selected:PrototypeSession|null;
   reason:'selected'|'no-candidate'|'recent-activity'|'very-hard-recovery';
 }
@@ -63,6 +77,7 @@ const tooRecent=(latest:number|undefined,today:number,gap:number)=>latest!==unde
 /** Sélectionne au plus un candidat sans lui attribuer de date future, sans
  * dette et sans considérer les présentations comme des réalisations. */
 export function orchestratePrototypeSession(input:SessionOrchestratorInput):SessionOrchestratorResult {
+  if(input.loadPolicy&&input.loadPolicy.referenceDate!==input.referenceDate)throw new Error('Politique de charge périmée.');
   const today=day(input.referenceDate);
   const policy=input.policy??SESSION_ORCHESTRATOR_EXPERIMENT;
   if(!validSessionDate(input.referenceDate)||!Number.isFinite(today)||!Number.isSafeInteger(input.availabilitySeconds)||input.availabilitySeconds<=0
@@ -79,12 +94,12 @@ export function orchestratePrototypeSession(input:SessionOrchestratorInput):Sess
   const latestStructured=latestDate(input.activities,input.referenceDate,
     value=>value.documentedType!==undefined&&structured(value.documentedType));
   const latestLong=latestDate(input.activities,input.referenceDate,value=>value.documentedType==='long-run');
-  const specialized=candidates.filter(value=>structured(value.type)
+  let specialized=candidates.filter(value=>structured(value.type)
     ? !tooRecent(latestStructured,today,policy.structuredActivityGapDays)
       &&!tooRecent(latestDate(envisaged,input.referenceDate,value=>structured(value.type)),today,policy.structuredActivityGapDays)
     : value.type==='long-run'?!tooRecent(latestLong,today,policy.longActivityGapDays)
       &&!tooRecent(latestDate(envisaged,input.referenceDate,value=>value.type==='long-run'),today,policy.longActivityGapDays):false);
-  const easy=candidates.find(value=>!structured(value.type)&&value.type!=='long-run');
+  let easy=candidates.find(value=>!structured(value.type)&&value.type!=='long-run');
   const veryHard=input.activities.filter(value=>value.effort==='very-hard'
     &&value.date<=input.referenceDate&&today-day(value.date)<FEELING_PREFERENCE_WINDOW_DAYS)
     .sort((a,b)=>b.date.localeCompare(a.date))[0];
@@ -92,7 +107,16 @@ export function orchestratePrototypeSession(input:SessionOrchestratorInput):Sess
   // très difficile ne permet pas de conserver une option exigeante faute de facile.
   if(veryHard&&!easy)return {selected:null,reason:'very-hard-recovery'};
   // Classement après les filtres sportifs communs ; aucun candidat supplémentaire.
-  const admissible=candidates.filter(value=>specialized.includes(value)||!structured(value.type)&&value.type!=='long-run');
+  const admissible=applyLoadAdaptationV2(candidates.filter(value=>specialized.includes(value)||!structured(value.type)&&value.type!=='long-run'),
+    input.loadPolicy,input.habitualReferenceSeconds);
+  const finish=(selected:PrototypeSession):SessionOrchestratorResult=>{
+    if(!input.continuity)return {selected,reason:'selected'};
+    const choice=selectContinuityV2({selected,candidates:admissible,memory:input.continuity,date:input.referenceDate});
+    return {selected:{...choice.selected,rationale:{...choice.selected.rationale,
+      designChoices:[...choice.selected.rationale.designChoices,...choice.decision.reasons]}},reason:'selected',continuityDecision:choice.decision};
+  };
+  specialized=specialized.filter(value=>admissible.includes(value));
+  easy=admissible.find(value=>!structured(value.type)&&value.type!=='long-run');
   const baseline=easy??specialized[0]??null;
   let selected=baseline;
   const temperament=input.coachTemperament??'pas-a-pas';
@@ -116,13 +140,13 @@ export function orchestratePrototypeSession(input:SessionOrchestratorInput):Sess
   const difficult=input.activities.filter(value=>(value.effort==='hard'||value.effort==='very-hard')
     &&value.date<=input.referenceDate&&today-day(value.date)<FEELING_PREFERENCE_WINDOW_DAYS)
     .sort((a,b)=>b.date.localeCompare(a.date)||(a.effort===b.effort?0:a.effort==='very-hard'?-1:1))[0];
-  // Préférence seulement : ne crée aucun candidat, ne change aucun seuil et
-  // ne retire pas l'admissibilité d'une occurrence déjà présentée.
+  const difficultExplanation=difficult
+    ?`Séance facile privilégiée plutôt qu’une séance exigeante : la course du ${difficult.date.split('-').reverse().join('/')} a été ressentie comme ${difficult.effort==='very-hard'?'très difficile':'difficile'}, dans la fenêtre de sept jours examinée.`
+    :undefined;
+  // Repli historique sans politique de charge : préférence seulement, sans nouveau seuil.
   if(selected&&selected!==easy&&easy&&difficult){
-    const label=difficult.effort==='very-hard'?'très difficile':'difficile';
-    return {reason:'selected',selected:{...easy,rationale:{...easy.rationale,
-      designChoices:[...easy.rationale.designChoices,
-        `Séance facile privilégiée plutôt qu’une séance exigeante : la course du ${difficult.date.split('-').reverse().join('/')} a été ressentie comme ${label}, dans la fenêtre de sept jours examinée.`]}}};
+    return finish({...easy,rationale:{...easy.rationale,
+      designChoices:[...easy.rationale.designChoices,difficultExplanation!]}});
   }
   if(selected&&selected!==baseline){
     const explanation=temperament==='evolution-active'
@@ -136,5 +160,10 @@ export function orchestratePrototypeSession(input:SessionOrchestratorInput):Sess
         : 'Rentre dedans : durée la plus haute parmi les séances admissibles.';
     selected={...selected,rationale:{...selected.rationale,designChoices:[...selected.rationale.designChoices,explanation]}};
   }
-  return selected?{selected,reason:'selected'}:{selected:null,reason:'no-candidate'};
+  if(selected&&input.loadPolicy&&(input.loadPolicy.decisions.preference!=='unchanged')){
+    const explanations=input.loadPolicy.reasons.map(value=>value.code==='difficult-effort'&&difficultExplanation?difficultExplanation:value.explanation);
+    if(explanations.length)selected={...selected,rationale:{...selected.rationale,
+      designChoices:[...selected.rationale.designChoices,...explanations]}};
+  }
+  return selected?finish(selected):{selected:null,reason:'no-candidate'};
 }

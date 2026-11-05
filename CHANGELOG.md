@@ -1,5 +1,13 @@
 # Historique des versions
 
+## v1.1.0 — 2026-11-05 — Charge récente et continuité du Coach V2
+
+- Analyse de la charge d’entraînement récente et adaptation des recommandations aux efforts réellement effectués et au ressenti déclaré.
+- Prise en compte des séances confirmées comme complètes, partielles ou non réalisées, sans assimiler une réalisation partielle à un échec ni une non-réalisation à un entraînement.
+- Continuité améliorée entre recommandations : limitation des répétitions mécaniques lorsqu’une alternative comparable est admissible, avec motifs explicites.
+- Réévaluation des recommandations actives et des perspectives après correction des activités ou des bilans, en conservant l’historique et les délais existants.
+- Règles expérimentales d’aide au choix, sans progression automatique ni garantie médicale ou physiologique.
+
 ## v1.0.2 — 2026-10-31 — Libellés des chaussures simplifiés
 
 - Suppression du libellé « Normal » ; « Paire actuelle » réservé à la paire courante parmi plusieurs paires. Kilométrage et indication « Limite atteinte » conservés.

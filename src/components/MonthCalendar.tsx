@@ -22,11 +22,12 @@ export function MonthCalendar({ sessions, today }: { sessions: RunningSession[];
     let generation = 0;
     const refresh = () => {
       const current = ++generation;
+      setProjectionV2(undefined);
       void readCoachV2Projection(database).then(projection => {
         if (current === generation) { setProjectionV2(projection); setError(false); }
       }).catch(() => { if (current === generation) setError(true); });
     };
-    const unsubscribe = subscribeStorage(['suggestions-v2', 'sessions'], refresh, database);
+    const unsubscribe = subscribeStorage(['suggestions-v2', 'sessions', 'feelings', 'profile', 'configuration'], refresh, database);
     window.addEventListener('focus', refresh);
     refresh();
     return () => { generation++; unsubscribe(); window.removeEventListener('focus', refresh); };

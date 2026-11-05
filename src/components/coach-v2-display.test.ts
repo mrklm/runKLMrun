@@ -51,7 +51,7 @@ it('ne crée ni référence mesurée ni justification de terrain absente pour un
 it('conserve les motifs et incertitudes du fractionné sans lui attribuer les raisons de la séance facile',()=>{
  const source=snapshot();source.configuration!.goal={model:'evolving',kind:'speed'};
  source.sessions=['2026-10-01','2026-10-04','2026-10-07','2026-10-10','2026-10-13','2026-10-16']
-  .map((date,i)=>({id:String(i),date,title:'Course',sport:'RUNNING',durationSeconds:3600}));
+  .map((date,i)=>({id:String(i),date,title:'Course',sport:'RUNNING',durationSeconds:3600,trainingType:'easy-endurance',feeling:{effort:'moderate'}}));
  const result=adaptCoachV2Readonly({...source,coachTemperament:'rentre-dedans'},date),display=coachV2Explanation(result);
  expect(result.candidate?.type).toBe('intervals');
  expect(display.reasons).toEqual(expect.arrayContaining(result.candidate!.rationale.designChoices));

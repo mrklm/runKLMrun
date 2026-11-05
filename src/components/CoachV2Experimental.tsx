@@ -2,8 +2,9 @@ import { useEffect,useRef,useState,type ReactNode } from 'react';
 import { localToday } from '../core/analysis/statistics-period';
 import { formatCoachDuration } from './coach-duration-format';
 import { readCoachV2Projection } from './coach-v2-projection';
-import { coachV2Perspectives, type CoachV2Perspective } from '../core/coach/perspectives-v2';
-import { CoachV2TemperamentChanged,presentCoachV2Selection } from '../storage/coach-suggestions-v2';
+import type { CoachV2Perspective } from '../core/coach/perspectives-v2';
+import { CoachV2SelectionChanged,CoachV2TemperamentChanged,presentCoachV2Selection } from '../storage/coach-suggestions-v2';
+import { subscribeStorage } from '../storage/changes';
 import { civilDate,ianaTimeZone,instantIso,type PersistableOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
 import type { CoachV2ReadonlyResult } from '../core/coach/application-adapter-v2';
 import { coachV2Enabled } from '../core/coach/activation-v2';
@@ -31,6 +32,21 @@ export function CoachV2Experimental() {
   const enabled=coachV2Enabled(),cardRef=useRef<HTMLElement>(null),attemptedRef=useRef('');
   const [view,setView]=useState<View>(),[loadError,setLoadError]=useState(''),[presentationError,setPresentationError]=useState('');
   const [busy,setBusy]=useState(false),[refresh,setRefresh]=useState(0),[retry,setRetry]=useState(0);
+  const pendingPresentations=useRef(0);
+  useEffect(()=>{
+    if(!enabled)return;
+    const invalidate=()=>{
+      if(document.visibilityState==='hidden')return;
+      attemptedRef.current='';setView(undefined);setRefresh(value=>value+1);
+    };
+    const sources=subscribeStorage(['sessions','feelings','profile','configuration'],invalidate,database);
+    const occurrences=subscribeStorage(['suggestions-v2'],()=>{
+      // La présentation en cours relit déjà la projection après son commit.
+      // Ne pas démonter sa carte à cause de sa propre notification.
+      if(!pendingPresentations.current)invalidate();
+    },database);
+    return()=>{sources();occurrences();};
+  },[database,enabled]);
   useEffect(()=>{
     if(!enabled)return;
     let wasHidden=document.visibilityState==='hidden';
@@ -39,7 +55,7 @@ export function CoachV2Experimental() {
       if(!wasHidden)return;
       wasHidden=false;setRefresh(value=>value+1);
     };
-    // Les changements de stockage sont relus à la consultation, sans renouvellement en arrière-plan.
+    // Les changements reçus pendant que la page est masquée sont relus à la consultation.
     document.addEventListener('visibilitychange',consult);
     return()=>document.removeEventListener('visibilitychange',consult);
   },[enabled]);
@@ -52,17 +68,19 @@ export function CoachV2Experimental() {
     ?`${result.temporalAnchor ?? 'missing'}:${date}:${JSON.stringify(result.declarations.goal)}`:'';
   useEffect(()=>{const card=cardRef.current;if(!enabled||!card||!result||!session||!date||occurrence||!presentationKey)return;
     if(attemptedRef.current===`${presentationKey}:${retry}`)return;
-    return watchSuggestionPresentation(card,stillVisible=>{if(!stillVisible())return;attemptedRef.current=`${presentationKey}:${retry}`;setBusy(true);setPresentationError('');
+    return watchSuggestionPresentation(card,stillVisible=>{if(!stillVisible())return;attemptedRef.current=`${presentationKey}:${retry}`;pendingPresentations.current++;setBusy(true);setPresentationError('');
       const now=new Date();void presentCoachV2Selection({result,referenceDate:civilDate(localToday()),moment:{presentedAt:instantIso(now.toISOString()),
         presentedOn:civilDate(localToday()),timeZone:ianaTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone),utcOffsetMinutes:-now.getTimezoneOffset(),civilDateRule:'device-local-at-presentation'},
         provenance:{engine:'coach-v2',contractVersion:1,referenceConfidence:result.reference.confidence==='confirmed'?'confirmed':'provisional',
-          referenceSourceIds:[...result.reference.sourceIds],limitationCodes:[]}},database).then(stored=>{
-            if(stillVisible())setView({result,occurrence:stored.occurrence,perspectives:coachV2Perspectives(result,stored.occurrence),
-              ...(stored.status==='created'?{freshExplanation:coachV2Explanation(result)}:{})});
+          referenceSourceIds:[...result.reference.sourceIds],limitationCodes:[]}},database).then(async stored=>{
+            if(!stillVisible())return;
+            const projection=await readCoachV2Projection(database);
+            if(stillVisible())setView({...projection,
+              ...(stored.status==='created'?{freshExplanation:coachV2Explanation(projection.result)}:{})});
           }).catch(error=>{
-            if(error instanceof CoachV2TemperamentChanged){attemptedRef.current='';setRefresh(value=>value+1);}
+            if(error instanceof CoachV2TemperamentChanged||error instanceof CoachV2SelectionChanged){attemptedRef.current='';setView(undefined);setRefresh(value=>value+1);}
             else setPresentationError('La suggestion est affichée, mais elle n’a pas pu être mémorisée.');
-          }).finally(()=>setBusy(false));
+          }).finally(()=>{pendingPresentations.current--;setBusy(false);});
     },{title:'[data-presentation-title]',summary:'[data-presentation-summary]'});
   },[database,enabled,result,session,date,occurrence,presentationKey,retry]);
   if(!enabled)return null;

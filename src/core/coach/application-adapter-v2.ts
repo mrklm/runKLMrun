@@ -1,3 +1,5 @@
+import type { ContinuityDecisionV2 } from './continuity-selection-v2';
+import { buildRecommendationContinuityV2,type RecommendationContinuityV2 } from './recommendation-continuity-v2';
 import type { CoachProfileValues,Weekday } from '../../types/coach-profile';
 import type { CoachTemperament, EvolvingCoachValues } from '../../types/evolving-coach';
 import type { RunningSession } from '../../types/session';
@@ -10,6 +12,10 @@ import { applyAssociationContributionPolicy } from './simulation/association-pol
 import { EXPERIMENTAL_REFERENCE_PARAMETERS,type ReferenceObservation } from './simulation/habitual-reference-v2';
 import { habitualReferenceValidityV2 } from './simulation/reference-validity-v2';
 import { orchestratePrototypeSession,type SessionOrchestratorResult,type RecordedActivityEvidence } from './simulation/session-orchestrator-v2';
+import { recordedActivityEvidenceV2 } from './activity-evidence-v2';
+import { analyzeRecentLoadV2 } from './recent-load-v2';
+import { interpretRecentLoadV2 } from './load-adaptation-policy-v2';
+import { applyLoadAdaptationV2,type LoadAdaptationDecisionV2 } from './load-adaptation-selection-v2';
 import type { PrototypeSession,PrototypeSessionType } from './simulation/session-strategies-v2';
 import { validSessionDate } from '../analysis/session-summary';
 import { resolveCoachV2Reference,type CoachV2Reference } from './local-reference-v2';
@@ -26,6 +32,8 @@ export interface CoachV2ApplicationSnapshot {
   documentedActivityTypes?:Readonly<Record<string,PrototypeSessionType|undefined>>;
 }
 export interface CoachV2ReadonlyResult {
+  continuity?:RecommendationContinuityV2;
+  continuityDecisionsByDate?:Record<string,ContinuityDecisionV2>;
   coachTemperament:CoachTemperament;
   mode:'v2-readonly';reference:ReferenceBootstrapResult;catalog:ExperimentalCatalogV2Result;
   candidate:PrototypeSession|null;
@@ -38,6 +46,8 @@ export interface CoachV2ReadonlyResult {
   admissibleSessionsByDate:Record<string,PrototypeSession[]>;
   /** Activités réelles connues à la consultation, avec ressenti facultatif, jamais persistées ici. */
   activityEvidence:RecordedActivityEvidence[];
+  /** Décisions par date, en mémoire seulement ; absent dans les anciennes simulations. */
+  loadPoliciesByDate?:Record<string,LoadAdaptationDecisionV2>;
 }
 
 const DAY=86400000,day=(value:string)=>Date.parse(`${value}T00:00:00Z`)/DAY;
@@ -147,7 +157,7 @@ function profileForDate(profile:CoachProfileValues|undefined,maximumSeconds:numb
 
 /** Pipeline applicatif pur : recherche le premier jour admissible dans sept jours
  * civils, avec son plafond propre. Il ne crée ni identité, génération, présentation ou écriture. */
-export function adaptCoachV2Readonly(snapshot:CoachV2ApplicationSnapshot,referenceTime:CoachV2Reference):CoachV2ReadonlyResult {
+export function adaptCoachV2Readonly(snapshot:CoachV2ApplicationSnapshot,referenceTime:CoachV2Reference,continuity?:RecommendationContinuityV2):CoachV2ReadonlyResult {
   const {date:referenceDate,minuteOfDay}=resolveCoachV2Reference(referenceTime);
   const reference=habitualReferenceFromOccurrencesV2(snapshot,referenceDate);
   // Une association établit un lien, jamais la réalisation du type conseillé.
@@ -155,7 +165,6 @@ export function adaptCoachV2Readonly(snapshot:CoachV2ApplicationSnapshot,referen
     const date=matchingDate(session),type=session.trainingType??snapshot.documentedActivityTypes?.[session.id];
     return date!==undefined&&date<=referenceDate&&type?[[session.id,type]]:[];
   }));
-  const activityType=(id:string)=>reliableActivityTypes[id];
   let catalog=proposeExperimentalCatalogFromReferenceV2({sessions:snapshot.sessions,reference,
     referenceDate,configuration:snapshot.configuration,historicalProfile:snapshot.profile,documentedActivityTypes:reliableActivityTypes});
   const facts={sessionIds:snapshot.sessions.flatMap(session=>matchingDate(session)?[session.id]:[]),
@@ -164,15 +173,11 @@ export function adaptCoachV2Readonly(snapshot:CoachV2ApplicationSnapshot,referen
   const uncertainties=['Une sélection calculée ne constitue ni une consultation enregistrée ni une présentation effective.'];
   if(!snapshot.sessions.some(session=>session.trainingType!==undefined)&&!snapshot.documentedActivityTypes)
     uncertainties.push('Aucun type de séance fiable n’est renseigné sur les activités réelles.');
-  const activities:RecordedActivityEvidence[]=snapshot.sessions.flatMap(session=>{
-    const date=matchingDate(session);if(!date)return [];
-    const documentedType=activityType(session.id);
-    // Une activité datée après la consultation ne fournit pas encore de ressenti exploitable.
-    const effort=date<=referenceDate?session.feeling?.effort:undefined;
-    return [{date,...(documentedType?{documentedType}:{}),...(effort?{effort}:{})}];
-  });
+  const activities=recordedActivityEvidenceV2(snapshot,referenceDate);
   const admissibleSessionsByDate:Record<string,PrototypeSession[]>={};
-  const temporalAnchor=temporalAnchorFromSnapshotV2(snapshot,referenceDate),base={coachTemperament:snapshot.coachTemperament??'pas-a-pas',mode:'v2-readonly' as const,reference,facts,declarations,uncertainties,admissibleSessionsByDate,activityEvidence:activities};
+  const continuityDecisionsByDate:Record<string,ContinuityDecisionV2>={};
+  const loadPoliciesByDate:Record<string,LoadAdaptationDecisionV2>={};
+  const temporalAnchor=temporalAnchorFromSnapshotV2(snapshot,referenceDate),base={continuity,continuityDecisionsByDate,coachTemperament:snapshot.coachTemperament??'pas-a-pas',mode:'v2-readonly' as const,reference,facts,declarations,uncertainties,admissibleSessionsByDate,activityEvidence:activities,loadPoliciesByDate};
   if(!temporalAnchor)return {...base,catalog,candidate:null,reason:'missing-temporal-anchor',selectedDate:null,
     dailyMaximumSeconds:null,temporalAnchor:null,temporalAnchorReason:'Aucune activité ou présentation V2 persistée ne fournit une ancre fiable.'};
   const presented=snapshot.occurrences.filter(value=>value.presentation.presentedOn<=referenceDate)
@@ -181,14 +186,19 @@ export function adaptCoachV2Readonly(snapshot:CoachV2ApplicationSnapshot,referen
   const catalogForDate=(date:string,maximumSeconds:number)=>{
     let value=catalogs.get(date);
     if(!value){
+      const loadReference=date===referenceDate?reference:habitualReferenceFromOccurrencesV2(snapshot,date);
+      const policy=interpretRecentLoadV2(analyzeRecentLoadV2({activities,reference:loadReference,referenceDate:date}));
+      loadPoliciesByDate[date]=policy;
       value=proposeExperimentalCatalogFromReferenceV2({sessions:snapshot.sessions,reference,referenceDate:date,
         configuration:snapshot.configuration,historicalProfile:profileForDate(snapshot.profile,maximumSeconds),
         documentedActivityTypes:reliableActivityTypes});
       catalogs.set(date,value);
       const input=value.adaptedInput;
-      admissibleSessionsByDate[date]=input?value.sessions.filter(candidate=>orchestratePrototypeSession({
+      const sportingCandidates=input?value.sessions.filter(candidate=>orchestratePrototypeSession({
         referenceDate:date,goal:input.goal,habitualReferenceSeconds:input.habitualReferenceSeconds,
         availabilitySeconds:maximumSeconds,candidates:[candidate],activities,presented}).selected!==null):[];
+      // La préférence facile se juge sur l'ensemble, jamais sur un exigeant isolé.
+      admissibleSessionsByDate[date]=applyLoadAdaptationV2(sportingCandidates,policy,reference.referenceSeconds);
     }
     return value;
   };
@@ -213,7 +223,9 @@ export function adaptCoachV2Readonly(snapshot:CoachV2ApplicationSnapshot,referen
     cataloguedDates++;
     const orchestrated=orchestratePrototypeSession({referenceDate:selectedDate,goal:catalog.adaptedInput.goal,
       habitualReferenceSeconds:catalog.adaptedInput.habitualReferenceSeconds,availabilitySeconds:maximumSeconds,
-      candidates:catalog.sessions,activities,presented,coachTemperament:snapshot.coachTemperament});
+      candidates:catalog.sessions,activities,presented,coachTemperament:snapshot.coachTemperament,
+      continuity,loadPolicy:loadPoliciesByDate[selectedDate]});
+    if(orchestrated.continuityDecision)continuityDecisionsByDate[selectedDate]=orchestrated.continuityDecision;
     if(orchestrated.reason==='very-hard-recovery'&&!veryHardRecoveryDate)veryHardRecoveryDate=selectedDate;
     if(orchestrated.selected&&!first){
       const candidate=veryHardRecoveryDate?{...orchestrated.selected,rationale:{...orchestrated.selected.rationale,designChoices:[
@@ -227,4 +239,9 @@ export function adaptCoachV2Readonly(snapshot:CoachV2ApplicationSnapshot,referen
   if(first)return first;
   const reason=availableDates===0?'no-available-date':cataloguedDates===0?'catalog-unavailable':'no-admissible-date';
   return {...base,catalog,candidate:null,reason,selectedDate:null,dailyMaximumSeconds:null,temporalAnchor,temporalAnchorReason:null};
+}
+
+/** Frontière asynchrone : authentifier D3b une fois avant la sélection pure. */
+export async function adaptCoachV2WithContinuity(snapshot:CoachV2ApplicationSnapshot,reference:CoachV2Reference):Promise<CoachV2ReadonlyResult> {
+  return adaptCoachV2Readonly(snapshot,reference,await buildRecommendationContinuityV2(snapshot));
 }

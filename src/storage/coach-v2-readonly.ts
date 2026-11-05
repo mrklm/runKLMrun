@@ -1,6 +1,6 @@
 import { resolveCoachTemperament, validateEvolvingCoachRecord } from '../core/coach/configuration';
 import type { CoachV2ApplicationSnapshot,CoachV2ReadonlyResult } from '../core/coach/application-adapter-v2';
-import { adaptCoachV2Readonly } from '../core/coach/application-adapter-v2';
+import { adaptCoachV2WithContinuity } from '../core/coach/application-adapter-v2';
 import { validateOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
 import { validateProfile } from '../core/coach/profile';
 import { DATABASE_NAME,openDatabase } from './database-connection';
@@ -28,5 +28,5 @@ export async function readCoachV2Snapshot(name=DATABASE_NAME):Promise<CoachV2App
 
 /** Lecture + calcul seulement. Aucun appel à un dépôt d'écriture. */
 export async function calculateCoachV2Readonly(referenceTime:CoachV2Reference,name=DATABASE_NAME):Promise<CoachV2ReadonlyResult> {
-  return adaptCoachV2Readonly(await readCoachV2Snapshot(name),referenceTime);
+  return adaptCoachV2WithContinuity(await readCoachV2Snapshot(name),referenceTime);
 }
