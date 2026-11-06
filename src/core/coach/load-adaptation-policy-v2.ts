@@ -1,5 +1,5 @@
 import type { analyzeRecentLoadV2 } from './recent-load-v2';
-import { FEELING_PREFERENCE_WINDOW_DAYS,SESSION_ORCHESTRATOR_EXPERIMENT } from './simulation/session-orchestrator-v2';
+import { evaluateRecoveryV2 } from './recovery-policy-v2';
 
 export type RecentLoadAnalysisV2=ReturnType<typeof analyzeRecentLoadV2>;
 type Activity=RecentLoadAnalysisV2['activities'][number];
@@ -25,12 +25,6 @@ export interface LoadProtectionV2 {
   notBefore:string;
   activityIds:string[];
 }
-const DAY=86_400_000;
-const day=(date:string)=>Date.parse(`${date}T00:00:00Z`)/DAY;
-const addDays=(date:string,count:number)=>new Date((day(date)+count)*DAY).toISOString().slice(0,10);
-const structured=(value:Activity)=>value.documentedType!==null
-  &&['intervals','steady-run','hills','endurance-variations'].includes(value.documentedType);
-
 /** Politique pure D2b-1, appliquée par l'adaptateur depuis D2b-2. Entrée : résultat de D2a à la
  * date examinée, jamais un agrégat modifié ou calculé pour une autre date.
  * Les protections existantes forment un plancher séparé des préférences.
@@ -41,22 +35,11 @@ export function interpretRecentLoadV2(load:RecentLoadAnalysisV2) {
   const {last3Days:w3,last7Days:w7,last14Days:w14}=load.windows;
   const recent=rows.filter(value=>value.date>=w7.from);
   const recent14=rows.filter(value=>value.date>=w14.from);
-  const reasons:LoadPolicyReasonV2[]=[],protections:LoadProtectionV2[]=[];
-  const floors=SESSION_ORCHESTRATOR_EXPERIMENT;
-  const protect=(code:LoadProtectionV2['code'],scope:LoadProtectionV2['scope'],days:number,
-    values:Activity[],explanation:string)=>{
-    const active=values.filter(value=>day(today)-day(value.date)<days);
-    if(!active.length)return;
-    const notBefore=active.map(value=>addDays(value.date,days)).sort().at(-1)!;
-    const activityIds=active.map(value=>value.id);
-    protections.push({code,scope,days,notBefore,activityIds});
-    reasons.push({code,source:'existing-protection',activityIds:[...activityIds],explanation});
-  };
-  protect('minimum-rest','all',floors.minimumDaysAfterActivity,rows,'Deux jours civils minimum après toute activité réelle, même sans durée.');
-  protect('structured-gap','structured',floors.structuredActivityGapDays,rows.filter(structured),'Espacement existant de quatorze jours après un type structuré déclaré.');
-  protect('long-run-gap','long-run',floors.longActivityGapDays,rows.filter(value=>value.documentedType==='long-run'),'Espacement existant de dix jours après une sortie longue déclarée.');
-  protect('very-hard-protection','demanding',FEELING_PREFERENCE_WINDOW_DAYS,rows.filter(value=>value.effort==='very-hard'),
-    'Pendant sept jours, privilégier le facile ; sans option facile admissible, aucune séance exigeante.');
+  const recovery=evaluateRecoveryV2({referenceDate:today,activities:rows});
+  const protections:LoadProtectionV2[]=recovery.protections.map(value=>({code:value.code,scope:value.scope,days:value.days,
+    notBefore:value.notBefore,activityIds:value.sources.flatMap(source=>source.kind==='activity'&&source.id?[source.id]:[])}));
+  const reasons:LoadPolicyReasonV2[]=recovery.protections.map((value,index)=>({code:value.code,source:'existing-protection',
+    activityIds:[...protections[index].activityIds],explanation:value.explanation}));
 
   const gaps:{code:LoadPolicyGapCode;activityIds:string[]}[]=[];
   const gap=(code:LoadPolicyGapCode,values:Activity[])=>gaps.push({code,activityIds:values.map(value=>value.id)});
@@ -83,9 +66,9 @@ export function interpretRecentLoadV2(load:RecentLoadAnalysisV2) {
   const concentrated=w3.activityCount>1;
   const aboveHabitual=confirmed?recent.filter(value=>value.relativeDuration!==null&&value.relativeDuration>1):[];
   const concentratedAbove=aboveHabitual.filter(value=>value.date>=w3.from);
-  const difficult=recent.filter(value=>value.effort==='hard'||value.effort==='very-hard');
-  if(difficult.length)reasons.push({code:'difficult-effort',source:'existing-protection',activityIds:difficult.map(value=>value.id),
-    explanation:'Ressenti difficile dans la fenêtre existante de sept jours : préférer une option facile admissible.'});
+  const difficult=recovery.preference.sources;
+  if(difficult.length)reasons.push({code:'difficult-effort',source:'existing-protection',activityIds:difficult.flatMap(value=>value.id?[value.id]:[]),
+    explanation:recovery.preference.explanation});
   // Une simple différence positive n'est pas un seuil de surcharge. La nouvelle
   // préférence exige une concentration observée et un second fait concordant.
   const durationPreference=concentrated&&concentratedAbove.length>0&&!excludedData;
@@ -98,9 +81,8 @@ export function interpretRecentLoadV2(load:RecentLoadAnalysisV2) {
     explanation:'Données insuffisantes pour justifier une intensification ; réévaluer sans inventer de charge ni de date de récupération.'});
   const recoveryPreference=difficult.length>0||durationPreference||volumePreference;
   const gate=(scope:'all'|'structured'|'long-run'):LoadPolicyGateV2=>{
-    const dates=protections.filter(value=>value.scope==='all'||value.scope===scope||scope!=='all'&&value.scope==='demanding')
-      .map(value=>value.notBefore).sort();
-    const notBefore=dates.at(-1)??null;
+    const decision=scope==='all'?recovery.gates.all:scope==='structured'?recovery.gates.structured:recovery.gates.longRun;
+    const notBefore=decision.notBefore;
     return {status:notBefore?'defer':excludedData||scope!=='all'&&gaps.length?'review':'baseline-only',notBefore};
   };
   return {

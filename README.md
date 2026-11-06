@@ -1,4 +1,4 @@
-# runKLMrun — v1.1.0
+# runKLMrun — v1.1.1
 
 Application web gratuite et open source de suivi
 et de planification des entraînements de course à pied. Interface en français, responsive, sans compte,

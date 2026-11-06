@@ -1,5 +1,11 @@
 # Historique des versions
 
+## v1.1.1 — 2026-11-06 — Consolidation du Coach V2
+
+- Consolidation des protections du Coach V2, sans modification des délais.
+- Validation renforcée avant mémorisation et remplacement des recommandations.
+- Études de récupération adaptative conservées hors de l’application, sans activation des délais expérimentaux.
+
 ## v1.1.0 — 2026-11-05 — Charge récente et continuité du Coach V2
 
 - Analyse de la charge d’entraînement récente et adaptation des recommandations aux efforts réellement effectués et au ressenti déclaré.

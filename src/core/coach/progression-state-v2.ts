@@ -2,7 +2,7 @@ import type { RunningSession } from '../../types/session';
 import { intervalIntroductionEvidence } from './catalog-integration-v2';
 import type { ReferenceBootstrapResult } from './reference-bootstrap-v2';
 import { habitualReferenceV2 } from './simulation/habitual-reference-v2';
-import { FEELING_PREFERENCE_WINDOW_DAYS } from './simulation/session-orchestrator-v2';
+import { evaluateRecoveryV2 } from './recovery-policy-v2';
 import { matchingDate } from './suggestion-matching';
 
 export type CoachV2ProgressionState='maintien'|'progression-possible'|'recuperation';
@@ -24,8 +24,9 @@ export function coachV2ProgressionState(input:{sessions:readonly RunningSession[
     const date=matchingDate(session);
     return date!==undefined&&date<=input.referenceDate?[{session,date}]:[];
   });
-  const veryHard=activities.some(({session,date})=>session.feeling?.effort==='very-hard'
-    &&day(input.referenceDate)-day(date)<FEELING_PREFERENCE_WINDOW_DAYS);
+  const recovery=evaluateRecoveryV2({referenceDate:input.referenceDate,activities:activities.map(({session,date})=>({
+    id:session.id,date,documentedType:session.trainingType,effort:session.feeling?.effort}))});
+  const veryHard=recovery.protections.some(value=>value.code==='very-hard-protection');
   const observations=new Map<string,{id:string;date:string;durationSeconds:number;role:'independent-unknown'}>();
   for(const {session,date} of activities)if(Number.isSafeInteger(session.durationSeconds)&&session.durationSeconds>0) {
     const value={id:session.id,date,durationSeconds:session.durationSeconds,role:'independent-unknown' as const},previous=observations.get(session.id);
@@ -34,8 +35,7 @@ export function coachV2ProgressionState(input:{sessions:readonly RunningSession[
   const referenceHistory=habitualReferenceV2([...observations.values()],input.referenceDate);
   const regularity=intervalIntroductionEvidence(input.sessions,input.referenceDate);
   const recentFeelings=activities.filter(({date})=>day(input.referenceDate)-day(date)<28);
-  const unfavorable=recentFeelings.some(({session,date})=>(session.feeling?.effort==='hard'||session.feeling?.effort==='very-hard')
-    &&day(input.referenceDate)-day(date)<FEELING_PREFERENCE_WINDOW_DAYS);
+  const unfavorable=recovery.preference.status==='prefer-easy';
   const favorableWeeks=new Set(recentFeelings.flatMap(({session,date})=>session.feeling?.effort==='easy'||session.feeling?.effort==='moderate'
     ?[Math.floor((day(input.referenceDate)-day(date))/7)]:[]));
   // La régularité existante et deux semaines distinctes empêchent qu’un seul

@@ -1,3 +1,4 @@
+import { evaluateRecoveryV2,RECOVERY_TIMING_V2 as SESSION_ORCHESTRATOR_EXPERIMENT,isStructuredRecoveryTypeV2 as structured,type RecoveryTimingV2 } from '../recovery-policy-v2';
 import { selectContinuityV2,type ContinuityDecisionV2 } from '../continuity-selection-v2';
 import type { RecommendationContinuityV2 } from '../recommendation-continuity-v2';
 import type { CoachTemperament, OptionalSessionFeeling } from '../../../types/evolving-coach';
@@ -20,11 +21,7 @@ export interface RecordedActivityEvidence {
   effort?:OptionalSessionFeeling['effort'];
 }
 export interface PresentedSessionEvidence { date:string;type:PrototypeSessionType }
-export interface SessionOrchestratorPolicy {
-  minimumDaysAfterActivity:number;
-  structuredActivityGapDays:number;
-  longActivityGapDays:number;
-}
+export type SessionOrchestratorPolicy=RecoveryTimingV2;
 export interface SessionOrchestratorInput {
   continuity?:RecommendationContinuityV2;
   referenceDate:string;
@@ -51,16 +48,9 @@ export interface SessionOrchestratorResult {
 }
 
 /** Choix éditoriaux expérimentaux, sans valeur physiologique universelle. */
-export const SESSION_ORCHESTRATOR_EXPERIMENT:Readonly<SessionOrchestratorPolicy>=Object.freeze({
-  minimumDaysAfterActivity:2,
-  structuredActivityGapDays:14,
-  longActivityGapDays:10,
-});
-/** Fenêtre éditoriale temporaire, pas une estimation physiologique de récupération. */
-export const FEELING_PREFERENCE_WINDOW_DAYS=7;
+export { RECOVERY_TIMING_V2 as SESSION_ORCHESTRATOR_EXPERIMENT,FEELING_PREFERENCE_WINDOW_DAYS } from '../recovery-policy-v2';
 const DAY=86400000;
 const day=(value:string)=>Date.parse(`${value}T00:00:00Z`)/DAY;
-const structured=(type:PrototypeSessionType)=>type==='intervals'||type==='steady-run'||type==='hills'||type==='endurance-variations';
 // Pertinence éditoriale uniquement : aucun effet sur les preuves ou les filtres.
 const goalPriority=(goal:PrototypeGoal,type:PrototypeSessionType)=>{
   const order:readonly PrototypeSessionType[]=goal==='speed'
@@ -70,10 +60,6 @@ const goalPriority=(goal:PrototypeGoal,type:PrototypeSessionType)=>{
   const index=order.indexOf(type);
   return index<0?order.length:index;
 };
-const latestDate=(values:readonly {date:string}[],referenceDate:string,predicate:((value:any)=>boolean)=()=>true)=>
-  values.filter(value=>value.date<=referenceDate&&predicate(value)).map(value=>day(value.date)).sort((a,b)=>b-a)[0];
-const tooRecent=(latest:number|undefined,today:number,gap:number)=>latest!==undefined&&today-latest<gap;
-
 /** Sélectionne au plus un candidat sans lui attribuer de date future, sans
  * dette et sans considérer les présentations comme des réalisations. */
 export function orchestratePrototypeSession(input:SessionOrchestratorInput):SessionOrchestratorResult {
@@ -88,21 +74,13 @@ export function orchestratePrototypeSession(input:SessionOrchestratorInput):Sess
   const candidates=input.candidates.filter(value=>value.totalDurationSeconds<=input.availabilitySeconds);
   if(!candidates.length) return {selected:null,reason:'no-candidate'};
   const envisaged=input.envisaged??[];
-  if(tooRecent(latestDate(input.activities,input.referenceDate),today,policy.minimumDaysAfterActivity)
-    ||tooRecent(latestDate(envisaged,input.referenceDate),today,policy.minimumDaysAfterActivity))
-    return {selected:null,reason:'recent-activity'};
-  const latestStructured=latestDate(input.activities,input.referenceDate,
-    value=>value.documentedType!==undefined&&structured(value.documentedType));
-  const latestLong=latestDate(input.activities,input.referenceDate,value=>value.documentedType==='long-run');
+  const recovery=evaluateRecoveryV2({referenceDate:input.referenceDate,activities:input.activities,intentions:envisaged,parameters:policy});
+  if(recovery.spacing.all.status==='deferred')return {selected:null,reason:'recent-activity'};
   let specialized=candidates.filter(value=>structured(value.type)
-    ? !tooRecent(latestStructured,today,policy.structuredActivityGapDays)
-      &&!tooRecent(latestDate(envisaged,input.referenceDate,value=>structured(value.type)),today,policy.structuredActivityGapDays)
-    : value.type==='long-run'?!tooRecent(latestLong,today,policy.longActivityGapDays)
-      &&!tooRecent(latestDate(envisaged,input.referenceDate,value=>value.type==='long-run'),today,policy.longActivityGapDays):false);
+    ?recovery.spacing.structured.status!=='deferred'
+    :value.type==='long-run'&&recovery.spacing.longRun.status!=='deferred');
   let easy=candidates.find(value=>!structured(value.type)&&value.type!=='long-run');
-  const veryHard=input.activities.filter(value=>value.effort==='very-hard'
-    &&value.date<=input.referenceDate&&today-day(value.date)<FEELING_PREFERENCE_WINDOW_DAYS)
-    .sort((a,b)=>b.date.localeCompare(a.date))[0];
+  const veryHard=recovery.protections.some(value=>value.code==='very-hard-protection');
   // Même fenêtre que la préférence de ressenti existante : une activité réelle
   // très difficile ne permet pas de conserver une option exigeante faute de facile.
   if(veryHard&&!easy)return {selected:null,reason:'very-hard-recovery'};
@@ -137,12 +115,8 @@ export function orchestratePrototypeSession(input:SessionOrchestratorInput):Sess
         ||goalPriority(input.goal,a.type)-goalPriority(input.goal,b.type)
         ||b.totalDurationSeconds-a.totalDurationSeconds)[0]??null;
   }
-  const difficult=input.activities.filter(value=>(value.effort==='hard'||value.effort==='very-hard')
-    &&value.date<=input.referenceDate&&today-day(value.date)<FEELING_PREFERENCE_WINDOW_DAYS)
-    .sort((a,b)=>b.date.localeCompare(a.date)||(a.effort===b.effort?0:a.effort==='very-hard'?-1:1))[0];
-  const difficultExplanation=difficult
-    ?`Séance facile privilégiée plutôt qu’une séance exigeante : la course du ${difficult.date.split('-').reverse().join('/')} a été ressentie comme ${difficult.effort==='very-hard'?'très difficile':'difficile'}, dans la fenêtre de sept jours examinée.`
-    :undefined;
+  const difficult=recovery.preference.latest;
+  const difficultExplanation=recovery.preference.latestExplanation??undefined;
   // Repli historique sans politique de charge : préférence seulement, sans nouveau seuil.
   if(selected&&selected!==easy&&easy&&difficult){
     return finish({...easy,rationale:{...easy.rationale,

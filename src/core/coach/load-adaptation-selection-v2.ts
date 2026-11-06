@@ -1,9 +1,10 @@
+import { recoveryScopeV2 } from './recovery-policy-v2';
 import type { interpretRecentLoadV2 } from './load-adaptation-policy-v2';
 import type { PrototypeSession } from './simulation/session-strategies-v2';
 
 export type LoadAdaptationDecisionV2=ReturnType<typeof interpretRecentLoadV2>;
 type Session=Pick<PrototypeSession,'type'|'totalDurationSeconds'>;
-const easy=(value:Session)=>value.type==='easy-endurance'||value.type==='recovery';
+const easy=(value:Session)=>recoveryScopeV2(value.type)==='all';
 
 /** Appliquer après les filtres sportifs existants, au groupe complet admissible.
  * Une réévaluation privilégie le facile s'il existe, sans inventer une date
@@ -14,7 +15,8 @@ export function applyLoadAdaptationV2<T extends Session>(candidates:readonly T[]
   const decisions=policy.decisions;
   if(decisions.allSessions.status==='defer')return [];
   const allowed=candidates.filter(value=>{
-    const gate=easy(value)?decisions.allSessions:value.type==='long-run'?decisions.longRun:decisions.structured;
+    const scope=recoveryScopeV2(value.type);
+    const gate=scope==='all'?decisions.allSessions:scope==='long-run'?decisions.longRun:decisions.structured;
     if(gate.status==='defer')return false;
     // Même progression de durée facile que le catalogue ; aucune durée de remplacement.
     return !(decisions.progression==='do-not-increase'&&value.type==='easy-endurance'
