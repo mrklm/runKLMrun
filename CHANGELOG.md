@@ -1,5 +1,11 @@
 # Historique des versions
 
+## v1.2.1 — 2026-11-08 — Import Polar plus tolérant pour la fréquence cardiaque
+
+- Import Polar ZIP : une fréquence cardiaque illisible, incohérente ou des zones cardiaques invalides n’entraînent plus le rejet de la séance ; seules ces valeurs sont ignorées, les autres mesures restent strictement contrôlées.
+- Comptes rendus d’import ZIP et TCX : nouvelle rubrique « Remarques sur les séances ajoutées » pour les valeurs ignorées et la qualité de la fréquence cardiaque, distincte des motifs de rejet.
+- Couverture de la fréquence cardiaque : les séparateurs de segments TCX ne sont plus comptés comme des mesures manquantes.
+
 ## v1.2.0 — 2026-11-07 — Qualité de la fréquence cardiaque
 
 - Détection des anomalies de fréquence cardiaque : absence, couverture partielle, valeurs hors limites, pics isolés, signal constant, interruptions et écart avec la moyenne des tours.
