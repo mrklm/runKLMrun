@@ -1,5 +1,10 @@
 # Historique des versions
 
+## v1.1.2 — 2026-11-07 — Lisibilité de l’aide et tests actualisés
+
+- Aide : titres hiérarchisés et lecture adaptée au mobile, sans effet sur les autres pages.
+- Tests navigateur actualisés : dimensions du titre de l’en-tête et réévaluation d’une suggestion du Coach lorsque la disponibilité devient trop courte.
+
 ## v1.1.1 — 2026-11-06 — Consolidation du Coach V2
 
 - Consolidation des protections du Coach V2, sans modification des délais.

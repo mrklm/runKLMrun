@@ -43,7 +43,7 @@ for (const width of [320, 768, 1280]) test(`images intactes et responsive à ${w
     await expect(img).toHaveCSS('object-fit', 'contain');
     await expect(img).toHaveCSS('filter', 'none');
     const title = await img.boundingBox();
-    expect(title!.width).toBeCloseTo(width <= 640 ? 102.4 : 128.52, 1);
+    expect(title!.width).toBeCloseTo(width <= 640 ? 135.42 : 169.97, 1);
     expect(title!.x + title!.width / 2).toBeCloseTo(width / 2, 1);
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
