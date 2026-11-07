@@ -8,6 +8,8 @@ export interface ImportReport {
   invalid: number;
   reasons: Partial<Record<ImportReason, number>>;
   issues: string[];
+  /** Remarques sur les séances ajoutées (20 maximum), sans effet sur l'import. */
+  notices: string[];
   error?: string;
 }
-export const emptyReport = (): ImportReport => ({ processed: 0, total: 0, imported: 0, duplicates: 0, ignored: 0, invalid: 0, reasons: {}, issues: [] });
+export const emptyReport = (): ImportReport => ({ processed: 0, total: 0, imported: 0, duplicates: 0, ignored: 0, invalid: 0, reasons: {}, issues: [], notices: [] });

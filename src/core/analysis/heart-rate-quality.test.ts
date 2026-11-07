@@ -87,6 +87,10 @@ describe('qualité de la fréquence cardiaque', () => {
     expect(result.issues.map(i => i.code)).toEqual(['out-of-range', 'partial-coverage', 'isolated-spike']);
   });
 
+  it('ne compte pas les séparateurs de segments TCX comme des mesures manquantes', () => {
+    const segmented: Sample[] = [...series(10), { timeSeconds: 20, value: null }, ...series(10).map(p => ({ ...p, timeSeconds: p.timeSeconds + 20 }))];
+    expect(analyzeHeartRateQuality(segmented)).toMatchObject({ status: 'ok', sampleCount: 20, measuredCount: 20, coverage: 1 });
+  });
   it('ne modifie pas l’entrée, trie une copie et ignore les temps invalides', () => {
     const input: Sample[] = [{ timeSeconds: 2, value: 141 }, { timeSeconds: 0, value: 140 }, { timeSeconds: Number.NaN, value: 300 }, { timeSeconds: 1, value: 142 }];
     const copy = structuredClone(input);

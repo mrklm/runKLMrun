@@ -37,7 +37,9 @@ export function analyzeHeartRateQuality(samples: readonly Sample[] | undefined, 
   const t = HEART_RATE_QUALITY_THRESHOLDS;
   const points = (samples ?? []).filter(p => Number.isFinite(p.timeSeconds) && p.timeSeconds >= 0)
     .map(p => ({ time: p.timeSeconds, value: p.value !== null && Number.isFinite(p.value) ? p.value : null }))
-    .sort((a, b) => a.time - b.time);
+    .sort((a, b) => a.time - b.time)
+    // Séparateur de segments TCX : point vide au même instant que le point suivant, pas une mesure manquante.
+    .filter((p, i, all) => !(p.value === null && all[i + 1]?.time === p.time));
   const issues: HeartRateIssue[] = [];
   let zeroCount = 0;
   const outOfRange: number[] = [];

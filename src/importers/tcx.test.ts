@@ -207,7 +207,9 @@ it('ignore une distance de point non finie avec deux pistes dans un tour', async
   const storage = repository();
   const report = await importTcxFiles([file(xml), file(xml)], storage, () => {}, readXml);
   expect(report.imported).toBe(1); expect(report.duplicates).toBe(1); expect(report.invalid).toBe(0);
-  expect(report.issues.join(' ')).toContain('Mesure facultative');
+  // Séance ajoutée : remarque, pas motif de rejet ; aucune remarque pour le doublon.
+  expect(report.issues).toEqual([]);
+  expect(report.notices).toEqual(['Fichier n°1 : Mesure facultative DistanceMeters inutilisable : valeur ignorée.']);
 });
 it('préserve les identifiants des mesures valides et traite les mesures ignorées comme absentes', async () => {
   const invalidMeasure = tcx(lap(0, point(0, '<AltitudeMeters>NaN</AltitudeMeters>')));

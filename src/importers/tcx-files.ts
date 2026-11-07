@@ -21,15 +21,14 @@ async function runImport(files: readonly File[], repository: SessionRepository, 
     await new Promise<void>(resolve => setTimeout(resolve, 0));
     let parsed: Awaited<ReturnType<typeof parseTcx>>;
     let reason = 'Lecture du fichier impossible. Vérifiez que vous pouvez encore accéder au fichier.';
+    // Valeurs facultatives ignorées : remarques, et seulement si la séance est réellement ajoutée.
+    const warnings: string[] = [];
     try {
       if (!/\.tcx$/i.test(file.name)) { reason = 'Extension non prise en charge. Sélectionnez un fichier .tcx ou .TCX.'; throw new Error('invalid'); }
       if (file.size > MAX_TCX_BYTES) { reason = 'Fichier trop volumineux. La limite est de 16 Mio par fichier TCX.'; throw new Error('invalid'); }
       const text = await file.text();
       reason = 'Fichier TCX invalide ou non pris en charge. Vérifiez le XML, la présence d’une seule activité TCX v2 et les durées et horodatages des tours et des points.';
-      parsed = await parseTcx(text, readXml, message => {
-        const issue = `Fichier n°${report.processed + 1} : ${message}`;
-        if (report.issues.length < 20 && !report.issues.includes(issue)) report.issues.push(issue);
-      });
+      parsed = await parseTcx(text, readXml, message => { if (!warnings.includes(message)) warnings.push(message); });
     } catch (error) {
       if (error instanceof TcxError) reason = `${error.kind === 'technical' ? 'Erreur technique interne' : error.kind === 'unsupported' ? 'Format non pris en charge' : 'Fichier TCX invalide'} : ${error.message}`;
       if (report.issues.length < 20) report.issues.push(`Fichier n°${report.processed + 1} : ${reason}`);
@@ -41,8 +40,9 @@ async function runImport(files: readonly File[], repository: SessionRepository, 
         if (await repository.addImported(parsed.session, shouldKeepDetails(parsed.session, reference) ? parsed.details : undefined)) {
           report.imported++; onAdded?.(parsed.session.id);
           // Analyse des mesures lues, même si les détails ne sont pas conservés ; aucune donnée modifiée.
-          const notice = heartRateQualitySummary(analyzeHeartRateQuality(parsed.details.heartRate, parsed.session.averageHeartRate), parsed.session.averageHeartRate !== undefined);
-          if (notice && report.notices.length < 20) report.notices.push(`Fichier n°${report.processed + 1} : ${notice}`);
+          const summary = heartRateQualitySummary(analyzeHeartRateQuality(parsed.details.heartRate, parsed.session.averageHeartRate), parsed.session.averageHeartRate !== undefined);
+          for (const message of summary ? [...warnings, summary] : warnings)
+            if (report.notices.length < 20) report.notices.push(`Fichier n°${report.processed + 1} : ${message}`);
         }
         else report.duplicates++;
       } catch {

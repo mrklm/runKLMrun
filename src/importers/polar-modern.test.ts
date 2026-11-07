@@ -125,8 +125,52 @@ describe('export Polar à identifiant sportif numérique', () => {
   it.each([-2, '2000', {}])('rejette une distance invalide (%j)', value => { rejects('invalidNumbers', f => { Object.assign(f.exercises[0], { distanceMeters: value }); }); });
   it('conserve une distance nulle sans calculer d’allure', () => { const f = fixture(); f.exercises[0].distanceMeters = 0; expect(parse(f)?.session.averagePaceSecondsPerKm).toBeUndefined(); });
   it('rejette une durée nulle associée à une distance positive', () => { rejects('invalidNumbers', f => { f.exercises[0].durationMillis = 0; }); });
-  it('rejette une FC moyenne supérieure à la FC maximale', () => { rejects('invalidNumbers', f => { f.exercises[0].statistics.statistics[0].avg = 200; }); });
-  it('rejette une valeur de série inconnue au lieu de compacter le tableau', () => { rejects('invalidNumbers', f => { f.exercises[0].samples.samples[0].values[1] = 'invalid'; }); });
+  it('rejette une valeur de série inconnue hors FC au lieu de compacter le tableau', () => { rejects('invalidNumbers', f => { f.exercises[0].samples.samples[1].values[1] = 'invalid'; }); });
+  describe('tolérance limitée à la fréquence cardiaque', () => {
+    const warned = (change: (f: ReturnType<typeof fixture>) => void) => {
+      const f = fixture(); change(f); const warnings: string[] = [];
+      return { result: parsePolar(JSON.stringify(f), 'training-session_synthetic.json', true, () => true, m => warnings.push(m))!, warnings };
+    };
+    it('ignore une FC moyenne supérieure à la maximale sans rejeter la séance', () => {
+      const { result, warnings } = warned(f => { f.exercises[0].statistics.statistics[0].avg = 200; });
+      expect(result.session).toMatchObject({ durationSeconds: 600, distanceMeters: 2000 });
+      expect(result.session.averageHeartRate).toBeUndefined(); expect(result.session.maximumHeartRate).toBeUndefined();
+      expect(warnings).toEqual(['Fréquence cardiaque moyenne supérieure à la maximale : ces deux valeurs sont ignorées.']);
+    });
+    it('ignore une FC résumée illisible et conserve l’autre', () => {
+      const { result, warnings } = warned(f => { f.exercises[0].statistics.statistics[0].max = -1; });
+      expect(result.session.averageHeartRate).toBe(140); expect(result.session.maximumHeartRate).toBeUndefined();
+      expect(warnings).toEqual(['Fréquence cardiaque moyenne ou maximale illisible : valeur ignorée.']);
+    });
+    it('remplace un échantillon de FC illisible par une absence de mesure, sans compacter la série', () => {
+      const { result, warnings } = warned(f => { f.exercises[0].samples.samples[0].values = [130, -4, 'invalid', 140]; });
+      expect(result.details.heartRate).toEqual([{ timeSeconds: 0, value: 130 }, { timeSeconds: 1, value: null }, { timeSeconds: 2, value: null }, { timeSeconds: 3, value: 140 }]);
+      expect(result.details.speed).toEqual(parse()?.details.speed);
+      expect(warnings).toEqual(['2 valeurs de fréquence cardiaque illisibles ignorées.']);
+    });
+    it('retire des zones cardiaques incohérentes sans rejeter la séance', () => {
+      const { result, warnings } = warned(f => { f.exercises[0].zones[1].zones[0].lowerLimit = 160; });
+      expect(result.session.heartRateZones).toBeUndefined(); expect(result.session.distanceMeters).toBe(2000);
+      expect(warnings).toEqual(['Zones cardiaques incohérentes : zones ignorées.']);
+    });
+    it('ajoute les remarques au compte rendu ZIP, sans remarque de qualité si les détails ne sont pas conservés', async () => {
+      const f = fixture(); f.exercises[0].statistics.statistics[0].avg = 200;
+      const file = await archive({ 'training-session_hr.json': JSON.stringify(f) });
+      const recent = await importPolarArchive(file, repository(), () => {}, new Date('2026-01-02T00:00:00Z'));
+      expect(recent).toMatchObject({ imported: 1, invalid: 0, issues: [] });
+      expect(recent.notices).toEqual([
+        'Fichier d’entraînement n°1 : Fréquence cardiaque moyenne supérieure à la maximale : ces deux valeurs sont ignorées.',
+        'Fichier d’entraînement n°1 : La fréquence cardiaque n’a été enregistrée que sur 50 % des points de l’activité.',
+      ]);
+      const old = await importPolarArchive(file, repository(), () => {}, new Date('2026-06-01T00:00:00Z'));
+      expect(old.imported).toBe(1);
+      expect(old.notices).toEqual(['Fichier d’entraînement n°1 : Fréquence cardiaque moyenne supérieure à la maximale : ces deux valeurs sont ignorées.']);
+    });
+    it('conserve l’identifiant Polar et un parsing identique sans anomalie', () => {
+      const { result, warnings } = warned(() => {});
+      expect(result).toEqual(parse()); expect(result.session.id).toBe('polar:synthetic-modern'); expect(warnings).toEqual([]);
+    });
+  });
   it('rejette un intervalle nul', () => { rejects('invalidNumbers', f => { f.exercises[0].samples.samples[0].intervalMillis = 0; }); });
   it('rejette deux séries du même type sans en écraser une', () => { rejects('unsupportedStructure', f => { f.exercises[0].samples.samples.push(f.exercises[0].samples.samples[0]); }); });
   it('ignore les types de série dont les unités ne sont pas prises en charge', () => { const f = fixture(); f.exercises[0].samples.samples.push({ type: 'UNKNOWN', intervalMillis: 1000, values: [1] }); expect(parse(f)?.details).toEqual(parse()?.details); });

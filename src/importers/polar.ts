@@ -25,13 +25,14 @@ function series(v: unknown, factor = 1): Sample[] | undefined {
  * strictSport est activé par l'import ZIP pour distinguer les codes textuels inconnus.
  * Par défaut, le retour null des sports textuels exclus conserve le contrat initial.
  */
-export function parsePolar(text: string, filename: string, strictSport = false, keepDetails: (session: RunningSession) => boolean = () => true): { session: RunningSession; details: SessionDetails } | null {
+export function parsePolar(text: string, filename: string, strictSport = false, keepDetails: (session: RunningSession) => boolean = () => true,
+  warn: (message: string) => void = () => {}): { session: RunningSession; details: SessionDetails } | null {
   let parsed: unknown;
   try { parsed = JSON.parse(text); } catch { throw new PolarImportError('invalidJson'); }
   const root = obj(parsed);
   if (!Array.isArray(root.exercises) || root.exercises.length !== 1) throw new PolarImportError('unsupportedStructure');
   const e = obj(root.exercises[0]);
-  if (e.sport && typeof e.sport === 'object' && !Array.isArray(e.sport)) return parseModernPolar(root, e, filename, keepDetails);
+  if (e.sport && typeof e.sport === 'object' && !Array.isArray(e.sport)) return parseModernPolar(root, e, filename, keepDetails, warn);
   if (typeof e.sport !== 'string') throw new PolarImportError('unknownSport');
   if (!RUNNING_SPORTS.includes(e.sport)) {
     if (strictSport && !OTHER_SPORTS.includes(e.sport)) throw new PolarImportError('unknownSport');

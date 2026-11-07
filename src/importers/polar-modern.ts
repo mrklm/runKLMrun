@@ -42,7 +42,12 @@ const STREAMS = {
   DISTANCE: { key: 'distance', divisor: 1, min: 0 },
 } as const;
 
-export function parseModernPolar(root: Obj, exercise: Obj, filename: string, keepDetails: (session: RunningSession) => boolean = () => true): { session: RunningSession; details: SessionDetails } | null {
+/** Une anomalie cardiaque n'invalide pas la séance : la valeur est ignorée et signalée, sans remplacement. */
+const lenient = <T>(read: () => T, fallback: T, warn: () => void): T => {
+  try { return read(); } catch (error) { if (error instanceof PolarImportError && error.reason === 'invalidNumbers') { warn(); return fallback; } throw error; }
+};
+export function parseModernPolar(root: Obj, exercise: Obj, filename: string, keepDetails: (session: RunningSession) => boolean = () => true,
+  warn: (message: string) => void = () => {}): { session: RunningSession; details: SessionDetails } | null {
   const sportId = object(exercise.sport).id;
   const sport = typeof sportId === 'string' && Object.hasOwn(POLAR_SPORT_IDS, sportId) ? POLAR_SPORT_IDS[sportId] : undefined;
   if (!sport) throw new PolarImportError('unknownSport');
@@ -57,9 +62,14 @@ export function parseModernPolar(root: Obj, exercise: Obj, filename: string, kee
   const statistics = list(object(exercise.statistics).statistics).map(object).filter(s => s.type === 'STATISTICS_TYPE_HEART_RATE');
   if (statistics.length > 1) throw new PolarImportError('unsupportedStructure');
   const hr = statistics[0] ?? {};
-  const averageHeartRate = numeric(hr.avg ?? exercise.hrAvg ?? root.hrAvg);
-  const maximumHeartRate = numeric(hr.max ?? exercise.hrMax ?? root.hrMax);
-  if (averageHeartRate !== undefined && maximumHeartRate !== undefined && averageHeartRate > maximumHeartRate) throw new PolarImportError('invalidNumbers');
+  const unreadableSummary = () => warn('Fréquence cardiaque moyenne ou maximale illisible : valeur ignorée.');
+  let averageHeartRate = lenient(() => numeric(hr.avg ?? exercise.hrAvg ?? root.hrAvg), undefined, unreadableSummary);
+  let maximumHeartRate = lenient(() => numeric(hr.max ?? exercise.hrMax ?? root.hrMax), undefined, unreadableSummary);
+  // Impossible de savoir laquelle est fausse : aucune des deux n'est conservée.
+  if (averageHeartRate !== undefined && maximumHeartRate !== undefined && averageHeartRate > maximumHeartRate) {
+    warn('Fréquence cardiaque moyenne supérieure à la maximale : ces deux valeurs sont ignorées.');
+    averageHeartRate = undefined; maximumHeartRate = undefined;
+  }
   const timezoneOffsetMinutes = numeric(exercise.timezoneOffsetMinutes ?? root.timezoneOffsetMinutes, -720, 840);
   if (timezoneOffsetMinutes !== undefined && !Number.isInteger(timezoneOffsetMinutes)) throw new PolarImportError('invalidNumbers');
   const session: RunningSession = {
@@ -76,12 +86,13 @@ export function parseModernPolar(root: Obj, exercise: Obj, filename: string, kee
   }
   const groups = list(exercise.zones).map(object).filter(z => z.type === 'ZONE_TYPE_HEART_RATE');
   if (groups.length > 1) throw new PolarImportError('unsupportedStructure');
-  if (groups.length) session.heartRateZones = list(groups[0].zones).map(item => {
+  const zones = groups.length ? lenient(() => list(groups[0].zones).map(item => {
     const zone = object(item), lower = numeric(zone.lowerLimit), upper = numeric(zone.higherLimit);
     if (lower !== undefined && upper !== undefined && lower > upper) throw new PolarImportError('invalidNumbers');
     const inZoneMillis = numeric(zone.inZone);
     return { lower, upper, durationSeconds: inZoneMillis === undefined ? undefined : inZoneMillis / 1000 };
-  });
+  }), undefined, () => warn('Zones cardiaques incohérentes : zones ignorées.')) : undefined;
+  if (zones) session.heartRateZones = zones;
   const details: SessionDetails = { id };
   const retain = keepDetails(session);
   const seen = new Set<string>();
@@ -94,11 +105,14 @@ export function parseModernPolar(root: Obj, exercise: Obj, filename: string, kee
     const interval = requiredNumber(stream.intervalMillis);
     if (interval <= 0) throw new PolarImportError('invalidNumbers');
     const values: Sample[] = [];
+    let unreadable = 0;
     stream.values.forEach((v, index) => {
-      const value = sampleValue(v, spec.min);
+      // Seule la FC est tolérante : les autres flux restent stricts.
+      const value = spec.key === 'heartRate' ? lenient(() => sampleValue(v, spec.min), null, () => { unreadable++; }) : sampleValue(v, spec.min);
       const timeSeconds = requiredNumber(index * interval) / 1000;
       if (retain) values.push({ timeSeconds, value: value === null ? null : value / spec.divisor });
     });
+    if (unreadable) warn(`${unreadable} ${unreadable > 1 ? 'valeurs' : 'valeur'} de fréquence cardiaque ${unreadable > 1 ? 'illisibles ignorées' : 'illisible ignorée'}.`);
     if (retain) details[spec.key] = values;
   }
   const route = object(object(exercise.routes).route);
