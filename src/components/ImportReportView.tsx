@@ -6,6 +6,7 @@ export function ImportReportView({ report, busy }: { report: UnifiedReport; busy
     {busy && <progress aria-label="Progression de l’import" value={report.total ? report.processed : undefined} max={report.total || 1} />}
     <p>{report.imported} séances ajoutées · {report.duplicates} doublons · {report.ignored} autres sports · {report.invalid} fichiers non pris en charge.</p>
     {!!report.issues.length && <div role="alert"><p>Motifs des rejets (20 maximum) :</p><ul>{report.issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul></div>}
+    {!!report.notices?.length && <div className="import-notices"><p>Remarques sur les séances ajoutées (20 maximum) :</p><ul>{report.notices.map((notice, i) => <li key={i}>{notice}</li>)}</ul></div>}
     {report.error && <p role="alert">{report.error}</p>}
   </div>;
 }

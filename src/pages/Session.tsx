@@ -11,6 +11,7 @@ import { duration, measure, pace, heartRate, ascent } from '../core/analysis/ses
 import { prepareSeries } from '../core/analysis/session-detail';
 import { SynchronizedSessionCharts } from '../components/SynchronizedSessionCharts';
 import { EmptyState } from '../components/EmptyState';
+import { HeartRateQualityNotice } from '../components/HeartRateQualityNotice';
 import { formatActivityTime } from '../core/analysis/activity-time';
 
 export function SessionInformation({ session }: { session: RunningSession }) {
@@ -53,6 +54,7 @@ export function Session({ session }: { session?: RunningSession }) {
       <SessionRoute key={`route:${session.id}`} state={state} />
       {state.status === 'loading' && <p role="status">Chargement des détails de votre séance…</p>}
       {state.status === 'error' && <section className="panel settings-panel" role="alert"><h2>Stockage local indisponible</h2><p>Les détails n’ont pas pu être chargés. Vous pouvez réessayer.</p><button className="button" onClick={() => setAttempt(v => v + 1)}>Réessayer</button></section>}
+      {state.status === 'ready' && state.details && <HeartRateQualityNotice session={session} details={state.details} />}
       {state.status === 'ready' && <SessionCurves details={state.details} />}
       <SessionShoes sessionId={session.id} session={session} />
     </>}
