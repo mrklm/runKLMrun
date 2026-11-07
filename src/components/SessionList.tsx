@@ -1,7 +1,7 @@
 import { ascentLabel } from '../core/analysis/ascent';
 import { ShoeHistorySelect } from './ShoeHistory';
 import { useMemo } from 'react';
-import type { RunningSession } from '../types/session';
+import { heartRateUsable, type RunningSession } from '../types/session';
 import { duration, pace, heartRate, ascent } from '../core/analysis/session-format';
 import { sessionHref } from '../core/analysis/session-detail';
 import { formatActivityTime } from '../core/analysis/activity-time';
@@ -17,7 +17,7 @@ export function SessionList({ sessions, limit, shoeSelection = false, compact = 
         <div><dt>Distance</dt><dd>{session.distanceMeters === undefined ? '—' : `${(session.distanceMeters / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} km`}</dd></div>
         <div><dt>Durée</dt><dd>{duration(session.durationSeconds)}</dd></div>
         {!compact && <><div><dt>Allure moyenne</dt><dd>{pace(session.averagePaceSecondsPerKm)}</dd></div>
-        <div><dt>FC moyenne</dt><dd>{heartRate(session.averageHeartRate)}</dd></div>
+        <div><dt>FC moyenne</dt><dd>{heartRateUsable(session) ? heartRate(session.averageHeartRate) : 'Ignorée'}</dd></div>
         <div><dt>{ascentLabel(session.ascentEstimate)}</dt><dd>{ascent(session.ascentMeters)}</dd></div></>}
         {compact && session.ascentMeters !== undefined && Number.isFinite(session.ascentMeters) && session.ascentEstimate?.quality !== 'partial' && <div><dt>{ascentLabel(session.ascentEstimate)}</dt><dd>{ascent(session.ascentMeters)}</dd></div>}
       </dl>

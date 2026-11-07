@@ -18,9 +18,9 @@ test.beforeEach(async ({ page }) => {
     const gps = Array.from({ length: 300 }, (_, timeSeconds) => ({ timeSeconds, latitude: 45 + timeSeconds / 10000, longitude: 4 + timeSeconds / 10000 }));
     const heart = (value: (i: number) => number | null) => Array.from({ length: 300 }, (_, timeSeconds) => ({ timeSeconds, value: value(timeSeconds) }));
     for (const id of ['hr-pocket', 'hr-spike', 'hr-normal'])
-      tx.objectStore('sessions').put({ id, title: id, date: '2026-01-02', startTime: '2026-01-02T10:00:00Z', durationSeconds: 300, distanceMeters: 900, source: 'tcx', sport: 'RUNNING' });
+      tx.objectStore('sessions').put({ id, title: id, date: '2026-01-02', startTime: '2026-01-02T10:00:00Z', durationSeconds: 300, distanceMeters: 900, source: 'tcx', sport: 'RUNNING', ...(id === 'hr-pocket' ? {} : { averageHeartRate: 143 }) });
     tx.objectStore('details').put({ id: 'hr-pocket', gps });
-    tx.objectStore('details').put({ id: 'hr-spike', gps, heartRate: heart(i => i === 150 ? 230 : 140 + (i % 7)) });
+    tx.objectStore('details').put({ id: 'hr-spike', gps, speed: heart(() => 3), heartRate: heart(i => i === 150 ? 230 : 140 + (i % 7)) });
     tx.objectStore('details').put({ id: 'hr-normal', gps, heartRate: heart(i => 140 + (i % 7)) });
     await new Promise<void>((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); });
     db.close();
@@ -51,4 +51,37 @@ for (const width of [390, 1280]) test(`qualité FC sur la fiche à ${width}px`, 
   await expect(page.getByRole('heading', { name: 'Informations générales' })).toBeVisible();
   await expect(page.locator('.session-curves')).toBeVisible();
   await expect(notice).toHaveCount(0);
+});
+
+test('exclusion réversible des données cardiaques, conservée après rechargement', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  const notice = page.getByRole('region', { name: 'Qualité de la fréquence cardiaque' });
+  const average = page.locator('.session-information dt', { hasText: 'Fréquence cardiaque moyenne' }).locator('xpath=following-sibling::dd');
+  const heartChart = page.locator('.session-curves').getByText('Fréquence cardiaque (bpm)');
+
+  await page.goto('./#/seance/hr-pocket'); await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await expect(notice).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ignorer les données cardiaques de cette activité' })).toHaveCount(0);
+
+  await page.goto('./#/seance/hr-spike'); await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await expect(average).toHaveText('143 bpm'); await expect(heartChart).toBeVisible();
+  await notice.getByRole('button', { name: 'Ignorer les données cardiaques de cette activité' }).click();
+  await expect(notice).toContainText('Les données cardiaques de cette activité sont ignorées');
+  await expect(average).toHaveText('Ignorée'); await expect(heartChart).toHaveCount(0);
+  await expect(page.locator('.session-curves').getByText(/^Allure/).first()).toBeVisible();
+  await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await expect(average).toHaveText('Ignorée');
+  await notice.getByRole('button', { name: 'Utiliser de nouveau les données cardiaques' }).click();
+  await expect(notice).toContainText('1 pic isolé');
+  await expect(average).toHaveText('143 bpm'); await expect(heartChart).toBeVisible();
+
+  await page.goto('./#/seance/hr-normal'); await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0);
+  await expect(notice).toHaveCount(0);
+  await page.getByText('Détails complémentaires').click();
+  await page.locator('.session-information').getByRole('button', { name: 'Ignorer les données cardiaques de cette activité' }).click();
+  await expect(average).toHaveText('Ignorée');
+  await expect(notice).toContainText('Les données cardiaques de cette activité sont ignorées');
+  await page.locator('.session-information').screenshot({ path: 'test-results/heart-rate-ignored-information.png' });
+  await notice.screenshot({ path: 'test-results/heart-rate-ignored-notice.png' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

@@ -17,7 +17,7 @@ import type { RunningSession, Sample } from '../types/session';
 // Données entièrement synthétiques ; aucune activité réelle.
 const session: RunningSession = { id: 'tcx:synthetic', title: 'Course à pied', date: '2026-01-01', durationSeconds: 600 };
 const series = (count: number, value = (i: number) => 140 + (i % 7)): Sample[] => Array.from({ length: count }, (_, i) => ({ timeSeconds: i, value: value(i) }));
-const render = (heartRate?: Sample[], value = session) => renderToStaticMarkup(createElement(HeartRateQualityNotice, { session: value, details: { id: value.id, heartRate } }));
+const render = (heartRate?: Sample[], value = session) => renderToStaticMarkup(createElement(HeartRateQualityNotice, { session: value, quality: analyzeHeartRateQuality(heartRate, value.averageHeartRate) }));
 const informal = /\b(tu|te|ton|ta|tes|toi)\b/i;
 
 describe('messages de qualité de la fréquence cardiaque', () => {

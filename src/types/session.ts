@@ -36,7 +36,12 @@ export interface RunningSession {
   runningIndex?: number;
   /** Score cardiovasculaire fourni par Polar, sans calcul runKLMrun. */
   cardioLoad?: number;
+  /** Exclusion manuelle et réversible des données cardiaques : mesures d'origine conservées,
+   * ni affichées ni utilisées. Hors signature sportive. */
+  heartRateIgnored?: true;
 }
+/** Données cardiaques utilisables, sans modifier la séance. */
+export const heartRateUsable = (session: Pick<RunningSession, 'heartRateIgnored'>) => session.heartRateIgnored !== true;
 export interface Sample { timeSeconds: number; value: number | null }
 export interface SessionDetails {
   id: string;

@@ -1,5 +1,5 @@
 import type { CoachProfileValues } from '../../types/coach-profile';
-import type { RunningSession } from '../../types/session';
+import { heartRateUsable, type RunningSession } from '../../types/session';
 import type { CoachGoal, DeclaredCoachProfile, Measurement, ObservedCoachProfile, StructuredPlanningPreference, StructuredPlanningPolicy } from '../../types/evolving-coach';
 import { validSessionDate } from '../analysis/session-summary';
 import { validateLegacyGoal } from './profile';
@@ -60,7 +60,7 @@ export function observeHistory(sessions: readonly RunningSession[], referenceDat
         ? { status: 'invalid' } : { ...ascent, origin: 'estimated', status: s.ascentEstimate.quality === 'partial' ? 'partial' : 'available' };
     }
     activities.push({ id: s.id, date: s.date, ageDays: day(referenceDate) - day(s.date), calendarMonth: Number(s.date.slice(5,7)),
-      distanceMeters: measurement(s.distanceMeters), durationSeconds: measurement(s.durationSeconds), ascentMeters: ascent, averageHeartRate: measurement(s.averageHeartRate, false) });
+      distanceMeters: measurement(s.distanceMeters), durationSeconds: measurement(s.durationSeconds), ascentMeters: ascent, averageHeartRate: measurement(heartRateUsable(s) ? s.averageHeartRate : undefined, false) });
   }
   const dates = [...new Set(activities.map(s => s.date))];
   const durations = activities.flatMap(s => s.durationSeconds.status === 'available' ? [s.durationSeconds.value] : []);

@@ -1,5 +1,11 @@
 # Historique des versions
 
+## v1.2.0 — 2026-11-07 — Qualité de la fréquence cardiaque
+
+- Détection des anomalies de fréquence cardiaque : absence, couverture partielle, valeurs hors limites, pics isolés, signal constant, interruptions et écart avec la moyenne des tours.
+- Signalement sur la fiche de la séance et dans le compte rendu d’import TCX, en distinguant erreurs certaines et anomalies possibles, sans cause supposée.
+- Exclusion manuelle et réversible des données cardiaques d’une activité, sans suppression des mesures d’origine ; sauvegarde au format 8 uniquement lorsqu’une exclusion existe.
+
 ## v1.1.2 — 2026-11-07 — Lisibilité de l’aide et tests actualisés
 
 - Aide : titres hiérarchisés et lecture adaptée au mobile, sans effet sur les autres pages.
