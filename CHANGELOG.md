@@ -1,5 +1,12 @@
 # Historique des versions
 
+## v1.3.0 — 2026-11-08 — Effort perçu sur une échelle de 0 à 10
+
+- Effort perçu saisi de 0 (repos) à 10 (maximal), selon l’échelle CR-10 modifiée de Foster, toujours facultatif et en une seule question.
+- Anciens ressentis convertis à la lecture, sans réécriture de la base : facile 2, modérée 3, difficile 5, très difficile 7.
+- Règles du Coach inchangées : 0 à 2 facile, 3-4 modérée, 5-6 difficile, 7 à 10 très difficile.
+- Sauvegarde au format 9 uniquement lorsqu’un effort sur 10 est enregistré.
+
 ## v1.2.1 — 2026-11-08 — Import Polar plus tolérant pour la fréquence cardiaque
 
 - Import Polar ZIP : une fréquence cardiaque illisible, incohérente ou des zones cardiaques invalides n’entraînent plus le rejet de la séance ; seules ces valeurs sont ignorées, les autres mesures restent strictement contrôlées.

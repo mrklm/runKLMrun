@@ -58,7 +58,9 @@ export interface CoachingStrategy {
   claims: { status: 'hypothesis' | 'supported'; text: string; evidenceSessionIds: string[]; limitations: string[] }[];
   missingInformation: string[];
 }
-export type OptionalSessionFeeling = { effort?: 'easy' | 'moderate' | 'hard' | 'very-hard'; comment?: string };
+export type LegacySessionEffort = 'easy' | 'moderate' | 'hard' | 'very-hard';
+/** `effort` : ancienne saisie à 4 niveaux, lue telle quelle. `rpe` : effort perçu 0 à 10 (CR-10 modifiée). Jamais les deux. */
+export type OptionalSessionFeeling = { effort?: LegacySessionEffort; rpe?: number; comment?: string };
 
 /** Choix durables uniquement ; disponibilités et préférences restent dans coachProfile. */
 export interface EvolvingCoachValues {
