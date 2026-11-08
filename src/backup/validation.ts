@@ -1,5 +1,5 @@
 import { validateTrainingDescription } from '../core/analysis/session-review';
-import { requiresBackupV7, requiresBackupV8 } from './version';
+import { requiresBackupV7, requiresBackupV8, requiresBackupV9 } from './version';
 import { matchingDate } from '../core/coach/suggestion-matching';
 import { validateFeeling } from '../core/analysis/session-feeling';
 import { validateStoredSuggestion } from '../core/coach/suggestions';
@@ -175,7 +175,7 @@ export function validateBackupData(value: unknown, source = false): asserts valu
 
 export function validateBackup(value: unknown): asserts value is BackupDocument {
   if (!object(value) || value.format !== 'runKLMrun-backup') fail('Ce fichier n’est pas une sauvegarde runKLMrun.');
-  if (value.formatVersion !== 1 && value.formatVersion !== 2 && value.formatVersion !== 3 && value.formatVersion !== 4 && value.formatVersion !== 5 && value.formatVersion !== 6 && value.formatVersion !== 7 && value.formatVersion !== 8) fail('Cette version de sauvegarde n’est pas prise en charge. Utilisez une version compatible de runKLMrun.');
+  if (value.formatVersion !== 1 && value.formatVersion !== 2 && value.formatVersion !== 3 && value.formatVersion !== 4 && value.formatVersion !== 5 && value.formatVersion !== 6 && value.formatVersion !== 7 && value.formatVersion !== 8 && value.formatVersion !== 9) fail('Cette version de sauvegarde n’est pas prise en charge. Utilisez une version compatible de runKLMrun.');
   fields(value, 'format formatVersion exportedAt appVersion data integrity');
   if (!timestamp(value.exportedAt) || !text(value.appVersion) || !value.appVersion.length) fail();
   fields(value.integrity, 'algorithm digest');
@@ -183,9 +183,10 @@ export function validateBackup(value: unknown): asserts value is BackupDocument 
   validateBackupData(value.data, true);
   if (value.formatVersion < 5 && value.data.coachSuggestions !== undefined) fail('Les suggestions nécessitent le format 5.');
   if (value.formatVersion === 5 && value.data.coachSuggestions === undefined) fail('Suggestions absentes du format 5.');
-  if(value.formatVersion!==6&&value.formatVersion!==7&&value.formatVersion!==8&&value.data.coachSuggestionsV2!==undefined)fail('Les suggestions V2 nécessitent le format 6.');
+  if(value.formatVersion<6&&value.data.coachSuggestionsV2!==undefined)fail('Les suggestions V2 nécessitent le format 6.');
   if(value.formatVersion<7&&requiresBackupV7(value.data))fail('Les bilans nécessitent le format 7.');
-  if(value.formatVersion!==8&&requiresBackupV8(value.data))fail('L’exclusion des données cardiaques nécessite le format 8.');
+  if(value.formatVersion<8&&requiresBackupV8(value.data))fail('L’exclusion des données cardiaques nécessite le format 8.');
+  if(value.formatVersion<9&&requiresBackupV9(value.data))fail('L’effort perçu sur 10 nécessite le format 9.');
   if(value.formatVersion===6&&value.data.coachSuggestionsV2===undefined)fail('Occurrences V2 absentes du format 6.');
   if (value.formatVersion < 3 && value.data.evolvingCoach !== undefined) fail('Le Coach évolutif nécessite le format de sauvegarde 3.');
   if (value.formatVersion < 4 && value.data.coachPlanning !== undefined) fail('Le planning nécessite le format 4.');

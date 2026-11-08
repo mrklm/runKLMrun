@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { OptionalSessionFeeling } from '../types/evolving-coach';
-import { effortLabels, feelingFromFields } from '../core/analysis/session-feeling';
+import { feelingFromFields, feelingRpe, feelingRpeField, rpeText } from '../core/analysis/session-feeling';
 import { createFeelingRepository } from '../storage/session-feeling';
 import { subscribeStorage } from '../storage/changes';
 import { FeelingFields } from './FeelingFields';
@@ -30,7 +30,7 @@ export function SessionFeeling({ id }: { id: string }) {
     return () => { generation.current++; unsubscribe(); };
   }, [id, database]);
   function edit() {
-    expected.current = saved; setEffort(saved?.effort ?? ''); setComment(saved?.comment ?? '');
+    expected.current = saved; setEffort(feelingRpeField(saved)); setComment(saved?.comment ?? '');
     setEditing(true); setError(''); setMessage('');
   }
   async function save() {
@@ -48,7 +48,7 @@ export function SessionFeeling({ id }: { id: string }) {
     <p>Facultatif : votre effort perçu, indépendant de l’intensité proposée par le Coach.</p>
     {!ready && !error && <p role="status">Chargement du ressenti…</p>}
     {ready && !editing && <>
-      {saved?.effort && <p>{effortLabels[saved.effort]}</p>}
+      {feelingRpe(saved) !== undefined && <p>Effort perçu : {rpeText(feelingRpe(saved)!)}</p>}
       {saved?.comment && <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{saved.comment}</p>}
       <button type="button" className="button" onClick={edit}>{saved ? 'Modifier le ressenti ou le commentaire' : 'Ajouter un ressenti ou un commentaire'}</button>
     </>}

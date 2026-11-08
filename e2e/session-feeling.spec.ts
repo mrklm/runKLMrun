@@ -12,24 +12,24 @@ for (const width of [390, 1280]) test(`bilan : ressenti facultatif, persistance 
   const region = page.getByRole('region', { name: 'Bilan de votre séance', exact: true }), url = page.url();
   const effort = region.getByLabel('Effort perçu (facultatif)'), comment = region.getByLabel('Commentaire personnel (facultatif)');
   await expect(comment).toHaveValue('Commentaire seul');
-  await expect(effort.locator('option')).toHaveText(['Non renseigné', 'Facile', 'Modérée', 'Difficile', 'Très difficile']);
+  await expect(effort.locator('option')).toHaveText(['Non renseigné', '0/10 — Repos', '1/10 — Très, très facile', '2/10 — Facile', '3/10 — Modéré', '4/10 — Un peu difficile', '5/10 — Difficile', '6/10', '7/10 — Très difficile', '8/10', '9/10', '10/10 — Maximal']);
   await expect(region.getByRole('radio')).toHaveCount(0);
   for (let visit = 0; visit < 2; visit++) {
     await page.getByRole('link', { name: 'Revenir à l’historique', exact: true }).click(); await expect(region).toHaveCount(0);
     await page.goto(url); await expect(region).toHaveCount(1); await expect(comment).toHaveValue('Commentaire seul');
   }
-  await effort.selectOption('easy'); await region.getByRole('button', { name: 'Enregistrer', exact: true }).focus(); await page.keyboard.press('Enter');
+  await effort.selectOption('2'); await region.getByRole('button', { name: 'Enregistrer', exact: true }).focus(); await page.keyboard.press('Enter');
   await expect(region.getByRole('status')).toContainText('Votre bilan a été enregistré.');
-  await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0); await expect(effort).toHaveValue('easy');
+  await page.reload(); await expect(page.locator('.splash-screen')).toHaveCount(0); await expect(effort).toHaveValue('2');
   const other = await context.newPage(); await other.goto(url); await expect(other.locator('.splash-screen')).toHaveCount(0);
   const otherRegion = other.getByRole('region', { name: 'Bilan de votre séance', exact: true });
-  await expect(otherRegion.getByLabel('Effort perçu (facultatif)')).toHaveValue('easy');
+  await expect(otherRegion.getByLabel('Effort perçu (facultatif)')).toHaveValue('2');
   await expect(other.locator('.app-shell')).toHaveJSProperty('inert', false);
   await other.bringToFront();
   await otherRegion.getByLabel('Commentaire personnel (facultatif)').click();
   await otherRegion.getByLabel('Commentaire personnel (facultatif)').fill('Brouillon conservé');
   await expect(otherRegion.getByText('18/2000 caractères',{exact:true})).toBeVisible();
-  await effort.selectOption('hard'); await region.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await effort.selectOption('5'); await region.getByRole('button', { name: 'Enregistrer', exact: true }).click();
   await expect(region.getByRole('status')).toContainText('Votre bilan a été enregistré.');
   await expect(otherRegion.getByLabel('Commentaire personnel (facultatif)')).toHaveValue('Brouillon conservé');
   await expect(otherRegion.getByRole('status')).toContainText('Les informations ont changé');
@@ -37,7 +37,7 @@ for (const width of [390, 1280]) test(`bilan : ressenti facultatif, persistance 
   await expect(otherRegion.getByRole('alert')).toContainText('changé');
   await expect(otherRegion.getByLabel('Commentaire personnel (facultatif)')).toHaveValue('Brouillon conservé');
   await otherRegion.getByRole('button', { name: 'Recharger le bilan' }).click();
-  await expect(otherRegion.getByLabel('Effort perçu (facultatif)')).toHaveValue('hard');
+  await expect(otherRegion.getByLabel('Effort perçu (facultatif)')).toHaveValue('5');
   await effort.selectOption(''); await comment.fill(''); await region.getByRole('button', { name: 'Enregistrer', exact: true }).click();
   await expect(otherRegion.getByLabel('Commentaire personnel (facultatif)')).toHaveValue('');
   await expect(otherRegion.getByLabel('Effort perçu (facultatif)')).toHaveValue('');

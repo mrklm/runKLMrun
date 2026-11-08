@@ -1,5 +1,5 @@
 import { isDocumentedActivityType } from '../../types/session';
-import { effortLabels } from '../analysis/session-feeling';
+import { effortLabels, feelingEffortCategory } from '../analysis/session-feeling';
 import { validateRealization } from '../analysis/session-review';
 import type { CoachV2ApplicationSnapshot } from './application-adapter-v2';
 import { associationEvidenceMatchesV2 } from './persistence-foundations-v2';
@@ -21,7 +21,7 @@ export function recordedActivityEvidenceV2(snapshot:CoachV2ApplicationSnapshot,r
     seen.add(session.id);
     const known=date<=referenceDate;
     const type=known?(session.trainingType??snapshot.documentedActivityTypes?.[session.id]):undefined;
-    const effort=known?session.feeling?.effort:undefined;
+    const effort=known?feelingEffortCategory(session.feeling):undefined;
     const duration=session.durationSeconds,distance=session.distanceMeters;
     const linked=known?snapshot.occurrences.filter(value=>value.state==='associated'&&value.activityId===session.id):[];
     let confirmedRealization:RecordedActivityEvidence['confirmedRealization'];

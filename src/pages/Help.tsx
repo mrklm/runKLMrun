@@ -23,7 +23,7 @@ export function Help() {
       <p>Après une séance, runKLMrun peut vous proposer un bilan facultatif.</p>
       <p>Vous pouvez y indiquer :</p>
       <ul>
-        <li>Votre ressenti : facile, modérée, difficile ou très difficile.</li>
+        <li>Votre effort perçu, de 0 (repos) à 10 (maximal). Les ressentis saisis avec l'ancienne échelle sont convertis : facile 2, modérée 3, difficile 5, très difficile 7.</li>
         <li>Un commentaire sur votre sortie.</li>
         <li>Le type d'entraînement réellement effectué.</li>
         <li>Une description complémentaire de votre séance.</li>

@@ -61,9 +61,9 @@ for (const width of [390, 1280]) test(`carte automatique, segments, formulaires 
   }
   const original = (await map.locator('.leaflet-container').elementHandle())!;
   const feeling = page.getByRole('region', { name: 'Bilan de votre séance', exact: true });
-  await feeling.getByLabel('Effort perçu (facultatif)').selectOption('easy');
+  await feeling.getByLabel('Effort perçu (facultatif)').selectOption('2');
   await feeling.getByRole('button', { name: 'Enregistrer', exact: true }).click();
-  await expect(feeling.getByLabel('Effort perçu (facultatif)')).toHaveValue('easy');
+  await expect(feeling.getByLabel('Effort perçu (facultatif)')).toHaveValue('2');
   await expect(feeling.getByRole('status')).toContainText('Votre bilan a été enregistré.');
   const training = page.getByRole('region', { name: 'Bilan de votre séance', exact: true });
   await training.getByRole('combobox',{name:'Type d’entraînement',exact:true}).selectOption('hills');

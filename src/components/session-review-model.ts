@@ -2,7 +2,7 @@ import type { RunningSession, DocumentedActivityType } from '../types/session';
 import { isDocumentedActivityType } from '../types/session';
 import type { PersistableOccurrenceV2 } from '../core/coach/persistence-foundations-v2';
 import type { RealizationResult } from '../core/analysis/session-review';
-import { feelingFromFields, sameFeeling } from '../core/analysis/session-feeling';
+import { feelingFromFields, feelingRpeField, sameFeeling } from '../core/analysis/session-feeling';
 import type { SessionReviewPatch, SessionReviewSnapshot } from '../storage/session-review';
 import type { AssociationInspectionV2 } from '../storage/coach-suggestions-v2';
 import { matchingDate } from '../core/coach/suggestion-matching';
@@ -16,7 +16,7 @@ export interface ReviewDraft {
   associateOnly: boolean;
 }
 export function reviewDraft(session: RunningSession, occurrence?: PersistableOccurrenceV2): ReviewDraft {
-  return { effort: session.feeling?.effort ?? '', comment: session.feeling?.comment ?? '',
+  return { effort: feelingRpeField(session.feeling), comment: session.feeling?.comment ?? '',
     trainingType: session.trainingType ?? (session.trainingDescription ? 'other' : ''), description: session.trainingDescription ?? '',
     result: occurrence?.realization?.result ?? '', associateOnly: false };
 }

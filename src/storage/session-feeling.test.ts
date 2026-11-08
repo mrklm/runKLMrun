@@ -19,8 +19,10 @@ async function setup() {
   await sessions.addImported(data.sessions[0],data.details[0]);
   return {n,data,sessions,repo,id:data.sessions[0].id};
 }
-it('réutilise quatre niveaux et autorise un commentaire seul ou aucune annotation', () => {
-  for (const effort of ['easy','moderate','hard','very-hard']) expect(feelingFromFields(effort,'')).toEqual({effort});
+it('enregistre l’échelle 0 à 10 et autorise un commentaire seul ou aucune annotation', () => {
+  for (let rpe=0;rpe<=10;rpe++) expect(feelingFromFields(String(rpe),'')).toEqual({rpe});
+  for (const value of ['easy','11','-1','5.5',' ','05x']) expect(()=>feelingFromFields(value,'')).toThrow();
+  expect(()=>validateFeeling({rpe:11})).toThrow();expect(()=>validateFeeling({rpe:2.5})).toThrow();expect(()=>validateFeeling({rpe:'5'})).toThrow();
   expect(feelingFromFields('','Sensations libres\nTrès bien.')).toEqual({comment:'Sensations libres\nTrès bien.'});
   expect(feelingFromFields('','')).toBeUndefined();
   expect(()=>feelingFromFields('unknown','')).toThrow();expect(()=>feelingFromFields('','x'.repeat(2001))).toThrow();

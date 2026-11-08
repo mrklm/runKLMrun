@@ -80,7 +80,7 @@ test('plusieurs recommandations : choix explicite et association sans confirmati
   expect(occurrence?.activityId).toBe('review-run'); expect(occurrence?.realization).toBeUndefined();
   await review.getByLabel('Recommandation à renseigner').selectOption('review-1');
   await review.getByRole('radio', { name: 'Oui', exact: true }).check();
-  await review.getByLabel('Effort perçu (facultatif)').selectOption('hard');
+  await review.getByLabel('Effort perçu (facultatif)').selectOption('5');
   await review.getByRole('button', { name: 'Enregistrer', exact: true }).click();
   await expect(review.getByRole('alert')).toContainText('déjà associée');
   expect((await snapshot(page, database)).sessions[0].feeling).toBeUndefined();
@@ -96,7 +96,7 @@ test('association historique, invalidation sportive et suppression de l’activi
   }, { root, database });
   await expect(review).toContainText('Aucune réalisation n’est confirmée'); await expect(review.getByRole('radio')).toHaveCount(0);
   await expect(review.getByLabel('Effort perçu (facultatif)')).toBeEnabled();
-  await review.getByLabel('Effort perçu (facultatif)').selectOption('moderate'); await save(page);
+  await review.getByLabel('Effort perçu (facultatif)').selectOption('3'); await save(page);
   await page.evaluate(async ({ root, database }) => {
     const { createSessionRepository } = await import(/* @vite-ignore */ root + 'storage/database.ts');
     await createSessionRepository(database).remove!('review-run');

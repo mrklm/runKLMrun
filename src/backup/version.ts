@@ -9,8 +9,12 @@ export function requiresBackupV7(data: BackupSourceData): boolean {
 export function requiresBackupV8(data: BackupSourceData): boolean {
   return data.sessions.some(session => session.heartRateIgnored !== undefined);
 }
+/** Format 9 uniquement si un effort perçu 0 à 10 existe : les anciennes versions rejetteraient `rpe`. */
+export function requiresBackupV9(data: BackupSourceData): boolean {
+  return data.sessions.some(session => session.feeling?.rpe !== undefined);
+}
 export function backupFormatVersion(data: BackupSourceData): BackupPayload['formatVersion'] {
-  return requiresBackupV8(data) ? 8 : requiresBackupV7(data) ? 7 : data.coachSuggestionsV2 !== undefined ? 6 : data.coachSuggestions !== undefined ? 5
+  return requiresBackupV9(data) ? 9 : requiresBackupV8(data) ? 8 : requiresBackupV7(data) ? 7 : data.coachSuggestionsV2 !== undefined ? 6 : data.coachSuggestions !== undefined ? 5
     : data.coachPlanning !== undefined ? 4 : data.evolvingCoach !== undefined ? 3
       : data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1;
 }

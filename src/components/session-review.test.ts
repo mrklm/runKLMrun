@@ -18,9 +18,10 @@ const render = (patch: Partial<SessionReviewFormProps> = {}) => renderToStaticMa
   onChange() {}, onSelect() {}, onSave() {}, onReset() {}, ...patch,
 }));
 describe('formulaire de bilan et patch', () => {
-  it('affiche les quatre ressentis, le commentaire et les types officiels sans question artificielle', () => {
+  it('affiche l’échelle d’effort 0 à 10, le commentaire et les types officiels sans question artificielle', () => {
     const html = render();
-    for (const value of ['easy', 'moderate', 'hard', 'very-hard']) expect(html).toContain(`value="${value}"`);
+    for (let value = 0; value <= 10; value++) expect(html).toContain(`value="${value}"`);
+    for (const text of ['0/10 — Repos', '5/10 — Difficile', '10/10 — Maximal']) expect(html).toContain(text);
     for (const text of ['Commentaire personnel', 'Récupération', 'Endurance à variations modérées', 'Sortie soutenue', 'Autre entraînement…']) expect(html).toContain(text);
     expect(html).not.toContain('type="radio"');
   });

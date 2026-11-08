@@ -73,10 +73,10 @@ for (const width of [390, 1280]) test(`navigation, brouillons, abandon explicite
   await expect(modal.locator('header h2')).toBeFocused();
   await modal.locator('[data-testid="session-review"]:visible').getByLabel('Commentaire personnel (facultatif)').fill('Brouillon premier');
   await modal.getByRole('button', { name: 'Plus tard', exact: true }).click(); await expect(modal).toContainText('Activité 2 sur 3');
-  await modal.locator('[data-testid="session-review"]:visible').getByLabel('Effort perçu (facultatif)').selectOption('moderate');
+  await modal.locator('[data-testid="session-review"]:visible').getByLabel('Effort perçu (facultatif)').selectOption('3');
   await modal.getByRole('button', { name: 'Enregistrer et suivant', exact: true }).focus(); await page.keyboard.press('Enter');
   await expect(modal).toContainText('Activité 3 sur 3');
-  await modal.getByRole('button', { name: 'Précédent', exact: true }).click(); await expect(modal.locator('[data-testid="session-review"]:visible').getByLabel('Effort perçu (facultatif)')).toHaveValue('moderate');
+  await modal.getByRole('button', { name: 'Précédent', exact: true }).click(); await expect(modal.locator('[data-testid="session-review"]:visible').getByLabel('Effort perçu (facultatif)')).toHaveValue('3');
   await modal.getByRole('button', { name: 'Précédent', exact: true }).click(); await expect(modal.locator('[data-testid="session-review"]:visible').getByLabel('Commentaire personnel (facultatif)')).toHaveValue('Brouillon premier');
   for (let index = 0; index < 10; index++) {
     await page.keyboard.press('Tab'); expect(await page.evaluate(() => !!document.activeElement?.closest('dialog'))).toBe(true);
@@ -88,10 +88,10 @@ for (const width of [390, 1280]) test(`navigation, brouillons, abandon explicite
   await expect(modal.locator('[data-testid="session-review"]:visible').getByLabel('Commentaire personnel (facultatif)')).toHaveValue('Brouillon premier');
   await modal.getByRole('button', { name: 'Quitter le bilan', exact: true }).click();
   await modal.getByRole('button', { name: 'Fermer sans enregistrer', exact: true }).click();
-  const data = await sessions(page, database); expect(data.filter(session => session.feeling?.effort === 'moderate')).toHaveLength(1);
+  const data = await sessions(page, database); expect(data.filter(session => session.feeling?.rpe === 3)).toHaveLength(1);
   expect(data.some(session => session.feeling?.comment)).toBe(false);
   await page.reload(); await expect(dialog(page)).toHaveCount(0);
-  expect((await sessions(page, database)).filter(session => session.feeling?.effort === 'moderate')).toHaveLength(1);
+  expect((await sessions(page, database)).filter(session => session.feeling?.rpe === 3)).toHaveLength(1);
 });
 
 test('création manuelle : report, sauvegarde, fiche sans popup et thèmes', async ({ page }) => {
