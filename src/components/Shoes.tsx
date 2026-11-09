@@ -138,7 +138,10 @@ export function Shoes({ sessions, embedded = false }: { sessions: RunningSession
     setBusy(true);
     try { await shoeRepository.convert(conversion, confirmed); setConversion(undefined); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'Conversion impossible.'); } finally { setBusy(false); }
   }
+  const closeForm = () => { setCreating(false); setEditing(undefined); };
   function card(shoe: Shoe) {
+    // Le formulaire remplace la carte modifiée : il s'ouvre là où l'on a cliqué.
+    if (editing?.id === shoe.id) return <ShoeForm automatic={automatic} key={shoe.id} shoe={editing} onClose={closeForm} />;
     const usage = shoeMileage(shoe, sessions, effective);
     const period = timeline.periods.find(p => p.shoe.id === shoe.id);
     const ids = new Set(effective.filter(a => a.shoeId === shoe.id).map(a => a.sessionId));
@@ -174,7 +177,7 @@ export function Shoes({ sessions, embedded = false }: { sessions: RunningSession
       {automatic && !!timeline.invalidDates && <p>{timeline.invalidDates} séance(s) sans date valide : non attribuées.</p>}
       {!automatic && !!data.shoes.length && <div className="panel settings-panel shoe-panel"><button className="button" disabled={busy} onClick={() => void previewConversion()}>Reprendre les associations calculées par dates</button>{conversion && <><p>{conversion.assignments.length} séance(s) · {number(conversion.km)} km. Les associations existantes seront conservées.</p><label><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} /> Je confirme la conversion en associations manuelles.</label><button className="button" disabled={busy || !confirmed} onClick={() => void convert()}>Confirmer la conversion</button><button className="button" disabled={busy} onClick={() => setConversion(undefined)}>Annuler</button></>}</div>}
       <button className="button" onClick={() => { setEditing(undefined); setCreating(true); }}>{automatic ? 'Nouvelle paire' : 'Ajouter une paire de chaussures'}</button>
-      {(creating || editing) && <ShoeForm automatic={automatic} key={editing?.id ?? 'new'} shoe={editing} onClose={() => { setCreating(false); setEditing(undefined); }} />}
+      {creating && <ShoeForm automatic={automatic} key="new" onClose={closeForm} />}
       {data.shoes.filter(s => automatic ? s.id === timeline.current || (s.firstUseDate ?? '') > today : s.status === 'active').map(card)}
       <h2>Historique des chaussures</h2>
       {data.shoes.filter(s => automatic ? s.id !== timeline.current && (!s.firstUseDate || s.firstUseDate <= today) : s.status === 'archived').map(card)}
@@ -188,6 +191,8 @@ function ShoeForm({ shoe, onClose, automatic }: { automatic: boolean; shoe?: Sho
   const [purchase, setPurchase] = useState(shoe?.purchaseDate ?? ''), [firstUse, setFirstUse] = useState(shoe?.firstUseDate ?? '');
   const [limit, setLimit] = useState(shoe?.limitKm?.toString() ?? ''), [colors, setColors] = useState<ShoeColors | undefined>(shoe?.colors);
   const [isDefault, setDefault] = useState(shoe?.isDefault ?? false), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const firstField = useRef<HTMLInputElement>(null);
+  useEffect(() => { firstField.current?.focus(); }, []);
   async function save() {
     setBusy(true); setError('');
     try { await shoeRepository.save({ id: shoe?.id ?? crypto.randomUUID(), name: name.trim(), brand: brand.trim() || undefined, purchaseDate: purchase || undefined, firstUseDate: firstUse || undefined, limitKm: limit === '' ? undefined : Number(limit), ...(shoe?.warningKm === undefined ? {} : { warningKm: shoe.warningKm }), ...(storedShoeColors(colors) ? { colors: storedShoeColors(colors) } : {}), status: shoe?.status ?? 'active', isDefault }, shoe?.revision); onClose(); }
@@ -196,7 +201,7 @@ function ShoeForm({ shoe, onClose, automatic }: { automatic: boolean; shoe?: Sho
   }
   return <form className="panel settings-panel shoe-panel" onSubmit={e => { e.preventDefault(); if (!busy) void save(); }}><h2>{shoe ? 'Modifier cette paire' : 'Ajouter une paire de chaussures'}</h2>
     <fieldset disabled={busy} className="profile-fields"><legend>Caractéristiques de la paire</legend>
-      <label>Modèle ou nom personnalisé<input required maxLength={200} value={name} onChange={e => setName(e.target.value)} /></label>
+      <label>Modèle ou nom personnalisé<input ref={firstField} required maxLength={200} value={name} onChange={e => setName(e.target.value)} /></label>
       <label>Marque (facultative)<input maxLength={200} value={brand} onChange={e => setBrand(e.target.value)} /></label>
       <label>Date d’achat (facultative)<input type="date" value={purchase} onChange={e => setPurchase(e.target.value)} /></label>
       <label>Date de première utilisation<input type="date" required={automatic} value={firstUse} onChange={e => setFirstUse(e.target.value)} /></label>

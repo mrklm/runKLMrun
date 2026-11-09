@@ -26,6 +26,7 @@ test('icône de chaussure personnalisée puis remise aux couleurs d’origine', 
 
   await page.goto('./#/chaussures');
   await pair.getByRole('button', { name: 'Modifier cette paire' }).click();
+  await expect(form.getByLabel('Modèle ou nom personnalisé')).toBeFocused(); await expect(form).toBeInViewport();
   await form.locator('details.shoe-colors summary').click();
   await form.getByRole('button', { name: 'Couleurs d’origine' }).click();
   await form.getByRole('button', { name: 'Enregistrer cette paire' }).click();

@@ -1,5 +1,9 @@
 # Historique des versions
 
+## v1.6.1 — 2026-11-09 — Modification d’une paire
+
+- Le formulaire « Modifier cette paire » s’ouvre à la place de la paire concernée, et non plus en haut de la liste, hors de l’écran.
+
 ## v1.6.0 — 2026-11-09 — Icône des chaussures personnalisable
 
 - Chaque paire peut avoir sa propre icône : couleurs de la tige, des lacets, de la semelle intermédiaire, des bandes et de la semelle extérieure, à choisir sous la date de première utilisation.
