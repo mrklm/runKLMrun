@@ -31,7 +31,7 @@ export interface RestoreRetention {
 }
 export interface BackupPayload {
   format: 'runKLMrun-backup';
-  formatVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+  formatVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
   exportedAt: string;
   appVersion: string;
   data: BackupSourceData;

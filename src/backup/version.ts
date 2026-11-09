@@ -17,8 +17,12 @@ export function requiresBackupV9(data: BackupSourceData): boolean {
 export function requiresBackupV10(data: BackupSourceData): boolean {
   return data.runnerProfile !== undefined;
 }
+/** Format 11 uniquement si une paire a une icône personnalisée : les anciennes versions rejetteraient `colors`. */
+export function requiresBackupV11(data: BackupSourceData): boolean {
+  return (data.shoes ?? []).some(shoe => shoe.colors !== undefined);
+}
 export function backupFormatVersion(data: BackupSourceData): BackupPayload['formatVersion'] {
-  return requiresBackupV10(data) ? 10 : requiresBackupV9(data) ? 9 : requiresBackupV8(data) ? 8 : requiresBackupV7(data) ? 7 : data.coachSuggestionsV2 !== undefined ? 6 : data.coachSuggestions !== undefined ? 5
+  return requiresBackupV11(data) ? 11 : requiresBackupV10(data) ? 10 : requiresBackupV9(data) ? 9 : requiresBackupV8(data) ? 8 : requiresBackupV7(data) ? 7 : data.coachSuggestionsV2 !== undefined ? 6 : data.coachSuggestions !== undefined ? 5
     : data.coachPlanning !== undefined ? 4 : data.evolvingCoach !== undefined ? 3
       : data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1;
 }

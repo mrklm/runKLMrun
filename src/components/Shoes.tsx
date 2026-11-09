@@ -11,6 +11,9 @@ import { useShoes } from './use-shoes';
 import { shoeTimeline, usageDuration } from '../core/shoes/timeline';
 import { shoeMileage, sessionsInPeriod } from '../core/shoes/shoes';
 import { SessionList } from './SessionList';
+import { ShoeIcon } from './ShoeIcon';
+import type { ShoeColors } from '../types/shoe';
+import { DEFAULT_SHOE_COLORS, SHOE_COLOR_ZONES, shoeColorLabels, storedShoeColors } from '../core/shoes/shoe-colors';
 
 const number = (value: number | undefined) => value === undefined ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
 export function ShoeAlert({ sessions }: { sessions: RunningSession[] }) {
@@ -26,7 +29,7 @@ export function ShoeAlert({ sessions }: { sessions: RunningSession[] }) {
   return <div className="home-shoe-summaries">{displayed.map(current => {
     const usage = shoeMileage(current, sessions, associations);
     const distance = `${number(usage.km)} km${current.limitKm === undefined ? '' : ` / ${number(current.limitKm)} km`}`;
-    return <a className="home-shoe-summary" key={current.id} href="#/chaussures" aria-label={`Gérer les chaussures : ${current.name}, ${distance}`}><span className="home-shoe-name">{current.name}</span><img src={`${import.meta.env.BASE_URL}images/basket.png`} alt="" /><span className="home-shoe-distance">{distance}</span></a>;
+    return <a className="home-shoe-summary" key={current.id} href="#/chaussures" aria-label={`Gérer les chaussures : ${current.name}, ${distance}`}><span className="home-shoe-name">{current.name}</span><ShoeIcon colors={current.colors} /><span className="home-shoe-distance">{distance}</span></a>;
   })}</div>;
 }
 export function SessionShoes({ sessionId, session }: { sessionId: string; session?: RunningSession }) {
@@ -144,7 +147,7 @@ export function Shoes({ sessions, embedded = false }: { sessions: RunningSession
       data.shoes.length > 1 && !automatic && shoe.isDefault ? 'Paire par défaut' : undefined,
       usage.state === 'limit' ? 'Limite atteinte' : undefined,
     ].filter(Boolean).join(' · ');
-    return <section className="panel settings-panel shoe-panel" key={shoe.id}><h2>{shoe.name}</h2>{description && <p>{description}</p>}
+    return <section className="panel settings-panel shoe-panel" key={shoe.id}><h2>{shoe.name}</h2><ShoeIcon colors={shoe.colors} />{description && <p>{description}</p>}
       {automatic && !timeline.issues.length && period && <><p>{period.current ? `Utilisée depuis le ${period.start.split('-').reverse().join('/')}` : period.future ? `Début prévu le ${period.start.split('-').reverse().join('/')}` : `Utilisée du ${period.start.split('-').reverse().join('/')} au ${period.end?.split('-').reverse().join('/') ?? '—'}`}</p>{period.end && <p>Fin déduite : {period.end.split('-').reverse().join('/')} (veille de la paire suivante, et non dernière séance enregistrée).</p>}<p>Durée calendaire : {period.future ? '—' : usageDuration(period.start, period.current ? today : period.end ?? today)}.</p></>}
       <dl className="session-detail-metrics"><div><dt>Kilométrage cumulé</dt><dd>{number(automatic && timeline.issues.length ? undefined : usage.km)} km</dd></div><div><dt>Limite personnelle</dt><dd>{number(shoe.limitKm)} km</dd></div><div><dt>Kilométrage restant</dt><dd>{number(usage.remainingKm)} km</dd></div><div><dt>Utilisation</dt><dd>{number(usage.percent)} %</dd></div><div><dt>Séances associées</dt><dd>{automatic && timeline.issues.length ? '—' : usage.count}</dd></div><div><dt>Date de première utilisation</dt><dd>{shoe.firstUseDate?.split('-').reverse().join('/') ?? '—'}</dd></div><div><dt>Date d’achat</dt><dd>{shoe.purchaseDate?.split('-').reverse().join('/') ?? '—'}</dd></div></dl>
       {!!usage.missing && <p>{usage.missing} séance(s) sans distance exploitable, non comptées dans les kilomètres.</p>}
@@ -183,11 +186,11 @@ function ShoeForm({ shoe, onClose, automatic }: { automatic: boolean; shoe?: Sho
   const database=useProfileDatabase(),shoeRepository=useMemo(()=>createShoeRepository(database),[database]);
   const [name, setName] = useState(shoe?.name ?? ''), [brand, setBrand] = useState(shoe?.brand ?? '');
   const [purchase, setPurchase] = useState(shoe?.purchaseDate ?? ''), [firstUse, setFirstUse] = useState(shoe?.firstUseDate ?? '');
-  const [limit, setLimit] = useState(shoe?.limitKm?.toString() ?? '');
+  const [limit, setLimit] = useState(shoe?.limitKm?.toString() ?? ''), [colors, setColors] = useState<ShoeColors | undefined>(shoe?.colors);
   const [isDefault, setDefault] = useState(shoe?.isDefault ?? false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   async function save() {
     setBusy(true); setError('');
-    try { await shoeRepository.save({ id: shoe?.id ?? crypto.randomUUID(), name: name.trim(), brand: brand.trim() || undefined, purchaseDate: purchase || undefined, firstUseDate: firstUse || undefined, limitKm: limit === '' ? undefined : Number(limit), ...(shoe?.warningKm === undefined ? {} : { warningKm: shoe.warningKm }), status: shoe?.status ?? 'active', isDefault }, shoe?.revision); onClose(); }
+    try { await shoeRepository.save({ id: shoe?.id ?? crypto.randomUUID(), name: name.trim(), brand: brand.trim() || undefined, purchaseDate: purchase || undefined, firstUseDate: firstUse || undefined, limitKm: limit === '' ? undefined : Number(limit), ...(shoe?.warningKm === undefined ? {} : { warningKm: shoe.warningKm }), ...(storedShoeColors(colors) ? { colors: storedShoeColors(colors) } : {}), status: shoe?.status ?? 'active', isDefault }, shoe?.revision); onClose(); }
     catch (e) { setError(e instanceof Error ? e.message : 'Enregistrement impossible.'); }
     finally { setBusy(false); }
   }
@@ -198,6 +201,11 @@ function ShoeForm({ shoe, onClose, automatic }: { automatic: boolean; shoe?: Sho
       <label>Date d’achat (facultative)<input type="date" value={purchase} onChange={e => setPurchase(e.target.value)} /></label>
       <label>Date de première utilisation<input type="date" required={automatic} value={firstUse} onChange={e => setFirstUse(e.target.value)} /></label>
       <p>Cette date est indépendante de l’achat et reste modifiable. En mode automatique, elle détermine la période de calcul. En mode manuel, elle n’attribue aucune séance.</p>
+      <details className="shoe-colors"><summary>Personnaliser l’icône (facultatif)</summary>
+        <ShoeIcon colors={storedShoeColors(colors)} />
+        {SHOE_COLOR_ZONES.map(zone => <label key={zone}>{shoeColorLabels[zone]}<input type="color" value={(colors ?? DEFAULT_SHOE_COLORS)[zone]} onChange={e => { const value = e.target.value; setColors(previous => ({ ...(previous ?? DEFAULT_SHOE_COLORS), [zone]: value })); }} /></label>)}
+        <button className="button" type="button" disabled={!storedShoeColors(colors)} onClick={() => setColors(undefined)}>Couleurs d’origine</button>
+      </details>
       <label>Limite personnelle (km, facultative)<input type="number" min="0.001" step="any" value={limit} onChange={e => setLimit(e.target.value)} /></label>
       {!automatic && <label><input type="checkbox" checked={isDefault} disabled={shoe?.status === 'archived'} onChange={e => setDefault(e.target.checked)} /> Paire active par défaut, proposée lors des imports</label>}
       <div className="profile-actions"><button className="button" type="submit">Enregistrer cette paire</button><button className="button" type="button" onClick={onClose}>Annuler</button></div>

@@ -1,11 +1,12 @@
 import type { Shoe, ShoeAssignment } from '../../types/shoe';
 import type { RunningSession } from '../../types/session';
 import { validSessionDate } from '../analysis/session-summary';
+import { isShoeColors } from './shoe-colors';
 
 export function validateShoe(value: unknown): asserts value is Shoe {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Paire invalide.');
   const shoe = value as Shoe;
-  const allowed = ['id', 'name', 'brand', 'purchaseDate', 'firstUseDate', 'limitKm', 'warningKm', 'status', 'isDefault', 'revision'];
+  const allowed = ['id', 'name', 'brand', 'purchaseDate', 'firstUseDate', 'limitKm', 'warningKm', 'colors', 'status', 'isDefault', 'revision'];
   if (Object.keys(shoe).some(k => !allowed.includes(k)) || typeof shoe.id !== 'string' || !shoe.id.trim() || shoe.id.length > 4096
     || typeof shoe.name !== 'string' || !shoe.name.trim() || shoe.name.length > 200
     || (shoe.brand !== undefined && (typeof shoe.brand !== 'string' || shoe.brand.length > 200))
@@ -13,6 +14,7 @@ export function validateShoe(value: unknown): asserts value is Shoe {
     || (shoe.status === 'archived' && shoe.isDefault) || !Number.isSafeInteger(shoe.revision) || shoe.revision < 1) throw new Error('Renseignez un nom de paire et un statut valides.');
   for (const date of [shoe.purchaseDate, shoe.firstUseDate]) if (date !== undefined && (typeof date !== 'string' || !validSessionDate(date))) throw new Error('Renseignez une date valide ou laissez le champ vide.');
   if (shoe.limitKm !== undefined && (!Number.isFinite(shoe.limitKm) || shoe.limitKm <= 0)) throw new Error('La limite doit être un nombre strictement positif.');
+  if (shoe.colors !== undefined && !isShoeColors(shoe.colors)) throw new Error('Couleurs de l’icône invalides.');
   // Champ historique conservé : il ne doit plus contraindre la limite modifiable.
   if (shoe.warningKm !== undefined && (!Number.isFinite(shoe.warningKm) || shoe.warningKm < 0)) throw new Error('Ancienne valeur de chaussure invalide.');
 }

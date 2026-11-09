@@ -48,6 +48,7 @@ export function Help() {
         <li>La date de sa première utilisation.</li>
         <li>Éventuellement, un kilométrage limite pour recevoir une alerte de remplacement.</li>
       </ul>
+      <p>Sous la date de première utilisation, <em>Personnaliser l'icône</em> vous permet de choisir la couleur de la tige, des lacets, des semelles et des bandes, pour reconnaître chaque paire d'un coup d'œil. Sans personnalisation, l'icône habituelle est conservée.</p>
       <p>En associant vos chaussures à vos séances, runKLMrun comptabilise les kilomètres parcourus avec chaque paire.</p>
 
       <h2>Votre Coach</h2>

@@ -1,5 +1,12 @@
 # Historique des versions
 
+## v1.6.0 — 2026-11-09 — Icône des chaussures personnalisable
+
+- Chaque paire peut avoir sa propre icône : couleurs de la tige, des lacets, de la semelle intermédiaire, des bandes et de la semelle extérieure, à choisir sous la date de première utilisation.
+- Sans personnalisation, l’icône d’origine est conservée ; le bouton « Couleurs d’origine » la rétablit.
+- Icône affichée sur l’accueil et dans la liste de la page Chaussures.
+- Sauvegarde au format 11 uniquement lorsqu’une paire est personnalisée.
+
 ## v1.5.1 — 2026-11-09 — Libellés de l’effort perçu
 
 - Effort perçu saisi de 1 à 10 : une sortie n’est jamais du repos ; un 0 déjà enregistré reste lisible.
