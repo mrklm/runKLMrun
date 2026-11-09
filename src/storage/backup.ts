@@ -12,6 +12,9 @@ import type { BackupService } from './contracts';
 import { BackupError, validateBackupData } from '../backup/validation';
 import { canonicalJson, verifyBackup } from '../backup/format';
 import { prepareRestore } from '../backup/merge';
+import { runnerProfileValuesForDatabase, updateRunnerProfile } from './profile-registry';
+
+export const RUNNER_PROFILE_RESTORE_WARNING = 'Vos données ont été restaurées, mais pas les informations de la fiche du profil (date de naissance, taille, poids, fréquence cardiaque). Relancez la restauration pour les reprendre.';
 
 const stores = ['sessions', 'details', 'coachProfile', 'shoes', 'shoeAssignments', 'shoeSettings', 'evolvingCoach', 'coachPlanning', 'coachSuggestions', 'coachSuggestionsV2'] as const;
 type SnapshotTx = IDBPTransaction<RunDatabase, typeof stores, 'readonly' | 'readwrite'>;
@@ -47,7 +50,10 @@ type Processor = {
 /** Toutes les opérations lourdes et les empreintes sont terminées avant la transaction d’écriture. */
 export function createBackupService(processor: Processor, name = DATABASE_NAME): BackupService {
   return {
-    async exportData() { return processor.export(await readBackupSnapshot(name)); },
+    async exportData() {
+      const snapshot = await readBackupSnapshot(name), owner = await runnerProfileValuesForDatabase(name);
+      return processor.export(owner ? { ...snapshot, runnerProfile: owner.values } : snapshot);
+    },
     async preview(file, signal) {
       if (signal?.aborted) throw new DOMException('Annulé', 'AbortError');
       await checkBackupFile(file);
@@ -104,6 +110,15 @@ export function createBackupService(processor: Processor, name = DATABASE_NAME):
         await tx.done.catch(() => undefined); throw error;
       } finally { db.close(); }
       storageChanges.committed(name, ['sessions', 'profile', 'configuration', 'planning', 'shoes', 'suggestions', 'suggestions-v2']);
+      // Seconde étape, hors transaction : le registre des profils est une base distincte.
+      // Le pseudonyme local est toujours conservé ; un échec n'annule pas les données déjà restaurées.
+      const incomingRunner = preview.backup.data.runnerProfile;
+      if (incomingRunner && (options.mode === 'replace' || options.profile === 'restore')) {
+        try {
+          const owner = await runnerProfileValuesForDatabase(name);
+          if (owner) await updateRunnerProfile(owner.id, { ...incomingRunner, displayName: owner.values.displayName }, owner.revision);
+        } catch { prepared.report.warnings.push(RUNNER_PROFILE_RESTORE_WARNING); }
+      }
       return prepared.report;
       });
     },

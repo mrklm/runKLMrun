@@ -13,8 +13,12 @@ export function requiresBackupV8(data: BackupSourceData): boolean {
 export function requiresBackupV9(data: BackupSourceData): boolean {
   return data.sessions.some(session => session.feeling?.rpe !== undefined);
 }
+/** Format 10 dès que la fiche du profil accompagne la sauvegarde. */
+export function requiresBackupV10(data: BackupSourceData): boolean {
+  return data.runnerProfile !== undefined;
+}
 export function backupFormatVersion(data: BackupSourceData): BackupPayload['formatVersion'] {
-  return requiresBackupV9(data) ? 9 : requiresBackupV8(data) ? 8 : requiresBackupV7(data) ? 7 : data.coachSuggestionsV2 !== undefined ? 6 : data.coachSuggestions !== undefined ? 5
+  return requiresBackupV10(data) ? 10 : requiresBackupV9(data) ? 9 : requiresBackupV8(data) ? 8 : requiresBackupV7(data) ? 7 : data.coachSuggestionsV2 !== undefined ? 6 : data.coachSuggestions !== undefined ? 5
     : data.coachPlanning !== undefined ? 4 : data.evolvingCoach !== undefined ? 3
       : data.shoes !== undefined || data.shoeAssignments !== undefined || data.shoeSettings !== undefined ? 2 : 1;
 }

@@ -7,8 +7,8 @@ import type { CoachTemperament, EvolvingCoachRecord } from '../types/evolving-co
 import { useProfileDatabase } from '../storage/profile-context';
 const choices: { value: CoachTemperament; label: string; description: string }[] = [
   { value: 'pas-a-pas', label: 'Pas à Pas', description: 'Le Coach privilégie une progression douce, la régularité et l’observation.' },
-  { value: 'evolution-active', label: 'Évolution Active', description: 'Le Coach recherche une progression volontaire et diversifie les exercices selon ta forme.' },
-  { value: 'rentre-dedans', label: 'Rentre dedans', description: 'Le Coach privilégie une progression ambitieuse tout en respectant ta récupération.' },
+  { value: 'evolution-active', label: 'Évolution Active', description: 'Le Coach recherche une progression volontaire et diversifie les exercices selon votre forme.' },
+  { value: 'rentre-dedans', label: 'Rentre dedans', description: 'Le Coach privilégie une progression ambitieuse tout en respectant votre récupération.' },
 ];
 
 export function CoachTemperamentSettings() {
@@ -42,7 +42,7 @@ export function CoachTemperamentSettings() {
     } catch {
       if (token !== generation.current) return;
       setSelected(choices.findIndex(choice => choice.value === resolveCoachTemperament(record)));
-      setReady(false); setError('Le choix n’a pas pu être enregistré. Recharge les préférences avant de réessayer.');
+      setReady(false); setError('Le choix n’a pas pu être enregistré. Rechargez les préférences avant de réessayer.');
     } finally { busy.current = false; if (token === generation.current) setSaving(false); }
   }
   return <details className="panel settings-panel coach-temperament" aria-labelledby="coach-temperament-title">

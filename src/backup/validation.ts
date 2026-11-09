@@ -1,5 +1,6 @@
 import { validateTrainingDescription } from '../core/analysis/session-review';
-import { requiresBackupV7, requiresBackupV8, requiresBackupV9 } from './version';
+import { requiresBackupV10, requiresBackupV7, requiresBackupV8, requiresBackupV9 } from './version';
+import { heartRateSettingsErrors } from '../core/analysis/runner-physiology';
 import { matchingDate } from '../core/coach/suggestion-matching';
 import { validateFeeling } from '../core/analysis/session-feeling';
 import { validateStoredSuggestion } from '../core/coach/suggestions';
@@ -34,10 +35,19 @@ function timestamp(value: unknown): value is string {
 }
 function array(value: unknown): asserts value is unknown[] { if (!Array.isArray(value)) fail(); }
 
+function validateRunnerProfileValues(value: unknown): void {
+  fields(value, 'displayName birthDate heightCm weightKg restingHeartRate maxHeartRate loadCoefficients');
+  if (!text(value.displayName) || !value.displayName.trim() || value.displayName.length > 200) fail('Le pseudonyme de la fiche du profil est invalide.');
+  if (value.birthDate !== undefined && (!text(value.birthDate) || !/^\d{4}-\d{2}-\d{2}$/.test(value.birthDate) || !Number.isFinite(Date.parse(`${value.birthDate}T00:00:00Z`)))) fail('La date de naissance de la fiche du profil est invalide.');
+  if (value.heightCm !== undefined && (!number(value.heightCm, 0, 300) || value.heightCm === 0)) fail('La taille de la fiche du profil est invalide.');
+  if (value.weightKg !== undefined && (!number(value.weightKg, 0, 500) || value.weightKg === 0)) fail('Le poids de la fiche du profil est invalide.');
+  if (heartRateSettingsErrors(value as Parameters<typeof heartRateSettingsErrors>[0]).length) fail('Les réglages de fréquence cardiaque de la fiche du profil sont invalides.');
+}
 export function validateBackupData(value: unknown, source: true): asserts value is BackupSourceData;
 export function validateBackupData(value: unknown, source?: false): asserts value is BackupData;
 export function validateBackupData(value: unknown, source = false): asserts value is BackupSourceData {
-  fields(value, 'sessions details coachProfile shoes shoeAssignments shoeSettings evolvingCoach coachPlanning coachSuggestions coachSuggestionsV2');
+  fields(value, 'sessions details coachProfile shoes shoeAssignments shoeSettings evolvingCoach coachPlanning coachSuggestions coachSuggestionsV2 runnerProfile');
+  if (value.runnerProfile !== undefined) validateRunnerProfileValues(value.runnerProfile);
   if (value.coachPlanning !== undefined) {
     try { validateCoachPlanning(value.coachPlanning); } catch { fail('Planning invalide dans la sauvegarde.'); }
   }
@@ -175,7 +185,7 @@ export function validateBackupData(value: unknown, source = false): asserts valu
 
 export function validateBackup(value: unknown): asserts value is BackupDocument {
   if (!object(value) || value.format !== 'runKLMrun-backup') fail('Ce fichier n’est pas une sauvegarde runKLMrun.');
-  if (value.formatVersion !== 1 && value.formatVersion !== 2 && value.formatVersion !== 3 && value.formatVersion !== 4 && value.formatVersion !== 5 && value.formatVersion !== 6 && value.formatVersion !== 7 && value.formatVersion !== 8 && value.formatVersion !== 9) fail('Cette version de sauvegarde n’est pas prise en charge. Utilisez une version compatible de runKLMrun.');
+  if (value.formatVersion !== 1 && value.formatVersion !== 2 && value.formatVersion !== 3 && value.formatVersion !== 4 && value.formatVersion !== 5 && value.formatVersion !== 6 && value.formatVersion !== 7 && value.formatVersion !== 8 && value.formatVersion !== 9 && value.formatVersion !== 10) fail('Cette version de sauvegarde n’est pas prise en charge. Utilisez une version compatible de runKLMrun.');
   fields(value, 'format formatVersion exportedAt appVersion data integrity');
   if (!timestamp(value.exportedAt) || !text(value.appVersion) || !value.appVersion.length) fail();
   fields(value.integrity, 'algorithm digest');
@@ -187,6 +197,7 @@ export function validateBackup(value: unknown): asserts value is BackupDocument 
   if(value.formatVersion<7&&requiresBackupV7(value.data))fail('Les bilans nécessitent le format 7.');
   if(value.formatVersion<8&&requiresBackupV8(value.data))fail('L’exclusion des données cardiaques nécessite le format 8.');
   if(value.formatVersion<9&&requiresBackupV9(value.data))fail('L’effort perçu sur 10 nécessite le format 9.');
+  if(value.formatVersion<10&&requiresBackupV10(value.data))fail('La fiche du profil nécessite le format 10.');
   if(value.formatVersion===6&&value.data.coachSuggestionsV2===undefined)fail('Occurrences V2 absentes du format 6.');
   if (value.formatVersion < 3 && value.data.evolvingCoach !== undefined) fail('Le Coach évolutif nécessite le format de sauvegarde 3.');
   if (value.formatVersion < 4 && value.data.coachPlanning !== undefined) fail('Le planning nécessite le format 4.');

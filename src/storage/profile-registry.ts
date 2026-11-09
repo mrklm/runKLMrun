@@ -1,5 +1,6 @@
 import { openDB, type DBSchema } from 'idb';
-import type { ProfileRegistryState, RunnerProfile } from '../types/runner-profile';
+import type { ProfileRegistryState, RunnerProfile, RunnerProfileValues } from '../types/runner-profile';
+import { RUNNER_PROFILE_VALUE_KEYS } from '../types/runner-profile';
 
 export const PROFILE_REGISTRY_NAME = 'runklmrun-profiles';
 const VERSION = 1;
@@ -74,13 +75,25 @@ export async function withProfileDatabaseLock<T>(databaseName:string, action:()=
  if(!locks&&requireWebLock)throw new RunnerProfileDeletionCoordinationError();
  return locks ? locks.request(`runklmrun-profile-database-${databaseName}`,action) : action();
 }
-export async function createRunnerProfile(values: Pick<RunnerProfile, 'displayName' | 'birthDate' | 'heightCm' | 'weightKg'>, now = new Date()): Promise<RunnerProfile> {
+export async function createRunnerProfile(values: RunnerProfileValues, now = new Date()): Promise<RunnerProfile> {
   const state = await readProfileRegistry();
   if (!state || state.migration !== 'complete') throw new Error('Les profils ne sont pas encore initialisés.');
   const id = crypto.randomUUID();
-  const profile: RunnerProfile = { id, databaseName: profileDatabaseName(id), displayName: values.displayName, ...(values.birthDate ? { birthDate: values.birthDate } : {}), ...(values.heightCm === undefined ? {} : { heightCm: values.heightCm }), ...(values.weightKg === undefined ? {} : { weightKg: values.weightKg }), createdAt: now.toISOString(), updatedAt: now.toISOString(), revision: 1, status: 'active' };
+  const profile: RunnerProfile = { id, databaseName: profileDatabaseName(id), displayName: values.displayName, ...(values.birthDate ? { birthDate: values.birthDate } : {}), ...(values.heightCm === undefined ? {} : { heightCm: values.heightCm }), ...(values.weightKg === undefined ? {} : { weightKg: values.weightKg }), ...optionalHeartRate(values), createdAt: now.toISOString(), updatedAt: now.toISOString(), revision: 1, status: 'active' };
   await writeProfileRegistry({ ...state, profiles: [...state.profiles, profile] });
   return profile;
+}
+const optionalHeartRate = (values: RunnerProfileValues) => ({
+  ...(values.restingHeartRate === undefined ? {} : { restingHeartRate: values.restingHeartRate }),
+  ...(values.maxHeartRate === undefined ? {} : { maxHeartRate: values.maxHeartRate }),
+  ...(values.loadCoefficients === undefined ? {} : { loadCoefficients: values.loadCoefficients }),
+});
+/** Fiche du profil propriétaire d'une base, pour la sauvegarde ; undefined si la base n'est liée à aucun profil. */
+export async function runnerProfileValuesForDatabase(databaseName: string): Promise<{ id: string; revision: number; values: RunnerProfileValues } | undefined> {
+  const profile = (await readProfileRegistry())?.profiles.find(value => value.databaseName === databaseName && isProfileActive(value));
+  if (!profile) return undefined;
+  const values = Object.fromEntries(RUNNER_PROFILE_VALUE_KEYS.flatMap(key => profile[key] === undefined ? [] : [[key, profile[key]]])) as RunnerProfileValues;
+  return { id: profile.id, revision: profileRevision(profile), values };
 }
 export class RunnerProfileConflictError extends Error { constructor() { super('Ce profil a été modifié dans un autre onglet. Rechargez-le avant de réessayer.'); } }
 export async function markRunnerProfileDeleting(id:string,destinationProfileId:string,expectedRevision:number,now=new Date(),operationId=crypto.randomUUID()) {
@@ -117,11 +130,12 @@ export async function resumePendingProfileDeletions() {
   await resume();
  }));
 }
-export async function updateRunnerProfile(id: string, values: Pick<RunnerProfile, 'displayName' | 'birthDate' | 'heightCm' | 'weightKg'>, expectedRevision: number, now = new Date()): Promise<RunnerProfile> {
+export async function updateRunnerProfile(id: string, values: RunnerProfileValues, expectedRevision: number, now = new Date()): Promise<RunnerProfile> {
   const db=await openProfileRegistry();
   try { const tx=db.transaction(['profiles','state'],'readwrite'), state=await tx.objectStore('state').get(STATE_KEY), current=await tx.objectStore('profiles').get(id);
     if(!state||!current) throw new Error('Profil introuvable.'); if(profileRevision(current)!==expectedRevision) throw new RunnerProfileConflictError();
-    const updated:RunnerProfile={...current,...values,birthDate:values.birthDate||undefined,heightCm:values.heightCm,weightKg:values.weightKg,updatedAt:now.toISOString(),revision:profileRevision(current)+1};
+    const {restingHeartRate:_rest,maxHeartRate:_max,loadCoefficients:_coefficients,...base}=current;
+    const updated:RunnerProfile={...base,...values,birthDate:values.birthDate||undefined,heightCm:values.heightCm,weightKg:values.weightKg,...optionalHeartRate(values),updatedAt:now.toISOString(),revision:profileRevision(current)+1};
     await tx.objectStore('profiles').put(updated);await tx.objectStore('state').put({...state,profiles:state.profiles.map(profile=>profile.id===id?updated:profile)});await tx.done;emit();return updated;
   } catch(error){try{db.close();}catch{}throw error;} finally { db.close(); }
 }

@@ -1,5 +1,12 @@
 # Historique des versions
 
+## v1.4.0 — 2026-11-09 — Fréquence cardiaque du profil et fiche sauvegardée
+
+- Fiche du profil : fréquence cardiaque au repos, fréquence cardiaque maximale et coefficients de calcul de la charge (femme, homme, ou non précisé avec la moyenne des deux), facultatifs.
+- Estimation de la charge cardiaque (TRIMP de Banister) à partir de la fréquence cardiaque moyenne, préparée mais pas encore utilisée par le Coach.
+- Sauvegardes au format 10 : la fiche du profil (date de naissance, taille, poids, fréquence cardiaque) est désormais sauvegardée et reprise à la restauration du profil ; le pseudonyme local est toujours conservé.
+- Vouvoiement rétabli dans la fiche du profil et le choix du type de Coach.
+
 ## v1.3.0 — 2026-11-08 — Effort perçu sur une échelle de 0 à 10
 
 - Effort perçu saisi de 0 (repos) à 10 (maximal), selon l’échelle CR-10 modifiée de Foster, toujours facultatif et en une seule question.

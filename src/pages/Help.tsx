@@ -81,6 +81,7 @@ export function Help() {
       <p>runKLMrun permet de créer plusieurs profils indépendants.</p>
       <p>Chaque coureur dispose de son propre carnet de course, de ses statistiques, de ses chaussures et de ses réglages du Coach.</p>
       <p>Les données des différents profils restent séparées sur l'appareil.</p>
+      <p>La fiche de chaque profil peut indiquer, de façon facultative, votre fréquence cardiaque au repos, votre fréquence cardiaque maximale et les coefficients de calcul de la charge. Ces réglages serviront à estimer la charge cardiaque de vos sorties à partir de leur fréquence cardiaque moyenne (méthode de Banister). L'option « Non précisé » utilise la moyenne des deux jeux de coefficients publiés : c'est une approximation.</p>
       <p>Vous pouvez ainsi utiliser runKLMrun à plusieurs sur un même navigateur, sans mélanger vos activités.</p>
 
       <h2>Importer et sauvegarder vos données</h2>
@@ -102,7 +103,7 @@ export function Help() {
         <li>Choisissez <em>Exporter mes données</em>.</li>
         <li>Enregistrez votre fichier de sauvegarde dans un endroit sûr.</li>
       </ol>
-      <p>La sauvegarde contient les séances, les réglages, les chaussures et les informations associées du profil actif, selon les données prises en charge par le format de sauvegarde. Exportez séparément les données de chaque profil que vous souhaitez conserver.</p>
+      <p>La sauvegarde contient les séances, les réglages, les chaussures, les informations associées et la fiche du profil actif (date de naissance, taille, poids, fréquence cardiaque), selon les données prises en charge par le format de sauvegarde. À la restauration, la fiche est reprise lorsque vous remplacez vos données ou votre profil ; votre pseudonyme est toujours conservé. Exportez séparément les données de chaque profil que vous souhaitez conserver.</p>
       <h3>Restaurer une sauvegarde</h3>
       <ol>
         <li>Ouvrez <em>Paramètres</em>, puis <em>Données et sauvegardes</em>.</li>

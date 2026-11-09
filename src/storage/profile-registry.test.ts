@@ -104,3 +104,10 @@ it('sérialise deux suppressions avec le même Web Lock',async()=>{
 it('refuse sans Web Locks sans appeler deleteDatabase et conserve deleting',async()=>{
  const locks=(navigator as any).locks;delete (navigator as any).locks;await writeProfileRegistry({migration:'complete',profiles:[profile('a','A'),profile('b','B')]});await markRunnerProfileDeleting('a','b',1,undefined,operationId);const original=indexedDB.deleteDatabase;let calls=0;(indexedDB as any).deleteDatabase=()=>{calls++;return {} as IDBOpenDBRequest;};await expect(deleteRunnerProfileDatabase('a',operationId)).rejects.toBeInstanceOf(RunnerProfileDeletionCoordinationError);await resumePendingProfileDeletions();(indexedDB as any).deleteDatabase=original;(navigator as any).locks=locks;expect(calls).toBe(0);expect((await readProfileRegistry())?.profiles.find(value=>value.id==='a')?.status).toBe('deleting');
 });
+it('enregistre, modifie et efface les réglages de fréquence cardiaque',async()=>{
+ await writeProfileRegistry({migration:'complete',profiles:[profile('a','A')]});
+ const created=await createRunnerProfile({displayName:'B',restingHeartRate:55,maxHeartRate:175,loadCoefficients:'male'});
+ expect(created).toMatchObject({restingHeartRate:55,maxHeartRate:175,loadCoefficients:'male'});
+ const updated=await updateRunnerProfile(created.id,{displayName:'B',maxHeartRate:180},1);
+ expect(updated.maxHeartRate).toBe(180);expect(updated.restingHeartRate).toBeUndefined();expect('loadCoefficients' in updated).toBe(false);
+});

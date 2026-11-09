@@ -4,6 +4,8 @@ import type { CoachProfile } from './coach-profile';
 import type { RunningSession, SessionDetails } from './session';
 
 export interface BackupData {
+  /** Fiche du profil actif (format 10). Absente de l'instantané local : lue dans le registre à l'export. */
+  runnerProfile?: import('./runner-profile').RunnerProfileValues;
   coachSuggestionsV2?: import('../core/coach/persistence-foundations-v2').PersistableOccurrenceV2[];
   coachSuggestions?: import('./coach-suggestion').StoredSuggestion[];
   coachPlanning?: import('./coach-planning').CoachPlanning;
@@ -29,7 +31,7 @@ export interface RestoreRetention {
 }
 export interface BackupPayload {
   format: 'runKLMrun-backup';
-  formatVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+  formatVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
   exportedAt: string;
   appVersion: string;
   data: BackupSourceData;

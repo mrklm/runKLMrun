@@ -65,7 +65,7 @@ for (const width of [390, 1280]) test(`sauvegarde, prévisualisation et remplace
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/^runKLMrun-sauvegarde-\d{4}-\d{2}-\d{2}\.json\.gz$/);
   const exported = await readBackupFile(new Blob([new Uint8Array(await readFile((await download.path())!))]));
-  expect(exported.data).toEqual(fixture());
+  expect(exported.formatVersion).toBe(10); expect(exported.data).toEqual({ ...fixture(), runnerProfile: { displayName: 'Profil principal' } });
   await upload(page, fixture(), true);
   await expect(s.getByRole('heading', { name: 'Prévisualisation de la sauvegarde' })).toBeFocused();
   await expect(s.getByRole('button', { name: 'Confirmer la restauration' })).toBeDisabled();

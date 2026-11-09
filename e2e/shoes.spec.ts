@@ -97,7 +97,7 @@ test('première utilisation libre, modification, attribution explicite et sauveg
   await page.getByRole('button', { name: 'Exporter mes données', exact: true }).click();
   const download = await downloading;
   const backup = await readBackupFile(new Blob([new Uint8Array(await readFile((await download.path())!))]));
-  expect(backup.formatVersion).toBe(2);
+  expect(backup.formatVersion).toBe(10);
   expect(backup.data.shoes![0].firstUseDate).toBe('2025-02-06');
   expect(backup.data.shoeAssignments).toHaveLength(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
