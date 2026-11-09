@@ -8,7 +8,9 @@ import { runBackupWorker } from '../backup/worker-client';
 import { BackupError } from '../backup/validation';
 import { StorageBlockedError } from '../storage/database-connection';
 import type { BackupDocument, BackupExport, RestoreOptions, RestorePreview, RestoreReport } from '../types/backup';
-import { useProfileDatabase } from '../storage/profile-context';
+import { useActiveProfileController, useProfileDatabase } from '../storage/profile-context';
+import { backupNeedsDestinationChoice, NEW_PROFILE_NAME_LIMIT, proposedProfileName, restoreIntoNewProfile } from '../storage/backup-new-profile';
+import type { RunnerProfile } from '../types/runner-profile';
 function errorMessage(error: unknown) {
   const allocation = memoryError(error);
   if (allocation) return allocation.message;
@@ -18,11 +20,16 @@ function errorMessage(error: unknown) {
 }
 export function Backups() {
   const database=useProfileDatabase();
-  const service=useMemo(()=>createBackupService({
+  const { profile: activeProfile, selectActiveProfile } = useActiveProfileController();
+  const processor = useMemo<Parameters<typeof createBackupService>[0]>(() => ({
     export: data => runBackupWorker<BackupExport>({ kind: 'export', data, version: __APP_VERSION__ }),
     parse: (file, signal) => runBackupWorker<BackupDocument>({ kind: 'parse', file }, signal),
     prepare: (preview, options, signal) => runBackupWorker({ kind: 'prepare', preview, options }, signal),
-  },database),[database]);
+  }), []);
+  const service = useMemo(() => createBackupService(processor, database), [processor, database]);
+  const [destination, setDestination] = useState<'current' | 'new'>('current');
+  const [newProfileName, setNewProfileName] = useState('');
+  const [createdProfile, setCreatedProfile] = useState<RunnerProfile>();
   const [phase, setPhase] = useState<'idle' | 'exporting' | 'reading' | 'restoring'>('idle');
   const [preview, setPreview] = useState<RestorePreview>();
   const [options, setOptions] = useState<RestoreOptions>({ mode: 'merge', profile: 'keep' });
@@ -63,10 +70,10 @@ export function Backups() {
     const token = ++generation.current;
     controller.current = new AbortController();
     setPhase('reading'); setPreview(undefined); setError(''); setMessage(''); setReport(undefined); setConfirmed(false);
-    setOptions({ mode: 'merge', profile: 'keep' });
+    setOptions({ mode: 'merge', profile: 'keep' }); setDestination('current'); setCreatedProfile(undefined);
     try {
       const value = await service.preview(file, controller.current.signal);
-      if (token === generation.current) setPreview(value);
+      if (token === generation.current) { setPreview(value); setNewProfileName(proposedProfileName(value)); }
     } catch (e) { if (token === generation.current) setError(errorMessage(e)); }
     finally { if (token === generation.current) { controller.current = null; releaseOperation.current?.(); releaseOperation.current = undefined; locked.current = false; setPhase('idle'); } }
   }
@@ -75,6 +82,12 @@ export function Backups() {
     const release = acquireOperation(); if (!release) return; releaseOperation.current = release;
     locked.current = true; setPhase('restoring'); setError(''); setMessage('');
     try {
+      if (destination === 'new') {
+        const created = await restoreIntoNewProfile({ preview, displayName: newProfileName, fallbackProfileId: activeProfile.id, serviceFor: name => createBackupService(processor, name) });
+        setReport(created.report); setPreview(undefined); setConfirmed(false); setCreatedProfile(created.profile);
+        setMessage(`Le profil ${created.profile.displayName} a été créé avec les données de la sauvegarde. Votre profil ${activeProfile.displayName} n’a pas été modifié.`);
+        return;
+      }
       const result = await service.restore(preview, options);
       setReport(result); setPreview(undefined); setConfirmed(false);
       setMessage('La restauration est terminée. Les données de l’application ont été actualisées.');
@@ -119,9 +132,20 @@ export function Backups() {
       </dl>
       <p>En fusion, les ressentis et commentaires locaux sont conservés en cas de conflit ; les variantes du fichier restent dans votre sauvegarde. Les séances planifiées locales restent prioritaires en cas de conflit, y compris les annulations. En remplacement, le planning est remplacé par celui du fichier ; une ancienne sauvegarde sans planning le vide. Les refus enregistrés sont également restaurés.</p>
       <p>Après vérification intégrale de l’empreinte SHA-256, les détails du fichier dépassant 30 jours seront ignorés dans les deux modes. Les résumés seront conservés selon le mode choisi. Les dates incertaines et les dates futures restent protégées ; une date absente sera représentée comme non renseignée.</p>
-      {preview.mergeReport && <p>En fusion : {preview.mergeReport.added} séance(s) à ajouter, {preview.mergeReport.retained} déjà présente(s).</p>}
+      {preview.mergeReport && destination === 'current' && <p>En fusion : {preview.mergeReport.added} séance(s) à ajouter, {preview.mergeReport.retained} déjà présente(s).</p>}
       {preview.mergeReport?.warnings.map(warning => <p className="notice" key={warning}>{warning}</p>)}
+      {backupNeedsDestinationChoice(preview, activeProfile.displayName) && <fieldset disabled={operationBusy} className="profile-fields">
+        <legend>Destination de la sauvegarde</legend>
+        <p>{preview.backup.data.runnerProfile ? `Cette sauvegarde provient du profil ${preview.backup.data.runnerProfile.displayName}.` : 'Cette sauvegarde ne précise pas le profil d’origine.'}</p>
+        <label className="profile-duration-toggle"><input type="radio" name="restore-destination" checked={destination === 'current'} onChange={() => { setDestination('current'); setConfirmed(false); }} />Ajouter au profil {activeProfile.displayName}</label>
+        <label className="profile-duration-toggle"><input type="radio" name="restore-destination" checked={destination === 'new'} onChange={() => { setDestination('new'); setConfirmed(false); }} />Créer un nouveau profil</label>
+        {destination === 'new' && <>
+          <label>Pseudonyme du nouveau profil<input required maxLength={NEW_PROFILE_NAME_LIMIT} value={newProfileName} onChange={e => { setNewProfileName(e.target.value); setConfirmed(false); }} /></label>
+          <p>Toutes les données de la sauvegarde seront placées dans ce nouveau profil. Votre profil {activeProfile.displayName} ne sera pas modifié.</p>
+        </>}
+      </fieldset>}
       <fieldset disabled={operationBusy} className="profile-fields">
+        {destination === 'current' && <>
         <legend>Mode de restauration</legend>
         <label className="profile-duration-toggle"><input type="radio" name="restore-mode" checked={options.mode === 'merge'} onChange={() => { setOptions({ mode: 'merge', profile: 'keep' }); setConfirmed(false); }} />Fusionner les séances</label>
         <p>Vos séances, détails, chaussures et associations existants sont conservés. Les conflits de chaussures ou d’associations conservent les valeurs locales. Le mode local est conservé si vous avez déjà des chaussures ou un réglage de mode. Seuls les identifiants absents sont ajoutés. Des détails absents sont complétés uniquement si les résumés sont identiques et si la règle des 30 jours autorise leur conservation. Aucun détail local ancien n’est supprimé par la fusion. Des identifiants différents restent séparés, même pour des dates proches.</p>
@@ -134,9 +158,10 @@ export function Backups() {
           <label className="profile-duration-toggle"><input type="radio" name="restore-profile" checked={options.profile === 'keep'} onChange={() => { setOptions(o => ({ ...o, profile: 'keep' })); setConfirmed(false); }} />Conserver le profil local (ou son absence)</label>
           {preview.backup.data.coachProfile ? <label className="profile-duration-toggle"><input type="radio" name="restore-profile" checked={options.profile === 'restore'} onChange={() => { setOptions(o => ({ ...o, profile: 'restore' })); setConfirmed(false); }} />{preview.local.coachProfile ? 'Remplacer mon profil par celui du fichier' : 'Restaurer le profil du fichier'}</label> : <p>La sauvegarde ne contient pas de profil. Votre profil local sera conservé.</p>}
         </fieldset>}
-        <label className="profile-duration-toggle"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />{options.mode === 'replace' ? 'Je confirme le remplacement de toutes mes données locales par cette sauvegarde, sans ses détails anciens.' : 'Je confirme la fusion, sans réintroduire les détails anciens du fichier, et le choix indiqué pour mon profil.'}</label>
+        </>}
+        <label className="profile-duration-toggle"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />{destination === 'new' ? 'Je confirme la création du nouveau profil avec les données de cette sauvegarde, sans ses détails anciens.' : options.mode === 'replace' ? 'Je confirme le remplacement de toutes mes données locales par cette sauvegarde, sans ses détails anciens.' : 'Je confirme la fusion, sans réintroduire les détails anciens du fichier, et le choix indiqué pour mon profil.'}</label>
         <div className="profile-actions">
-          <button className="button" disabled={!confirmed} onClick={restore}>Confirmer la restauration</button>
+          <button className="button" disabled={!confirmed || (destination === 'new' && !newProfileName.trim())} onClick={restore}>Confirmer la restauration</button>
           <button className="button" onClick={cancel}>Annuler</button>
         </div>
       </fieldset>
@@ -147,6 +172,7 @@ export function Backups() {
       <p>{report.shoesAdded} paire(s) et {report.assignmentsAdded} association(s) ajoutée(s).</p>
       <p>Profil : {report.profile === 'kept' ? 'conservé' : report.profile === 'restored' ? 'restauré' : 'absent après remplacement'}.</p>
       {report.warnings.map(warning => <p className="notice" key={warning}>{warning}</p>)}
+      {createdProfile && <p><button className="button" disabled={operationBusy} onClick={() => void selectActiveProfile(createdProfile.id).then(() => setCreatedProfile(undefined), () => setError('Le nouveau profil n’a pas pu être sélectionné.'))}>Utiliser le profil {createdProfile.displayName}</button></p>}
     </div>}
   </section>;
 }

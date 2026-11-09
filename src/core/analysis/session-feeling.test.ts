@@ -13,7 +13,7 @@ describe('effort perçu 0 à 10', () => {
     expect(feelingRpe({ comment: 'x' })).toBeUndefined();
     expect(feelingRpe(undefined)).toBeUndefined();
     expect(feelingRpeField({ effort: 'very-hard' })).toBe('7');
-    expect(rpeText(7)).toBe('7/10 — Très difficile'); expect(rpeText(6)).toBe('6/10');
+    expect(rpeText(7)).toBe('7/10 — Très difficile'); expect(rpeText(6)).toBe('6/10 — Nettement difficile'); expect(rpeText(0)).toBe('0/10');
   });
   it('restitue exactement la catégorie d’origine au Coach pour les anciennes saisies', () => {
     for (const effort of Object.keys(LEGACY_EFFORT_RPE) as LegacySessionEffort[]) {

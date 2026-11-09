@@ -2,10 +2,12 @@ import type { LegacySessionEffort, OptionalSessionFeeling } from '../../types/ev
 export const FEELING_COMMENT_LIMIT = 2000;
 /** Anciennes catégories, conservées en lecture : jamais réécrites sans modification par le coureur. */
 export const effortLabels = { easy: 'Facile', moderate: 'Modérée', hard: 'Difficile', 'very-hard': 'Très difficile' } as const;
-/** Échelle CR-10 modifiée (Foster et al., 2001) : libellés d'ancrage seulement, les autres valeurs restent numériques. */
-export const RPE_MIN = 0, RPE_MAX = 10;
+/** Échelle CR-10 modifiée (Foster et al., 2001), saisie de 1 à 10 comme chez Polar : une sortie n'est jamais du repos.
+ * Repères de Foster conservés ; 6, 8 et 9 complétés. 0 reste lisible pour d'éventuelles valeurs déjà enregistrées. */
+export const RPE_MIN = 0, RPE_MAX = 10, RPE_INPUT_MIN = 1;
 export const rpeLabels: Readonly<Partial<Record<number, string>>> = {
-  0: 'Repos', 1: 'Très, très facile', 2: 'Facile', 3: 'Modéré', 4: 'Un peu difficile', 5: 'Difficile', 7: 'Très difficile', 10: 'Maximal',
+  1: 'Très, très facile', 2: 'Facile', 3: 'Modéré', 4: 'Un peu difficile', 5: 'Difficile',
+  6: 'Nettement difficile', 7: 'Très difficile', 8: 'Très, très difficile', 9: 'Presque maximal', 10: 'Maximal',
 };
 /** Conversion des anciennes catégories vers le libellé correspondant de l'échelle 0 à 10. */
 export const LEGACY_EFFORT_RPE: Readonly<Record<LegacySessionEffort, number>> = { easy: 2, moderate: 3, hard: 5, 'very-hard': 7 };

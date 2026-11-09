@@ -20,8 +20,9 @@ const render = (patch: Partial<SessionReviewFormProps> = {}) => renderToStaticMa
 describe('formulaire de bilan et patch', () => {
   it('affiche l’échelle d’effort 0 à 10, le commentaire et les types officiels sans question artificielle', () => {
     const html = render();
-    for (let value = 0; value <= 10; value++) expect(html).toContain(`value="${value}"`);
-    for (const text of ['0/10 — Repos', '5/10 — Difficile', '10/10 — Maximal']) expect(html).toContain(text);
+    for (let value = 1; value <= 10; value++) expect(html).toContain(`value="${value}"`);
+    expect(html).not.toContain('value="0"'); expect(html).not.toContain('Repos');
+    for (const text of ['1/10 — Très, très facile', '6/10 — Nettement difficile', '9/10 — Presque maximal', '10/10 — Maximal']) expect(html).toContain(text);
     for (const text of ['Commentaire personnel', 'Récupération', 'Endurance à variations modérées', 'Sortie soutenue', 'Autre entraînement…']) expect(html).toContain(text);
     expect(html).not.toContain('type="radio"');
   });
@@ -70,5 +71,14 @@ describe('formulaire de bilan et patch', () => {
     const value = occurrence({ realizationProposal: { origin: 'automatic', result: 'partial' } });
     expect(reviewDraft(session, value).result).toBe('');
     expect(reviewPatch({ database: 'test', session, occurrence: value }, reviewDraft(session, value))).toEqual({});
+  });
+});
+describe('effort perçu déjà enregistré à 0', () => {
+  it('reste affiché sans être proposé à la saisie', async () => {
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { createElement } = await import('react');
+    const { FeelingFields } = await import('./FeelingFields');
+    const html = (effort: string) => renderToStaticMarkup(createElement(FeelingFields, { effort, comment: '', onEffort: () => {}, onComment: () => {} }));
+    expect(html('0')).toContain('value="0"'); expect(html('')).not.toContain('value="0"');
   });
 });

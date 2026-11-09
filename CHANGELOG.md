@@ -1,5 +1,17 @@
 # Historique des versions
 
+## v1.5.1 — 2026-11-09 — Libellés de l’effort perçu
+
+- Effort perçu saisi de 1 à 10 : une sortie n’est jamais du repos ; un 0 déjà enregistré reste lisible.
+- Libellés complétés pour chaque niveau (6 nettement difficile, 8 très, très difficile, 9 presque maximal), repères de Foster conservés.
+- Règles du Coach inchangées.
+
+## v1.5.0 — 2026-11-09 — Restauration dans un nouveau profil
+
+- Restauration : lorsqu’une sauvegarde provient d’un autre profil, ou ne précise pas son profil d’origine, choix entre l’ajout au profil actif et la création d’un nouveau profil.
+- Nouveau profil créé avec toutes les données et la fiche de la sauvegarde, pseudonyme modifiable ; le profil actif n’est pas modifié.
+- En cas d’échec, le profil incomplet est retiré automatiquement.
+
 ## v1.4.0 — 2026-11-09 — Fréquence cardiaque du profil et fiche sauvegardée
 
 - Fiche du profil : fréquence cardiaque au repos, fréquence cardiaque maximale et coefficients de calcul de la charge (femme, homme, ou non précisé avec la moyenne des deux), facultatifs.

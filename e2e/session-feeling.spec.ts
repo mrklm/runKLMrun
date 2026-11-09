@@ -12,7 +12,7 @@ for (const width of [390, 1280]) test(`bilan : ressenti facultatif, persistance 
   const region = page.getByRole('region', { name: 'Bilan de votre séance', exact: true }), url = page.url();
   const effort = region.getByLabel('Effort perçu (facultatif)'), comment = region.getByLabel('Commentaire personnel (facultatif)');
   await expect(comment).toHaveValue('Commentaire seul');
-  await expect(effort.locator('option')).toHaveText(['Non renseigné', '0/10 — Repos', '1/10 — Très, très facile', '2/10 — Facile', '3/10 — Modéré', '4/10 — Un peu difficile', '5/10 — Difficile', '6/10', '7/10 — Très difficile', '8/10', '9/10', '10/10 — Maximal']);
+  await expect(effort.locator('option')).toHaveText(['Non renseigné', '1/10 — Très, très facile', '2/10 — Facile', '3/10 — Modéré', '4/10 — Un peu difficile', '5/10 — Difficile', '6/10 — Nettement difficile', '7/10 — Très difficile', '8/10 — Très, très difficile', '9/10 — Presque maximal', '10/10 — Maximal']);
   await expect(region.getByRole('radio')).toHaveCount(0);
   for (let visit = 0; visit < 2; visit++) {
     await page.getByRole('link', { name: 'Revenir à l’historique', exact: true }).click(); await expect(region).toHaveCount(0);

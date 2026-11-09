@@ -23,7 +23,7 @@ export function Help() {
       <p>Après une séance, runKLMrun peut vous proposer un bilan facultatif.</p>
       <p>Vous pouvez y indiquer :</p>
       <ul>
-        <li>Votre effort perçu, de 0 (repos) à 10 (maximal). Les ressentis saisis avec l'ancienne échelle sont convertis : facile 2, modérée 3, difficile 5, très difficile 7.</li>
+        <li>Votre effort perçu, de 1 (très, très facile) à 10 (maximal), selon l'échelle de Foster. Les ressentis saisis avec l'ancienne échelle sont convertis : facile 2, modérée 3, difficile 5, très difficile 7.</li>
         <li>Un commentaire sur votre sortie.</li>
         <li>Le type d'entraînement réellement effectué.</li>
         <li>Une description complémentaire de votre séance.</li>
@@ -103,7 +103,7 @@ export function Help() {
         <li>Choisissez <em>Exporter mes données</em>.</li>
         <li>Enregistrez votre fichier de sauvegarde dans un endroit sûr.</li>
       </ol>
-      <p>La sauvegarde contient les séances, les réglages, les chaussures, les informations associées et la fiche du profil actif (date de naissance, taille, poids, fréquence cardiaque), selon les données prises en charge par le format de sauvegarde. À la restauration, la fiche est reprise lorsque vous remplacez vos données ou votre profil ; votre pseudonyme est toujours conservé. Exportez séparément les données de chaque profil que vous souhaitez conserver.</p>
+      <p>La sauvegarde contient les séances, les réglages, les chaussures, les informations associées et la fiche du profil actif (date de naissance, taille, poids, fréquence cardiaque), selon les données prises en charge par le format de sauvegarde. À la restauration, la fiche est reprise lorsque vous remplacez vos données ou votre profil ; votre pseudonyme est toujours conservé. Si la sauvegarde provient d'un autre profil, ou ne précise pas son profil d'origine, vous pouvez choisir de l'ajouter au profil actif ou de créer un nouveau profil avec ses données ; le profil actif n'est alors pas modifié. Exportez séparément les données de chaque profil que vous souhaitez conserver.</p>
       <h3>Restaurer une sauvegarde</h3>
       <ol>
         <li>Ouvrez <em>Paramètres</em>, puis <em>Données et sauvegardes</em>.</li>
