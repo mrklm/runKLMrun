@@ -75,3 +75,17 @@ Pour chaque piste, rejouer l'historique réel en lecture seule et mesurer : fré
 - **[P2]** Polar. *Training Load Pro* (aide en ligne). [Page](https://support.polar.com/en/training-load-pro). Consultée le 8 novembre 2026.
 - **[S1]** Seiler S. (2010). *What is best practice for training intensity and duration distribution in endurance athletes?* International Journal of Sports Physiology and Performance, 5(3), 276–291. DOI [10.1123/ijspp.5.3.276](https://doi.org/10.1123/ijspp.5.3.276). Résumé consulté.
 - **[S2]** Seiler S, Kjerland GØ. (2006). *Quantifying training intensity distribution in elite endurance athletes: is there evidence for an "optimal" distribution?* Scandinavian Journal of Medicine & Science in Sports, 16(1), 49–56. [PubMed](https://pubmed.ncbi.nlm.nih.gov/16430681/). Résumé consulté ; population : jeunes skieurs de fond.
+
+## Prototype hors application — décisions du 9 novembre 2026
+
+Rejeu en lecture seule d'un historique réel (sauvegarde exportée, jamais la base de l'application). Charge : valeur Polar lorsqu'elle existe, sinon TRIMP estimé à partir de la fréquence cardiaque moyenne et des réglages du profil (écart médian de 4 % avec le calcul seconde par seconde, sur 18 sorties). Aucune règle n'est activée.
+
+| Piste | Réglage | Sorties signalées par an | Décision |
+|---|---|---|---|
+| 1. Séance exigeante | charge ≥ 1,5 × moyenne des 90 jours précédents (au moins 5 sorties), ou effort perçu ≥ 7 | 9 à 14 % | Retenue pour validation |
+| 2. Semaine chargée | charge sur 7 jours au-dessus de l'habitude | 20 à 34 %, par séries | Abandonnée : trop fréquente, proche de l'ACWR |
+| 3. Pic de distance | distance > 1,1 × plus longue sortie des **90** jours précédents (R3b) | 1 à 2 % | Retenue pour validation |
+
+Pour la piste 3, la fenêtre de 30 jours de Frandsen [R8] se déclenchait après chaque pause, dès qu'une sortie ordinaire dépassait des sorties récentes peu nombreuses. La fenêtre de 90 jours est un choix du projet, sans paramètre supplémentaire. Elle ne retient que les pics les plus marqués.
+
+Étape suivante : après plusieurs semaines d'efforts perçus notés sur 10, vérifier la concordance entre la piste 1 et les efforts ≥ 7, puis présenter les implications d'un branchement dans le Coach (articulation avec la politique A, message affiché) avant toute décision.
