@@ -22,7 +22,7 @@ describe('couleurs de l’icône des chaussures', () => {
   });
   it('n’enregistre rien quand les couleurs reprennent l’image d’origine', () => {
     expect(storedShoeColors(undefined)).toBeUndefined();
-    expect(storedShoeColors({ ...DEFAULT_SHOE_COLORS, stripes: '#1B1E25' })).toBeUndefined();
+    expect(storedShoeColors({ ...DEFAULT_SHOE_COLORS, stripes: '#1B1E25', outsole: '#FFFFFF' })).toBeUndefined();
     expect(storedShoeColors({ ...colors, upper: '#2B6CD6' })).toEqual(colors);
   });
   it('sauvegarde au format 11 seulement si une paire est personnalisée', async () => {

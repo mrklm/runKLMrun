@@ -14,12 +14,12 @@ test('icône de chaussure personnalisée puis remise aux couleurs d’origine', 
   await expect(details.getByRole('button', { name: 'Couleurs d’origine' })).toBeDisabled();
   await details.getByLabel('Tige', { exact: true }).fill('#2b6cd6');
   await details.getByLabel('Lacets', { exact: true }).fill('#ffd400');
-  await expect(details.locator('svg.shoe-icon')).toHaveAttribute('data-shoe-colors', '#2b6cd6 #ffd400 #ffffff #1b1e25 #1b1e25');
+  await expect(details.locator('svg.shoe-icon')).toHaveAttribute('data-shoe-colors', '#2b6cd6 #ffd400 #1b1e25 #ffffff #ffffff');
   await form.getByRole('button', { name: 'Enregistrer cette paire' }).click();
 
   const pair = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Paire colorée', exact: true }) });
   const icon = pair.locator('svg.shoe-icon');
-  await expect(icon).toHaveAttribute('data-shoe-colors', '#2b6cd6 #ffd400 #ffffff #1b1e25 #1b1e25');
+  await expect(icon).toHaveAttribute('data-shoe-colors', '#2b6cd6 #ffd400 #1b1e25 #ffffff #ffffff');
   expect((await icon.boundingBox())?.width).toBeCloseTo(100, 0);
 
   await page.goto('./#/'); await expect(page.locator('.home-shoe-summary svg.shoe-icon')).toBeVisible();

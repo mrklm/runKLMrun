@@ -1,5 +1,10 @@
 # Historique des versions
 
+## v1.6.2 — 2026-11-09 — Réglages de l’icône des chaussures
+
+- Bandes : les traits du talon prennent aussi la couleur choisie ; réglage placé avant la semelle.
+- Semelle divisée en partie haute et partie basse selon la forme du dessin ; le contour et les crampons restent noirs.
+
 ## v1.6.1 — 2026-11-09 — Modification d’une paire
 
 - Le formulaire « Modifier cette paire » s’ouvre à la place de la paire concernée, et non plus en haut de la liste, hors de l’écran.

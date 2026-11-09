@@ -1,12 +1,15 @@
 import type { ShoeColors } from '../../types/shoe';
 
-/** Zones de l'icône dans l'ordre du formulaire ; calques générés par scripts/basket-zones.py. */
-export const SHOE_COLOR_ZONES = ['upper', 'laces', 'midsole', 'stripes', 'outsole'] as const;
+/** Zones de l'icône dans l'ordre du formulaire ; calques générés par scripts/basket-zones.py.
+ * Clés inchangées depuis la v1.6.0 : `midsole` et `outsole` désignent les parties haute et basse de la semelle. */
+export const SHOE_COLOR_ZONES = ['upper', 'laces', 'stripes', 'midsole', 'outsole'] as const;
+/** Ordre de superposition : fonds d'abord, puis les bandes, qui recouvrent la tige. */
+export const SHOE_COLOR_LAYERS = ['upper', 'laces', 'midsole', 'outsole', 'stripes'] as const;
 export const shoeColorLabels: Readonly<Record<keyof ShoeColors, string>> = {
-  upper: 'Tige', laces: 'Lacets', midsole: 'Semelle intermédiaire', stripes: 'Bandes', outsole: 'Semelle extérieure',
+  upper: 'Tige', laces: 'Lacets', stripes: 'Bandes', midsole: 'Semelle, partie haute', outsole: 'Semelle, partie basse',
 };
 /** Couleurs de l'image d'origine : les retrouver revient à ne rien personnaliser. */
-export const DEFAULT_SHOE_COLORS: Readonly<ShoeColors> = { upper: '#ffffff', laces: '#ffffff', midsole: '#ffffff', stripes: '#1b1e25', outsole: '#1b1e25' };
+export const DEFAULT_SHOE_COLORS: Readonly<ShoeColors> = { upper: '#ffffff', laces: '#ffffff', midsole: '#ffffff', stripes: '#1b1e25', outsole: '#ffffff' };
 const HEX = /^#[0-9a-f]{6}$/;
 
 export function isShoeColors(value: unknown): value is ShoeColors {
