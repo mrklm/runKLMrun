@@ -1,5 +1,9 @@
 # Historique des versions
 
+## v1.6.3 — 2026-11-10 — Semelle de l’icône ajustée
+
+- Partie haute de la semelle redessinée d’après la maquette : bande continue du talon à la pointe, sous la tige, calée sur les traits du dessin.
+
 ## v1.6.2 — 2026-11-09 — Réglages de l’icône des chaussures
 
 - Bandes : les traits du talon prennent aussi la couleur choisie ; réglage placé avant la semelle.
